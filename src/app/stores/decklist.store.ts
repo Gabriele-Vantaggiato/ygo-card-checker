@@ -93,14 +93,28 @@ export class DecklistStore {
     if (!activeId) {
       return;
     }
+    this.deleteDecklist(activeId);
+  }
+
+  deleteDecklist(deckId: string): void {
     this.patchStorage((s) => {
-      const decklists = s.decklists.filter((d) => d.id !== activeId);
+      const decklists = s.decklists.filter((d) => d.id !== deckId);
       if (decklists.length === 0) {
         const deck = this.decklistService.createDecklist(this.i18n.t('decklist.defaultName', { n: '1' }));
         return { activeId: deck.id, decklists: [deck] };
       }
-      return { activeId: decklists[0]!.id, decklists };
+      const activeId = s.activeId === deckId ? decklists[0]!.id : s.activeId;
+      return { activeId, decklists };
     });
+  }
+
+  sortActiveDeck(): void {
+    const deck = this.activeDecklist();
+    if (!deck) {
+      return;
+    }
+    this.replaceDeck(this.decklistService.sortDecklist(deck));
+    this.flashFeedback({ key: 'decklist.feedback.sorted', tone: 'success' });
   }
 
   addCard(payload: AddToDecklistPayload, quantity = 1): void {

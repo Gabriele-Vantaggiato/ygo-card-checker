@@ -114,6 +114,40 @@ export class DecklistService {
     return cards.reduce((sum, c) => sum + c.quantity, 0);
   }
 
+  sortCards(cards: DecklistCard[]): DecklistCard[] {
+    const TYPE_RANK = (type: string): number => {
+      if (/Fusion|Synchro|Synchron|Xyz|XYZ|Link/i.test(type)) {
+        return 0;
+      }
+      if (/Monster/i.test(type)) {
+        return 1;
+      }
+      if (/Spell/i.test(type)) {
+        return 2;
+      }
+      if (/Trap/i.test(type)) {
+        return 3;
+      }
+      return 4;
+    };
+
+    return [...cards].sort((a, b) => {
+      const rank = TYPE_RANK(a.type) - TYPE_RANK(b.type);
+      if (rank !== 0) {
+        return rank;
+      }
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+  }
+
+  sortDecklist(decklist: Decklist): Decklist {
+    return {
+      ...decklist,
+      updatedAt: new Date().toISOString(),
+      cards: this.sortCards(decklist.cards),
+    };
+  }
+
   private emptyStorage(): DecklistStorage {
     return { activeId: null, decklists: [] };
   }
