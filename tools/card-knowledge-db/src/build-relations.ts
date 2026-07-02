@@ -24,9 +24,12 @@ interface MentionIndex {
 }
 
 const MAX_TAG_RELATIONS_PER_SOURCE = 24;
-const MAX_ARCHETYPE_LINKS_PER_CARD = 8;
-const MAX_MENTIONS_PER_SOURCE = 8;
+const MAX_ARCHETYPE_LINKS_PER_CARD = 32;
+const MAX_MENTIONS_PER_SOURCE = 12;
 const MAX_SHARED_MENTION_LINKS = 6;
+const MAX_SERIES_LINKS_PER_CARD = 48;
+
+const SERIES_TOKENS = ['galaxy', 'photon', 'cyber'] as const;
 
 function mentionsCardName(desc: string, cardName: string): boolean {
   return desc.toLowerCase().includes(cardName.toLowerCase());
@@ -157,22 +160,20 @@ async function main(): Promise<void> {
     }
 
     for (const card of cards) {
-      if (!card.name.toLowerCase().includes('galaxy') && !card.name.toLowerCase().includes('photon')) {
-        continue;
-      }
-      const token = card.name.split(/[\s-]+/).find((part) => /^(galaxy|photon)/i.test(part));
+      const nameLower = card.name.toLowerCase();
+      const token = SERIES_TOKENS.find((series) => nameLower.includes(series));
       if (!token) {
         continue;
       }
       let linked = 0;
       for (const target of cards) {
-        if (card.id === target.id || linked >= MAX_TAG_RELATIONS_PER_SOURCE) {
+        if (card.id === target.id || linked >= MAX_SERIES_LINKS_PER_CARD) {
           continue;
         }
-        if (!target.name.toLowerCase().includes(token.toLowerCase())) {
+        if (!target.name.toLowerCase().includes(token)) {
           continue;
         }
-        insertRelation(db, card.id, target.id, 'series', 0.7);
+        insertRelation(db, card.id, target.id, 'series', token === 'cyber' ? 0.65 : 0.7);
         relations += 1;
         linked += 1;
       }

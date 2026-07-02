@@ -10,6 +10,7 @@ export interface DeckCompletionAdd {
   reasonKey: string;
   reasonParams?: Record<string, string>;
   score: number;
+  section?: 'main' | 'extra' | 'side';
 }
 
 export type DeckCompletionStatus =
@@ -24,6 +25,8 @@ export interface DeckCompletionPlan {
   targetMain: number;
   currentMain: number;
   gap: number;
+  currentExtra?: number;
+  extraGap?: number;
   adds: DeckCompletionAdd[];
   comboLines: ComboLine[];
   payloads: AddToDecklistPayload[];

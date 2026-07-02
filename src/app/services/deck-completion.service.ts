@@ -21,7 +21,8 @@ import { YgoApiService } from './ygo-api.service';
 const DEFAULT_TARGET_MAIN = 40;
 const MIN_TARGET_MAIN = 40;
 const MAX_TARGET_MAIN = 60;
-const SUGGESTION_POOL = 96;
+const TARGET_EXTRA = 15;
+const SUGGESTION_POOL = 512;
 const COMBO_INDEX_URL = 'assets/data/card-knowledge/combos.json';
 
 @Injectable({ providedIn: 'root' })
@@ -46,25 +47,28 @@ export class DeckCompletionService {
 
   plan$(deck: Decklist, format: YgoFormat, targetMain = DEFAULT_TARGET_MAIN): Observable<DeckCompletionPlan> {
     const normalizedTarget = this.normalizeTargetMain(targetMain);
-    const currentMain = sectionCardCount(splitDeckSections(deck.cards).main);
-    const gap = normalizedTarget - currentMain;
+    const sections = splitDeckSections(deck.cards);
+    const currentMain = sectionCardCount(sections.main);
+    const currentExtra = sectionCardCount(sections.extra);
+    const mainGap = normalizedTarget - currentMain;
+    const extraGap = TARGET_EXTRA - currentExtra;
 
-    if (gap <= 0) {
-      return of(this.emptyPlan('already_complete', normalizedTarget, currentMain, gap));
+    if (mainGap <= 0 && extraGap <= 0) {
+      return of(this.emptyPlan('already_complete', normalizedTarget, currentMain, mainGap, currentExtra, extraGap));
     }
 
     const uniqueCards = [...new Map(deck.cards.map((card) => [card.id, card])).values()];
     if (uniqueCards.length === 0) {
-      return of(this.emptyPlan('empty_deck', normalizedTarget, currentMain, gap));
+      return of(this.emptyPlan('empty_deck', normalizedTarget, currentMain, mainGap, currentExtra, extraGap));
     }
 
     return combineLatest([
-      this.knowledge.rankDeckSuggestions$(deck, format, SUGGESTION_POOL),
+      this.knowledge.rankDeckSuggestions$(deck, format, SUGGESTION_POOL, { forCompletion: true }),
       this.comboIndex$,
     ]).pipe(
       switchMap(([suggestions, comboIndex]) => {
         if (suggestions.length === 0) {
-          return of(this.emptyPlan('no_candidates', normalizedTarget, currentMain, gap));
+          return of(this.emptyPlan('no_candidates', normalizedTarget, currentMain, mainGap, currentExtra, extraGap));
         }
 
         const ids = [...new Set(suggestions.map((item) => item.cardId))];
@@ -76,7 +80,9 @@ export class DeckCompletionService {
                   deck,
                   normalizedTarget,
                   currentMain,
-                  gap,
+                  mainGap,
+                  currentExtra,
+                  extraGap,
                   suggestions,
                   cards,
                   legality,
@@ -94,7 +100,9 @@ export class DeckCompletionService {
     deck: Decklist,
     targetMain: number,
     currentMain: number,
-    gap: number,
+    mainGap: number,
+    currentExtra: number,
+    extraGap: number,
     suggestions: CardRelatedSuggestion[],
     cards: YgoCard[],
     legality: Map<number, import('../models/ygo-card.model').LegalityResult>,
@@ -103,6 +111,59 @@ export class DeckCompletionService {
     const cardById = new Map(cards.map((card) => [card.id, card]));
     const plannedQty = new Map<number, number>();
     const adds: DeckCompletionAdd[] = [];
+
+    if (mainGap > 0) {
+      this.fillSection(
+        deck,
+        suggestions,
+        cardById,
+        legality,
+        plannedQty,
+        adds,
+        'main',
+        mainGap,
+      );
+    }
+
+    if (extraGap > 0) {
+      this.fillSection(
+        deck,
+        suggestions,
+        cardById,
+        legality,
+        plannedQty,
+        adds,
+        'extra',
+        extraGap,
+      );
+    }
+
+    const comboLines = this.pickComboLines(deck, comboIndex, plannedQty);
+    const payloads = this.toPayloads(adds, legality);
+
+    return {
+      status: adds.length > 0 ? 'ready' : 'no_candidates',
+      targetMain,
+      currentMain,
+      gap: mainGap,
+      currentExtra,
+      extraGap,
+      adds,
+      comboLines,
+      payloads,
+    };
+  }
+
+  private fillSection(
+    deck: Decklist,
+    suggestions: CardRelatedSuggestion[],
+    cardById: Map<number, YgoCard>,
+    legality: Map<number, import('../models/ygo-card.model').LegalityResult>,
+    plannedQty: Map<number, number>,
+    adds: DeckCompletionAdd[],
+    section: 'main' | 'extra',
+    gap: number,
+  ): void {
     let remaining = gap;
 
     for (const suggestion of suggestions) {
@@ -120,22 +181,20 @@ export class DeckCompletionService {
         continue;
       }
 
-      const section = resolveDeckSection({
-        type: card.type,
-        section: undefined,
-      });
-      if (section === 'extra' || isExtraDeckType(card.type)) {
+      const cardSection = resolveDeckSection({ type: card.type, section: undefined });
+      const isExtra = cardSection === 'extra' || isExtraDeckType(card.type);
+      if (section === 'main' ? isExtra : !isExtra) {
         continue;
       }
 
       const inDeck =
-        deck.cards.find((entry) => entry.id === card.id && resolveDeckSection(entry) === 'main')
-          ?.quantity ?? 0;
+        deck.cards.find(
+          (entry) => entry.id === card.id && resolveDeckSection(entry) === section,
+        )?.quantity ?? 0;
       const already = plannedQty.get(card.id) ?? 0;
       const max = suggestion.maxCopies ?? 3;
       const room = Math.max(0, max - inDeck - already);
-      const preferred = suggestion.suggestedQty ?? room;
-      const quantity = Math.min(room, preferred, remaining);
+      const quantity = Math.min(room, remaining);
       if (quantity <= 0) {
         continue;
       }
@@ -143,30 +202,23 @@ export class DeckCompletionService {
       plannedQty.set(card.id, already + quantity);
       remaining -= quantity;
 
-      adds.push({
-        cardId: card.id,
-        name: card.name,
-        quantity,
-        type: card.type,
-        imageUrlSmall: card.card_images[0]?.image_url_small ?? null,
-        reasonKey: suggestion.reasonKey,
-        reasonParams: suggestion.reasonParams,
-        score: suggestion.score,
-      });
+      const existing = adds.find((add) => add.cardId === card.id);
+      if (existing) {
+        existing.quantity += quantity;
+      } else {
+        adds.push({
+          cardId: card.id,
+          name: card.name,
+          quantity,
+          type: card.type,
+          imageUrlSmall: card.card_images[0]?.image_url_small ?? null,
+          reasonKey: suggestion.reasonKey,
+          reasonParams: suggestion.reasonParams,
+          score: suggestion.score,
+          section,
+        });
+      }
     }
-
-    const comboLines = this.pickComboLines(deck, comboIndex, plannedQty);
-    const payloads = this.toPayloads(adds, legality);
-
-    return {
-      status: adds.length > 0 ? 'ready' : 'no_candidates',
-      targetMain,
-      currentMain,
-      gap,
-      adds,
-      comboLines,
-      payloads,
-    };
   }
 
   private pickComboLines(
@@ -232,7 +284,7 @@ export class DeckCompletionService {
         name: add.name,
         type: add.type,
         imageUrlSmall: add.imageUrlSmall,
-        section: 'main',
+        section: add.section ?? 'main',
         banlistStatus: result?.banlistStatus ?? null,
         legalityVerdict: result?.verdict ?? null,
       };
@@ -243,13 +295,17 @@ export class DeckCompletionService {
     status: DeckCompletionStatus,
     targetMain: number,
     currentMain: number,
-    gap: number,
+    mainGap: number,
+    currentExtra: number,
+    extraGap: number,
   ): DeckCompletionPlan {
     return {
       status,
       targetMain,
       currentMain,
-      gap,
+      gap: mainGap,
+      currentExtra,
+      extraGap,
       adds: [],
       comboLines: [],
       payloads: [],

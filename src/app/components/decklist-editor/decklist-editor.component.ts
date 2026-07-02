@@ -470,6 +470,23 @@ type InspectTarget =
                   target: '' + completeDeckTarget(),
                 })
               }}
+              @if (completeDeckPlan(); as plan) {
+                ·
+                {{
+                  i18n.t('decklist.completion.extraProgress', {
+                    current: '' + (plan.currentExtra ?? extraDeckCount()),
+                    target: '15',
+                  })
+                }}
+              } @else {
+                ·
+                {{
+                  i18n.t('decklist.completion.extraProgress', {
+                    current: '' + extraDeckCount(),
+                    target: '15',
+                  })
+                }}
+              }
             </p>
           </div>
 
@@ -688,6 +705,9 @@ export class DecklistEditorComponent {
   readonly completeDeckPlan = signal<DeckCompletionPlan | null>(null);
   readonly mainDeckCount = computed(() =>
     sectionCardCount(splitDeckSections(this.liveDeck().cards).main),
+  );
+  readonly extraDeckCount = computed(() =>
+    sectionCardCount(splitDeckSections(this.liveDeck().cards).extra),
   );
 
   protected readonly sectionCardCount = sectionCardCount;

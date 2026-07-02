@@ -6,6 +6,7 @@ import {
   CardKnowledgeEffect,
   CardKnowledgeIndex,
   CardKnowledgeRelated,
+  CardKnowledgeRosterMember,
   CardRelatedGroup,
   CardRelatedResult,
   CardRelatedSuggestion,
@@ -52,9 +53,16 @@ const EMPTY_DECK_RESULT: DeckRelatedResult = {
 
 const MAX_DECK_SUGGESTIONS = 24;
 const MAX_DECK_PER_RELATION = 6;
+const COMPLETION_SUGGESTION_LIMIT = 512;
 const MULTI_SOURCE_BOOST = 6;
 const COMBO_TARGET_SCORE = 1.25;
 const COMBO_READY_BOOST = 1.6;
+const ARCHETYPE_ROSTER_SCORE = 0.42;
+const SERIES_ROSTER_SCORE = 0.38;
+
+export interface DeckSuggestionOptions {
+  forCompletion?: boolean;
+}
 const EMPTY_RESULT: CardRelatedResult = {
   tags: [],
   displayTags: [],
@@ -161,7 +169,11 @@ export class CardKnowledgeService {
     deck: Decklist,
     format: YgoFormat,
     limit = 80,
+    options?: DeckSuggestionOptions,
   ): Observable<CardRelatedSuggestion[]> {
+    const forCompletion = options?.forCompletion ?? false;
+    const effectiveLimit = forCompletion ? Math.max(limit, COMPLETION_SUGGESTION_LIMIT) : limit;
+
     return combineLatest([this.index$, this.formatLegality$, this.comboIndex$]).pipe(
       switchMap(([index, formatIndex, comboIndex]) => {
         if (!index) {
@@ -173,12 +185,12 @@ export class CardKnowledgeService {
           return of([]);
         }
 
-        const ranked = this.aggregateDeckRanked(deck, index, comboIndex);
+        const ranked = this.aggregateDeckRanked(deck, index, comboIndex, forCompletion);
         if (ranked.length === 0) {
           return of([]);
         }
 
-        const pool = ranked.slice(0, Math.max(limit, MAX_DECK_SUGGESTIONS));
+        const pool = ranked.slice(0, effectiveLimit);
 
         return this.filterSuggestions$(pool, format, formatIndex, (related) =>
           this.toDeckSuggestion(related),
@@ -187,7 +199,7 @@ export class CardKnowledgeService {
             const withQty = this.applySuggestedQuantities(suggestions, deck);
             return withQty
               .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-              .slice(0, limit);
+              .slice(0, effectiveLimit);
           }),
         );
       }),
@@ -198,6 +210,7 @@ export class CardKnowledgeService {
     deck: Decklist,
     index: CardKnowledgeIndex,
     comboIndex: ComboIndex | null,
+    forCompletion = false,
   ): Array<CardKnowledgeRelated & { sourceName: string; sources: number }> {
     const uniqueCards = [...new Map(deck.cards.map((card) => [card.id, card])).values()];
     const deckCardIds = new Set(uniqueCards.map((card) => card.id));
@@ -270,6 +283,10 @@ export class CardKnowledgeService {
       }
     }
 
+    if (forCompletion) {
+      this.expandSynergyRoster(deck, index, uniqueCards, upsert);
+    }
+
     return [...aggregated.values()]
       .map((item) => ({
         ...item.related,
@@ -285,6 +302,75 @@ export class CardKnowledgeService {
           b.score - a.score ||
           a.name.localeCompare(b.name),
       );
+  }
+
+  private expandSynergyRoster(
+    deck: Decklist,
+    index: CardKnowledgeIndex,
+    uniqueCards: Decklist['cards'],
+    upsert: (
+      related: CardKnowledgeRelated,
+      sourceName: string,
+      score: number,
+      comboReady?: boolean,
+    ) => void,
+  ): void {
+    const deckCardIds = new Set(uniqueCards.map((card) => card.id));
+    const primarySource = uniqueCards[0]?.name ?? 'deck';
+    const archetypeKeys = new Set<string>();
+    const seriesKeys = new Set<string>();
+
+    for (const card of uniqueCards) {
+      const entry = index.entries[String(card.id)];
+      if (!entry) {
+        continue;
+      }
+      for (const token of entry.series) {
+        archetypeKeys.add(token);
+        seriesKeys.add(token);
+      }
+      for (const related of entry.related) {
+        if (related.archetype) {
+          archetypeKeys.add(related.archetype);
+        }
+      }
+    }
+
+    for (const key of archetypeKeys) {
+      const roster = index.archetypes?.[key] ?? [];
+      for (const member of roster) {
+        if (deckCardIds.has(member.id)) {
+          continue;
+        }
+        upsert(this.rosterMemberToRelated(member, 'archetype'), primarySource, ARCHETYPE_ROSTER_SCORE);
+      }
+    }
+
+    for (const key of seriesKeys) {
+      const roster = index.seriesIndex?.[key] ?? [];
+      for (const member of roster) {
+        if (deckCardIds.has(member.id)) {
+          continue;
+        }
+        upsert(this.rosterMemberToRelated(member, 'series'), primarySource, SERIES_ROSTER_SCORE);
+      }
+    }
+  }
+
+  private rosterMemberToRelated(
+    member: CardKnowledgeRosterMember,
+    relation: string,
+  ): CardKnowledgeRelated {
+    return {
+      id: member.id,
+      name: member.name,
+      relation,
+      score: relation === 'archetype' ? ARCHETYPE_ROSTER_SCORE : SERIES_ROSTER_SCORE,
+      archetype: member.archetype,
+      tcgDate: member.tcgDate,
+      banTcg: member.banTcg,
+      imageSmall: member.imageSmall,
+    };
   }
 
   private comboPartnerToRelated(partner: ComboPartnerRecord): CardKnowledgeRelated {

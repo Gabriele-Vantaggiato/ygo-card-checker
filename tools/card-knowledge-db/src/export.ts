@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openDatabase, readMeta, REPO_ROOT } from './database';
+import { seriesNamesForCard } from './effect-parser';
 
 const EXPORT_PATH = join(REPO_ROOT, 'src', 'assets', 'data', 'card-knowledge', 'related.json');
 const MAX_RELATED_PER_CARD = 16;
@@ -52,11 +53,23 @@ interface ExportedCardEntry {
   related: ExportedRelated[];
 }
 
+interface ExportedRosterMember {
+  id: number;
+  name: string;
+  type: string;
+  archetype: string | null;
+  tcgDate: string | null;
+  banTcg: string | null;
+  imageSmall: string;
+}
+
 interface ExportPayload {
   version: number;
   generatedAt: string;
   cardCount: number;
   entries: Record<string, ExportedCardEntry>;
+  archetypes: Record<string, ExportedRosterMember[]>;
+  seriesIndex: Record<string, ExportedRosterMember[]>;
 }
 
 function pickDiversifiedRelated(rows: RelatedRow[]): ExportedRelated[] {
@@ -140,8 +153,30 @@ async function main(): Promise<void> {
     .all('rule', 'format') as Array<{ card_id: number; tag: string }>;
 
   const seriesRows = db
-    .prepare(`SELECT id, archetype FROM cards WHERE archetype IS NOT NULL AND archetype != ''`)
-    .all() as Array<{ id: number; archetype: string }>;
+    .prepare(
+      `SELECT id, name, type, archetype, tcg_date, ban_tcg
+       FROM cards
+       WHERE archetype IS NOT NULL AND archetype != ''`,
+    )
+    .all() as Array<{
+    id: number;
+    name: string;
+    type: string;
+    archetype: string;
+    tcg_date: string | null;
+    ban_tcg: string | null;
+  }>;
+
+  const allCards = db
+    .prepare(`SELECT id, name, type, archetype, tcg_date, ban_tcg FROM cards`)
+    .all() as Array<{
+    id: number;
+    name: string;
+    type: string;
+    archetype: string | null;
+    tcg_date: string | null;
+    ban_tcg: string | null;
+  }>;
 
   const mentionRows = db
     .prepare('SELECT card_id, mention FROM card_mentions WHERE source = ? ORDER BY mention ASC')
@@ -184,8 +219,12 @@ async function main(): Promise<void> {
   for (const row of seriesRows) {
     seriesByCard.set(row.id, [row.archetype]);
   }
-  for (const [cardId, tags] of tagsByCard) {
-    const series = new Set(seriesByCard.get(cardId) ?? []);
+  for (const card of allCards) {
+    const series = new Set(seriesByCard.get(card.id) ?? []);
+    for (const token of seriesNamesForCard({ name: card.name, archetype: card.archetype })) {
+      series.add(token);
+    }
+    const tags = tagsByCard.get(card.id) ?? [];
     if (tags.includes('mentions_photon')) {
       series.add('Photon');
     }
@@ -194,8 +233,51 @@ async function main(): Promise<void> {
       series.add('Galaxy-Eyes');
     }
     if (series.size > 0) {
-      seriesByCard.set(cardId, [...series]);
+      seriesByCard.set(card.id, [...series]);
     }
+  }
+
+  const toRosterMember = (row: {
+    id: number;
+    name: string;
+    type: string;
+    archetype: string | null;
+    tcg_date: string | null;
+    ban_tcg: string | null;
+  }): ExportedRosterMember => ({
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    archetype: row.archetype,
+    tcgDate: row.tcg_date,
+    banTcg: row.ban_tcg,
+    imageSmall: `https://images.ygoprodeck.com/images/cards_small/${row.id}.jpg`,
+  });
+
+  const archetypes: Record<string, ExportedRosterMember[]> = {};
+  for (const row of seriesRows) {
+    const bucket = archetypes[row.archetype] ?? [];
+    bucket.push(toRosterMember(row));
+    archetypes[row.archetype] = bucket;
+  }
+  for (const members of Object.values(archetypes)) {
+    members.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  const seriesIndex: Record<string, ExportedRosterMember[]> = {};
+  for (const card of allCards) {
+    const tokens = seriesNamesForCard({ name: card.name, archetype: card.archetype });
+    const member = toRosterMember(card);
+    for (const token of tokens) {
+      const bucket = seriesIndex[token] ?? [];
+      if (!bucket.some((entry) => entry.id === member.id)) {
+        bucket.push(member);
+        seriesIndex[token] = bucket;
+      }
+    }
+  }
+  for (const members of Object.values(seriesIndex)) {
+    members.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   const rowsBySource = new Map<number, RelatedRow[]>();
@@ -229,6 +311,8 @@ async function main(): Promise<void> {
     generatedAt: new Date().toISOString(),
     cardCount: meta?.totalCards ?? Object.keys(entries).length,
     entries,
+    archetypes,
+    seriesIndex,
   };
 
   mkdirSync(join(REPO_ROOT, 'src', 'assets', 'data', 'card-knowledge'), { recursive: true });

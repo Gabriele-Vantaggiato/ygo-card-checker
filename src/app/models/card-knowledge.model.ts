@@ -22,11 +22,23 @@ export interface CardKnowledgeEntry {
   related: CardKnowledgeRelated[];
 }
 
+export interface CardKnowledgeRosterMember {
+  id: number;
+  name: string;
+  type: string;
+  archetype: string | null;
+  tcgDate: string | null;
+  banTcg: string | null;
+  imageSmall: string;
+}
+
 export interface CardKnowledgeIndex {
   version: number;
   generatedAt: string;
   cardCount: number;
   entries: Record<string, CardKnowledgeEntry>;
+  archetypes?: Record<string, CardKnowledgeRosterMember[]>;
+  seriesIndex?: Record<string, CardKnowledgeRosterMember[]>;
 }
 
 export interface CardRelatedSuggestion {
