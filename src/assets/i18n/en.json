@@ -34,6 +34,8 @@
   "decklist.editor.search": "Add cards",
   "decklist.editor.searchBtn": "Search",
   "decklist.editor.searchHint": "Type at least 2 characters to search cards",
+  "decklist.editor.resultsCount": "{shown} of {total} cards",
+  "decklist.editor.loadMore": "Load more cards",
   "decklist.editor.sort": "Sort",
   "decklist.editor.removeCopy": "Remove 1 copy",
   "decklist.editor.verdictShort.legal": "OK",

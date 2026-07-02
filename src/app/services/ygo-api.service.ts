@@ -6,16 +6,32 @@ import { CardInfoResponse, YgoCard } from '../models/ygo-card.model';
 import { Lang } from './i18n.service';
 
 const API_BASE = 'https://db.ygoprodeck.com/api/v7/cardinfo.php';
+const DEFAULT_SEARCH_LIMIT = 50;
+
+export interface CardSearchPage {
+  cards: YgoCard[];
+  totalRows: number;
+  hasMore: boolean;
+}
 
 @Injectable({ providedIn: 'root' })
 export class YgoApiService {
-  private readonly searchCache = new Map<string, Observable<YgoCard[]>>();
+  private readonly searchCache = new Map<string, Observable<CardSearchPage>>();
   private readonly cardCache = new Map<string, Observable<YgoCard | null>>();
 
   constructor(private readonly http: HttpClient) {}
 
-  searchCards$(query: string, lang: Lang): Observable<YgoCard[]> {
-    const cacheKey = `${lang}:${query.trim().toLowerCase()}`;
+  searchCards$(query: string, lang: Lang, limit = DEFAULT_SEARCH_LIMIT): Observable<YgoCard[]> {
+    return this.searchCardsPage$(query, lang, limit).pipe(map((page) => page.cards));
+  }
+
+  searchCardsPage$(
+    query: string,
+    lang: Lang,
+    limit = DEFAULT_SEARCH_LIMIT,
+    offset = 0,
+  ): Observable<CardSearchPage> {
+    const cacheKey = `${lang}:${query.trim().toLowerCase()}:${limit}:${offset}`;
     const cached = this.searchCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -24,16 +40,26 @@ export class YgoApiService {
     let params = new HttpParams()
       .set('fname', query.trim())
       .set('misc', 'yes')
-      .set('num', '10')
-      .set('offset', '0');
+      .set('num', String(limit))
+      .set('offset', String(offset));
 
     if (lang === 'it') {
       params = params.set('language', 'it');
     }
 
     const request$ = this.http.get<CardInfoResponse>(API_BASE, { params }).pipe(
-      map((response) => response.data ?? []),
-      catchError(() => of([] as YgoCard[])),
+      map((response) => {
+        const cards = response.data ?? [];
+        const totalRows = response.meta?.total_rows ?? cards.length;
+        return {
+          cards,
+          totalRows,
+          hasMore: offset + cards.length < totalRows,
+        };
+      }),
+      catchError(() =>
+        of({ cards: [] as YgoCard[], totalRows: 0, hasMore: false }),
+      ),
       shareReplay({ bufferSize: 1, refCount: false }),
     );
 

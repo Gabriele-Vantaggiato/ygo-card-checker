@@ -27,8 +27,17 @@ export interface YgoCard {
   misc_info?: MiscInfo[];
 }
 
+export interface CardInfoMeta {
+  total_rows?: number;
+  current_rows?: number;
+  rows_remaining?: number;
+  next_page?: string;
+  next_page_offset?: number;
+}
+
 export interface CardInfoResponse {
   data: YgoCard[];
+  meta?: CardInfoMeta;
 }
 
 export type LegalityVerdict = 'legal' | 'not-legal' | 'restricted';

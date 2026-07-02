@@ -228,6 +228,11 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
                   {{ i18n.t('decklist.editor.searchBtn') }}
                 </button>
               </div>
+              @if (searchTotalRows() > 0) {
+                <p class="text-[11px] text-base-content/50 mt-2 px-0.5">
+                  {{ searchResultsLabel() }}
+                </p>
+              }
             </div>
 
             <div class="flex-1 overflow-y-auto p-2">
@@ -284,6 +289,15 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
                     <p class="text-xs text-base-content/50 px-2 py-4">{{ i18n.t('decklist.editor.searchHint') }}</p>
                   }
                 }
+              }
+              @if (searchHasMore() && !searchLoading() && !legalityLoading()) {
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm w-full mt-2"
+                  (click)="loadMoreSearch()"
+                >
+                  {{ i18n.t('decklist.editor.loadMore') }}
+                </button>
               }
             </div>
           </aside>
@@ -374,6 +388,8 @@ export class DecklistEditorComponent {
   readonly selectedCard = signal<DecklistCard | null>(null);
   readonly searchQuery = signal('');
   readonly searchResults = signal<YgoCard[]>([]);
+  readonly searchTotalRows = signal(0);
+  readonly searchHasMore = signal(false);
   readonly searchLoading = signal(false);
   readonly legalityLoading = signal(false);
   readonly searchLegality = signal<Map<number, LegalityResult>>(new Map());
@@ -389,6 +405,8 @@ export class DecklistEditorComponent {
   protected readonly verdictBadgeClass = verdictBadgeClass;
   protected readonly verdictBannerClass = verdictBannerClass;
 
+  private readonly searchLimit = 50;
+
   constructor() {
     this.search$
       .pipe(
@@ -399,19 +417,23 @@ export class DecklistEditorComponent {
           if (trimmed.length < 2) {
             this.searchLoading.set(false);
             this.searchLegality.set(new Map());
-            return of([] as YgoCard[]);
+            this.searchTotalRows.set(0);
+            this.searchHasMore.set(false);
+            return of({ cards: [] as YgoCard[], totalRows: 0, hasMore: false });
           }
           this.searchLoading.set(true);
-          return this.ygoApi.searchCards$(trimmed, this.i18n.lang());
+          return this.ygoApi.searchCardsPage$(trimmed, this.i18n.lang(), this.searchLimit, 0);
         }),
         tap(() => this.searchLoading.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((cards) => {
-        this.searchResults.set(cards);
+      .subscribe((page) => {
+        this.searchResults.set(page.cards);
+        this.searchTotalRows.set(page.totalRows);
+        this.searchHasMore.set(page.hasMore);
         const format = this.formatStore.selectedFormat();
-        if (format && cards.length > 0) {
-          this.evaluateSearchLegality(cards, format);
+        if (format && page.cards.length > 0) {
+          this.evaluateSearchLegality(page.cards, format);
         } else {
           this.searchLegality.set(new Map());
         }
@@ -449,15 +471,25 @@ export class DecklistEditorComponent {
     });
   }
 
-  private evaluateSearchLegality(cards: YgoCard[], format: NonNullable<ReturnType<FormatStore['selectedFormat']>>): void {
+  private evaluateSearchLegality(
+    cards: YgoCard[],
+    format: NonNullable<ReturnType<FormatStore['selectedFormat']>>,
+    append = false,
+  ): void {
     this.legalityLoading.set(true);
     this.cardLegality.evaluateMany$(cards, format).subscribe({
       next: (map) => {
-        this.searchLegality.set(map);
+        if (append) {
+          this.searchLegality.update((prev) => new Map([...prev, ...map]));
+        } else {
+          this.searchLegality.set(map);
+        }
         this.legalityLoading.set(false);
       },
       error: () => {
-        this.searchLegality.set(new Map());
+        if (!append) {
+          this.searchLegality.set(new Map());
+        }
         this.legalityLoading.set(false);
       },
     });
@@ -541,6 +573,35 @@ export class DecklistEditorComponent {
 
   triggerSearch(): void {
     this.search$.next(this.searchQuery());
+  }
+
+  loadMoreSearch(): void {
+    const query = this.searchQuery().trim();
+    if (query.length < 2 || !this.searchHasMore()) {
+      return;
+    }
+    const offset = this.searchResults().length;
+    const format = this.formatStore.selectedFormat();
+    this.searchLoading.set(true);
+    this.ygoApi.searchCardsPage$(query, this.i18n.lang(), this.searchLimit, offset).subscribe({
+      next: (page) => {
+        this.searchResults.update((prev) => [...prev, ...page.cards]);
+        this.searchTotalRows.set(page.totalRows);
+        this.searchHasMore.set(page.hasMore);
+        this.searchLoading.set(false);
+        if (format && page.cards.length > 0) {
+          this.evaluateSearchLegality(page.cards, format, true);
+        }
+      },
+      error: () => this.searchLoading.set(false),
+    });
+  }
+
+  searchResultsLabel(): string {
+    return this.i18n.t('decklist.editor.resultsCount', {
+      shown: `${this.searchResults().length}`,
+      total: `${this.searchTotalRows()}`,
+    });
   }
 
   qtyInDeck(cardId: number): number {
