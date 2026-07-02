@@ -1,7 +1,8 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Decklist } from '../../models/decklist.model';
 import { I18nService } from '../../services/i18n.service';
+import { splitDeckIntoYdkeSections } from '../../services/ydke.service';
 import { DecklistStore } from '../../stores/decklist.store';
 
 @Component({
@@ -100,9 +101,18 @@ import { DecklistStore } from '../../stores/decklist.store';
               </div>
             </div>
 
-            <div class="flex flex-wrap gap-3 text-xs sm:text-sm text-base-content/70 border-y border-base-300 py-3">
-              <span>{{ i18n.t('decklist.stats.total', { count: '' + decklistStore.totalCardsForDeck(deck.id) }) }}</span>
-              <span>{{ i18n.t('decklist.stats.unique', { count: '' + decklistStore.uniqueCardsForDeck(deck.id) }) }}</span>
+            <div class="flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm text-base-content/70 border-y border-base-300 py-3">
+              <div class="flex flex-wrap gap-3">
+                <span>{{ i18n.t('decklist.stats.total', { count: '' + decklistStore.totalCardsForDeck(deck.id) }) }}</span>
+                <span>{{ i18n.t('decklist.stats.unique', { count: '' + decklistStore.uniqueCardsForDeck(deck.id) }) }}</span>
+              </div>
+              <button
+                type="button"
+                class="btn btn-outline btn-xs sm:btn-sm gap-1"
+                (click)="openYdkeDialog(deck)"
+              >
+                {{ i18n.t('decklist.exportYdke') }}
+              </button>
             </div>
 
             @if (deck.cards.length === 0) {
@@ -168,6 +178,32 @@ import { DecklistStore } from '../../stores/decklist.store';
         </div>
       }
     </section>
+
+    @if (ydkeDialogOpen()) {
+      <dialog class="modal modal-open" open>
+        <div class="modal-box max-w-2xl">
+          <h3 class="font-bold text-lg">{{ i18n.t('decklist.ydke.title') }}</h3>
+          <p class="text-sm text-base-content/60 mt-1">{{ ydkeHint() }}</p>
+          <textarea
+            class="textarea textarea-bordered w-full mt-4 font-mono text-xs leading-relaxed min-h-28"
+            readonly
+            [value]="ydkeUrl()"
+            (focus)="selectYdkeText($event)"
+          ></textarea>
+          <div class="modal-action">
+            <button type="button" class="btn btn-ghost" (click)="closeYdkeDialog()">
+              {{ i18n.t('decklist.ydke.close') }}
+            </button>
+            <button type="button" class="btn btn-primary" (click)="copyYdke()">
+              {{ i18n.t('decklist.ydke.copy') }}
+            </button>
+          </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+          <button type="button" (click)="closeYdkeDialog()">close</button>
+        </form>
+      </dialog>
+    }
   `,
 })
 export class DecklistPanelComponent {
@@ -179,6 +215,9 @@ export class DecklistPanelComponent {
   readonly renameDraft = signal('');
   readonly createOpen = signal(false);
   readonly newDeckName = signal('');
+  readonly ydkeDialogOpen = signal(false);
+  readonly ydkeUrl = signal('');
+  readonly ydkeHint = signal('');
 
   constructor() {
     effect(() => {
@@ -229,6 +268,50 @@ export class DecklistPanelComponent {
         return 'alert-warning';
       default:
         return 'alert-info';
+    }
+  }
+
+  openYdkeDialog(deck: Decklist): void {
+    const sections = splitDeckIntoYdkeSections(deck.cards);
+    const url = this.decklistStore.encodeYdke(deck.id);
+    if (!url) {
+      return;
+    }
+    this.ydkeUrl.set(url);
+    this.ydkeHint.set(
+      this.i18n.t('decklist.ydke.hint', {
+        main: `${sections.main.length}`,
+        extra: `${sections.extra.length}`,
+        side: `${sections.side.length}`,
+      }),
+    );
+    this.ydkeDialogOpen.set(true);
+  }
+
+  closeYdkeDialog(): void {
+    this.ydkeDialogOpen.set(false);
+    this.ydkeUrl.set('');
+    this.ydkeHint.set('');
+  }
+
+  selectYdkeText(event: FocusEvent): void {
+    const target = event.target;
+    if (target instanceof HTMLTextAreaElement) {
+      target.select();
+    }
+  }
+
+  async copyYdke(): Promise<void> {
+    const url = this.ydkeUrl();
+    if (!url) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      this.decklistStore.notify({ key: 'decklist.feedback.ydkeCopied', tone: 'success' });
+      this.closeYdkeDialog();
+    } catch {
+      // Clipboard blocked: textarea remains selectable for manual copy.
     }
   }
 }

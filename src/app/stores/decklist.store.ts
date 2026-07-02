@@ -8,6 +8,7 @@ import {
 } from '../models/decklist.model';
 import { DecklistService } from '../services/decklist.service';
 import { I18nService } from '../services/i18n.service';
+import { YdkeService } from '../services/ydke.service';
 
 export interface DecklistFeedbackMessage {
   key: string;
@@ -19,6 +20,7 @@ export interface DecklistFeedbackMessage {
 export class DecklistStore {
   private readonly decklistService = inject(DecklistService);
   private readonly i18n = inject(I18nService);
+  private readonly ydkeService = inject(YdkeService);
 
   private readonly storage = signal(this.decklistService.load());
   readonly feedback = signal<DecklistFeedbackMessage | null>(null);
@@ -230,6 +232,18 @@ export class DecklistStore {
 
   clearFeedback(): void {
     this.feedback.set(null);
+  }
+
+  encodeYdke(deckId?: string): string | null {
+    const deck = deckId ? this.getDeckById(deckId) : this.activeDecklist();
+    if (!deck) {
+      return null;
+    }
+    return this.ydkeService.encodeDeck(deck);
+  }
+
+  notify(message: DecklistFeedbackMessage): void {
+    this.flashFeedback(message);
   }
 
   private bootstrapDefaultDecklist(): void {
