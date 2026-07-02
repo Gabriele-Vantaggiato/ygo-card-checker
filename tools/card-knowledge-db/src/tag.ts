@@ -1,9 +1,9 @@
-import { detectMechanicTags } from './mechanic-tags';
-import { listCardDescs, openDatabase, replaceRuleTags, runInTransaction } from './database';
+import { detectCardTags } from './mechanic-tags';
+import { listCardsForTagging, openDatabase, replaceRuleTags, runInTransaction } from './database';
 
 async function main(): Promise<void> {
   const db = openDatabase();
-  const cards = listCardDescs(db);
+  const cards = listCardsForTagging(db);
   if (cards.length === 0) {
     console.error('No cards in DB. Run: npm run db:sync');
     process.exit(1);
@@ -14,14 +14,12 @@ async function main(): Promise<void> {
 
   runInTransaction(db, () => {
     for (const card of cards) {
-      const tags = detectMechanicTags(card.desc_en);
-      if (card.desc_it) {
-        for (const tag of detectMechanicTags(card.desc_it)) {
-          if (!tags.includes(tag)) {
-            tags.push(tag);
-          }
-        }
-      }
+      const tags = detectCardTags({
+        name: card.name,
+        archetype: card.archetype,
+        descEn: card.desc_en,
+        descIt: card.desc_it,
+      });
       replaceRuleTags(db, card.id, tags);
       if (tags.length > 0) {
         tagged += 1;

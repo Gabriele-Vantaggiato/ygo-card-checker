@@ -22,7 +22,9 @@ import {
 import { LegalityResult, YgoCard } from '../models/ygo-card.model';
 import { SearchHistoryEntry } from '../models/search-history.model';
 import { YgoFormat } from '../models/ygo-format.model';
+import { CardRelatedResult } from '../models/card-knowledge.model';
 import { I18nService } from '../services/i18n.service';
+import { CardKnowledgeService } from '../services/card-knowledge.service';
 import { LegalityService } from '../services/legality.service';
 import { YgoApiService } from '../services/ygo-api.service';
 import { FormatStore } from './format.store';
@@ -43,8 +45,14 @@ interface LegalityState {
   error: string | null;
 }
 
+interface RelatedState {
+  result: CardRelatedResult;
+  loading: boolean;
+}
+
 const EMPTY_SEARCH: SearchState = { suggestions: [], loading: false, error: null };
 const EMPTY_LEGALITY: LegalityState = { result: null, error: null };
+const EMPTY_RELATED: CardRelatedResult = { tags: [], series: [], suggestions: [], available: false };
 const HISTORY_STORAGE_KEY = 'ygo-checker-search-history';
 const MAX_HISTORY = 10;
 
@@ -54,6 +62,7 @@ export class CheckerStore {
   private readonly formatStore = inject(FormatStore);
   private readonly ygoApi = inject(YgoApiService);
   private readonly legalityService = inject(LegalityService);
+  private readonly knowledgeService = inject(CardKnowledgeService);
   private readonly i18n = inject(I18nService);
 
   private readonly searchQuery$ = new BehaviorSubject<string>('');
@@ -62,6 +71,10 @@ export class CheckerStore {
   private readonly searchStateSubject = new BehaviorSubject<SearchState>(EMPTY_SEARCH);
   private readonly selectedCardSubject = new BehaviorSubject<YgoCard | null>(null);
   private readonly legalityStateSubject = new BehaviorSubject<LegalityState>(EMPTY_LEGALITY);
+  private readonly relatedStateSubject = new BehaviorSubject<RelatedState>({
+    result: EMPTY_RELATED,
+    loading: false,
+  });
   private readonly searchHistorySubject = new BehaviorSubject<SearchHistoryEntry[]>(
     this.loadSearchHistory(),
   );
@@ -90,6 +103,23 @@ export class CheckerStore {
     initialValue: null as LegalityResult | null,
   });
 
+  readonly relatedState$ = this.relatedStateSubject.asObservable();
+  readonly relatedLoading = toSignal(this.relatedState$.pipe(map((s) => s.loading)), {
+    initialValue: false,
+  });
+  readonly relatedAvailable = toSignal(this.relatedState$.pipe(map((s) => s.result.available)), {
+    initialValue: false,
+  });
+  readonly relatedSeries = toSignal(this.relatedState$.pipe(map((s) => s.result.series)), {
+    initialValue: EMPTY_RELATED.series,
+  });
+  readonly relatedTags = toSignal(this.relatedState$.pipe(map((s) => s.result.tags)), {
+    initialValue: EMPTY_RELATED.tags,
+  });
+  readonly relatedSuggestions = toSignal(this.relatedState$.pipe(map((s) => s.result.suggestions)), {
+    initialValue: EMPTY_RELATED.suggestions,
+  });
+
   readonly error = toSignal(
     combineLatest([this.searchState$, this.legalityState$]).pipe(
       map(([search, legality]) => legality.error ?? search.error),
@@ -105,6 +135,7 @@ export class CheckerStore {
     this.bindSearch();
     this.bindCardSelection();
     this.bindLegality();
+    this.bindRelated();
     this.bindHistoryRefresh();
     this.bindLanguageChange();
   }
@@ -139,6 +170,10 @@ export class CheckerStore {
       });
   }
 
+  openRelatedCard(cardId: number): void {
+    this.openCardById(cardId);
+  }
+
   clearSearchHistory(): void {
     this.searchHistorySubject.next([]);
     this.persistSearchHistory([]);
@@ -153,6 +188,7 @@ export class CheckerStore {
       this.selectedCardSubject.next(null);
       this.searchQuery$.next('');
       this.legalityStateSubject.next(EMPTY_LEGALITY);
+      this.relatedStateSubject.next({ result: EMPTY_RELATED, loading: false });
     }
   }
 
@@ -254,6 +290,33 @@ export class CheckerStore {
               error: this.i18n.t('error.generic'),
             });
           },
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+  }
+
+  private bindRelated(): void {
+    combineLatest([this.selectedCard$, this.selectedFormat$])
+      .pipe(
+        tap(([card, format]) => {
+          if (!card || !format) {
+            this.relatedStateSubject.next({ result: EMPTY_RELATED, loading: false });
+          }
+        }),
+        filter(([card, format]) => !!card && !!format),
+        tap(() => {
+          this.relatedStateSubject.next({ result: EMPTY_RELATED, loading: true });
+        }),
+        switchMap(([card, format]) =>
+          this.knowledgeService.findRelated$(card!, format!).pipe(
+            map((result) => ({ result, loading: false })),
+          ),
+        ),
+        tap({
+          next: (state) => this.relatedStateSubject.next(state),
+          error: () =>
+            this.relatedStateSubject.next({ result: EMPTY_RELATED, loading: false }),
         }),
         takeUntilDestroyed(this.destroyRef),
       )

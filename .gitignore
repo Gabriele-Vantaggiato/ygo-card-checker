@@ -42,6 +42,9 @@ __screenshots__/
 /data/card-knowledge/*
 !/data/card-knowledge/.gitkeep
 
+# Exported knowledge index (run npm run db:build)
+/src/assets/data/card-knowledge/related.json
+
 # System files
 .DS_Store
 Thumbs.db

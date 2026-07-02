@@ -125,5 +125,22 @@
   "lang.it": "IT",
   "lang.en": "EN",
   "error.api": "Error fetching data. Please try again.",
-  "error.generic": "An error occurred"
+  "error.generic": "An error occurred",
+  "knowledge.title": "Related cards",
+  "knowledge.subtitle": "Suggestions from the knowledge graph (mechanic tags and series)",
+  "knowledge.loading": "Loading suggestions...",
+  "knowledge.unavailable": "Index not found. Run npm run db:build to generate it.",
+  "knowledge.series": "Series",
+  "knowledge.empty": "No playable related cards in this format.",
+  "knowledge.reason.gySynergy": "Graveyard synergy",
+  "knowledge.reason.engine": "Search / summon engine",
+  "knowledge.reason.series": "{series} series",
+  "knowledge.reason.archetype": "Same archetype",
+  "knowledge.reason.mentionsCard": "Mentions {name}",
+  "knowledge.reason.related": "Related",
+  "knowledge.relation.gy_synergy": "GY",
+  "knowledge.relation.engine": "Engine",
+  "knowledge.relation.series": "Series",
+  "knowledge.relation.archetype": "Archetype",
+  "knowledge.relation.mentions_card": "Mentions"
 }

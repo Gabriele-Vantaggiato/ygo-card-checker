@@ -22,6 +22,12 @@ export interface YgoCard {
   name: string;
   type: string;
   desc: string;
+  archetype?: string;
+  race?: string;
+  attribute?: string;
+  level?: number;
+  atk?: number;
+  def?: number;
   card_images: CardImage[];
   banlist_info?: BanlistInfo;
   misc_info?: MiscInfo[];

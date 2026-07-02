@@ -125,5 +125,22 @@
   "lang.it": "IT",
   "lang.en": "EN",
   "error.api": "Errore durante il recupero dei dati. Riprova.",
-  "error.generic": "Si è verificato un errore"
+  "error.generic": "Si è verificato un errore",
+  "knowledge.title": "Carte correlate",
+  "knowledge.subtitle": "Suggerimenti dal knowledge graph (tag meccanici e serie)",
+  "knowledge.loading": "Caricamento suggerimenti...",
+  "knowledge.unavailable": "Indice non trovato. Esegui npm run db:build per generarlo.",
+  "knowledge.series": "Serie",
+  "knowledge.empty": "Nessuna carta correlata giocabile in questo formato.",
+  "knowledge.reason.gySynergy": "Sinergia cimitero",
+  "knowledge.reason.engine": "Motore di ricerca/evocazione",
+  "knowledge.reason.series": "Serie {series}",
+  "knowledge.reason.archetype": "Stesso archetipo",
+  "knowledge.reason.mentionsCard": "Cita {name}",
+  "knowledge.reason.related": "Correlata",
+  "knowledge.relation.gy_synergy": "GY",
+  "knowledge.relation.engine": "Engine",
+  "knowledge.relation.series": "Serie",
+  "knowledge.relation.archetype": "Archetipo",
+  "knowledge.relation.mentions_card": "Cita"
 }

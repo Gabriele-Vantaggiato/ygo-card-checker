@@ -2,6 +2,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
+import { CardRelatedPanelComponent } from '../../components/card-related-panel/card-related-panel.component';
 import { CardSearchComponent } from '../../components/card-search/card-search.component';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { LegalityResultComponent } from '../../components/legality-result/legality-result.component';
@@ -24,6 +25,7 @@ interface DeckReturnContext {
     CardSearchComponent,
     LegalityResultComponent,
     SearchHistoryComponent,
+    CardRelatedPanelComponent,
   ],
   providers: [CheckerStore],
   template: `
@@ -106,6 +108,17 @@ interface DeckReturnContext {
             [result]="store.legalityResult()"
             [format]="store.selectedFormat()"
           />
+
+          @if (store.selectedCard()) {
+            <app-card-related-panel
+              [loading]="store.relatedLoading()"
+              [available]="store.relatedAvailable()"
+              [series]="store.relatedSeries()"
+              [tags]="store.relatedTags()"
+              [suggestions]="store.relatedSuggestions()"
+              (cardSelected)="store.openRelatedCard($event)"
+            />
+          }
         </section>
       </div>
     </main>

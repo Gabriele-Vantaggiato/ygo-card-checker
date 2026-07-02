@@ -124,9 +124,15 @@ export function runInTransaction(db: DatabaseSync, fn: () => void): void {
   }
 }
 
-export function listCardDescs(db: DatabaseSync): Array<{ id: number; desc_en: string; desc_it: string | null }> {
-  return db.prepare('SELECT id, desc_en, desc_it FROM cards ORDER BY id').all() as Array<{
+export function listCardsForTagging(
+  db: DatabaseSync,
+): Array<{ id: number; name: string; archetype: string | null; desc_en: string; desc_it: string | null }> {
+  return db
+    .prepare('SELECT id, name, archetype, desc_en, desc_it FROM cards ORDER BY id')
+    .all() as Array<{
     id: number;
+    name: string;
+    archetype: string | null;
     desc_en: string;
     desc_it: string | null;
   }>;

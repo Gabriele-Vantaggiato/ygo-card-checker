@@ -111,3 +111,27 @@ export function detectMechanicTags(desc: string): MechanicTag[] {
     (rule) => rule.tag,
   );
 }
+
+export function detectCardTags(input: {
+  name: string;
+  archetype?: string | null;
+  descEn: string;
+  descIt?: string | null;
+}): MechanicTag[] {
+  const tags = new Set<MechanicTag>(detectMechanicTags(input.descEn));
+  if (input.descIt) {
+    for (const tag of detectMechanicTags(input.descIt)) {
+      tags.add(tag);
+    }
+  }
+
+  const name = input.name;
+  if (/\bPhoton\b/i.test(name) || input.archetype === 'Photon') {
+    tags.add('mentions_photon');
+  }
+  if (/\bGalaxy(?:-Eyes)?\b/i.test(name) || input.archetype === 'Galaxy-Eyes' || input.archetype === 'Galaxy') {
+    tags.add('mentions_galaxy');
+  }
+
+  return [...tags];
+}
