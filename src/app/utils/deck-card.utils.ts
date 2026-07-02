@@ -1,5 +1,6 @@
 import { DecklistCard } from '../models/decklist.model';
 import { isExtraDeckType } from '../services/ydke.service';
+import { verdictPlayabilityRank } from './legality-display.utils';
 
 export interface DeckTypeStats {
   monsters: number;
@@ -86,6 +87,12 @@ const TYPE_SORT_RANK = (type: string): number => {
 
 export function sortDeckCards(cards: readonly DecklistCard[]): DecklistCard[] {
   return [...cards].sort((a, b) => {
+    const playability =
+      verdictPlayabilityRank(a.legalityVerdict) - verdictPlayabilityRank(b.legalityVerdict);
+    if (playability !== 0) {
+      return playability;
+    }
+
     const rank = TYPE_SORT_RANK(a.type) - TYPE_SORT_RANK(b.type);
     if (rank !== 0) {
       return rank;

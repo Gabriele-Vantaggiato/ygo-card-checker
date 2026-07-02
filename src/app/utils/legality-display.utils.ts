@@ -1,5 +1,5 @@
-import { BanlistStatus } from '../models/ygo-format.model';
 import { LegalityVerdict } from '../models/ygo-card.model';
+import { BanlistStatus } from '../models/ygo-format.model';
 
 export function verdictBadgeClass(verdict: LegalityVerdict): string {
   switch (verdict) {
@@ -46,6 +46,26 @@ export function verdictLabelKey(verdict: LegalityVerdict): string {
     default:
       return 'result.notLegal';
   }
+}
+
+export function verdictPlayabilityRank(verdict: LegalityVerdict | null | undefined): number {
+  switch (verdict) {
+    case 'legal':
+      return 0;
+    case 'restricted':
+      return 1;
+    case 'not-legal':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+export function comparePlayability(
+  verdictA: LegalityVerdict | null | undefined,
+  verdictB: LegalityVerdict | null | undefined,
+): number {
+  return verdictPlayabilityRank(verdictA) - verdictPlayabilityRank(verdictB);
 }
 
 export function verdictBannerClass(verdict: LegalityVerdict): string {

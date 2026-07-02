@@ -1,4 +1,4 @@
-import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
@@ -17,7 +17,9 @@ import {
   deckSections,
   expandCardsForGrid,
   sectionCardCount,
+  sortDeckCards,
 } from '../../utils/deck-card.utils';
+import { sortYgoCardsByPlayability } from '../../utils/card-sort.utils';
 import {
   quantityBadgeClass,
   quantityLabelKey,
@@ -232,7 +234,7 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
               @if (searchLoading() || legalityLoading()) {
                 <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.loading') }}</p>
               } @else {
-                @for (card of searchResults(); track card.id) {
+                @for (card of sortedSearchResults(); track card.id) {
                   <button
                     type="button"
                     class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-base-200 text-left transition-colors"
@@ -375,6 +377,9 @@ export class DecklistEditorComponent {
   readonly searchLoading = signal(false);
   readonly legalityLoading = signal(false);
   readonly searchLegality = signal<Map<number, LegalityResult>>(new Map());
+  readonly sortedSearchResults = computed(() =>
+    sortYgoCardsByPlayability(this.searchResults(), this.searchLegality()),
+  );
   readonly ydkeDialogOpen = signal(false);
   readonly ydkeUrl = signal('');
   readonly ydkeHint = signal('');
@@ -459,7 +464,7 @@ export class DecklistEditorComponent {
   }
 
   sections(deck: Decklist) {
-    return deckSections(deck.cards);
+    return deckSections(sortDeckCards(deck.cards));
   }
 
   sectionTitle(key: 'main' | 'extra' | 'side'): string {

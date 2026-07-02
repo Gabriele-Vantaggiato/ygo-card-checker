@@ -6,6 +6,7 @@ import {
   DecklistStorage,
   maxCopiesForStatus,
 } from '../models/decklist.model';
+import { verdictPlayabilityRank } from '../utils/legality-display.utils';
 
 const STORAGE_KEY = 'ygo-checker-decklists';
 
@@ -142,6 +143,12 @@ export class DecklistService {
     };
 
     return [...cards].sort((a, b) => {
+      const playability =
+        verdictPlayabilityRank(a.legalityVerdict) - verdictPlayabilityRank(b.legalityVerdict);
+      if (playability !== 0) {
+        return playability;
+      }
+
       const rank = TYPE_RANK(a.type) - TYPE_RANK(b.type);
       if (rank !== 0) {
         return rank;

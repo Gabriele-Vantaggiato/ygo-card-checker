@@ -155,7 +155,7 @@ export class DecklistStore {
 
     const addQty = Math.min(Math.max(1, quantity), allowed);
     const updated = this.decklistService.addCardToDecklist(deck, payload, addQty);
-    this.replaceDeck(updated);
+    this.replaceDeck(this.decklistService.sortDecklist(updated));
     this.patchStorage((s) => ({ ...s, activeId: deckId }));
 
     this.flashFeedback({
@@ -296,7 +296,7 @@ export class DecklistStore {
       ),
     ).subscribe((updates) => {
       const byId = new Map(updates.map((item) => [item.id, item]));
-      this.replaceDeck({
+      const updated = {
         ...deck,
         updatedAt: new Date().toISOString(),
         cards: deck.cards.map((card) => {
@@ -310,7 +310,8 @@ export class DecklistStore {
             legalityVerdict: update.legalityVerdict ?? card.legalityVerdict ?? null,
           };
         }),
-      });
+      };
+      this.replaceDeck(this.decklistService.sortDecklist(updated));
     });
   }
 
