@@ -19,6 +19,7 @@ import {
   expandCardsForGrid,
   sectionCardCount,
   sortDeckCards,
+  splitDeckSections,
 } from '../../utils/deck-card.utils';
 import { sortYgoCardsByPlayability } from '../../utils/card-sort.utils';
 import {
@@ -32,7 +33,9 @@ import {
 import { FormatSelectorComponent } from '../format-selector/format-selector.component';
 import { DeckSuggestionsPanelComponent } from '../deck-suggestions-panel/deck-suggestions-panel.component';
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
+import { DeckCompletionService } from '../../services/deck-completion.service';
 import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
+import { DeckCompletionPlan } from '../../models/deck-completion.model';
 
 type InspectTarget =
   | { kind: 'deck'; card: DecklistCard }
@@ -85,6 +88,9 @@ type InspectTarget =
           <div class="flex flex-wrap gap-1 w-full sm:w-auto sm:ml-auto">
             <button type="button" class="btn btn-ghost btn-sm" (click)="decklistStore.sortActiveDeck()">
               {{ i18n.t('decklist.editor.sort') }}
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" (click)="openCompleteDeckDialog()">
+              {{ i18n.t('decklist.completeDeck') }}
             </button>
             <button type="button" class="btn btn-outline btn-sm" (click)="openImportYdkeDialog()">
               {{ i18n.t('decklist.importYdke') }}
@@ -439,6 +445,112 @@ type InspectTarget =
       }
     }
 
+    @if (completeDeckDialogOpen()) {
+      <dialog class="modal modal-open" open>
+        <div class="modal-box max-w-2xl max-h-[90vh] flex flex-col">
+          <h3 class="font-bold text-lg">{{ i18n.t('decklist.completion.title') }}</h3>
+          <p class="text-sm text-base-content/60 mt-1">{{ i18n.t('decklist.completion.hint') }}</p>
+
+          <div class="mt-4 flex flex-wrap items-end gap-3">
+            <label class="form-control w-32">
+              <span class="label-text text-xs">{{ i18n.t('decklist.completion.targetMain') }}</span>
+              <input
+                type="number"
+                class="input input-bordered input-sm"
+                min="40"
+                max="60"
+                [ngModel]="completeDeckTarget()"
+                (ngModelChange)="onCompleteDeckTargetChange($event)"
+              />
+            </label>
+            <p class="text-sm text-base-content/70 pb-2">
+              {{
+                i18n.t('decklist.completion.progress', {
+                  current: '' + mainDeckCount(),
+                  target: '' + completeDeckTarget(),
+                })
+              }}
+            </p>
+          </div>
+
+          @if (completeDeckPlanning()) {
+            <p class="text-sm text-base-content/60 mt-4">{{ i18n.t('decklist.completion.planning') }}</p>
+          } @else if (completeDeckPlan(); as plan) {
+            @if (plan.status === 'already_complete') {
+              <p class="text-sm text-success mt-4">{{ i18n.t('decklist.completion.alreadyComplete') }}</p>
+            } @else if (plan.status === 'empty_deck') {
+              <p class="text-sm text-warning mt-4">{{ i18n.t('decklist.completion.emptyDeck') }}</p>
+            } @else if (plan.status === 'no_candidates') {
+              <p class="text-sm text-warning mt-4">{{ i18n.t('decklist.completion.noCandidates') }}</p>
+            } @else {
+              <div class="mt-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+                @if (plan.comboLines.length > 0) {
+                  <div class="space-y-2">
+                    <h4 class="text-sm font-semibold">{{ i18n.t('decklist.completion.comboLines') }}</h4>
+                    @for (line of plan.comboLines; track line.id) {
+                      <div class="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                          @for (step of line.steps; track step.cardId + step.role; let last = $last) {
+                            <div class="flex items-center gap-2">
+                              <img [src]="step.imageSmall" [alt]="" class="w-8 h-11 object-cover rounded" loading="lazy" />
+                              <span class="text-xs font-medium">{{ step.name }}</span>
+                              @if (!last) {
+                                <span class="text-base-content/40">→</span>
+                              }
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+
+                <div class="space-y-2">
+                  <h4 class="text-sm font-semibold">
+                    {{ i18n.t('decklist.completion.addsTitle', { count: '' + plan.adds.length }) }}
+                  </h4>
+                  <ul class="space-y-2">
+                    @for (add of plan.adds; track add.cardId) {
+                      <li class="flex items-center gap-3 p-2 rounded-lg bg-base-200/60">
+                        <img [src]="add.imageUrlSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium truncate">{{ add.name }}</p>
+                          <p class="text-[11px] text-base-content/60 truncate">
+                            {{ i18n.t(add.reasonKey, add.reasonParams) }}
+                          </p>
+                        </div>
+                        <span class="badge badge-primary">+{{ add.quantity }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              </div>
+            }
+          }
+
+          <div class="modal-action shrink-0">
+            <button type="button" class="btn btn-ghost" (click)="closeCompleteDeckDialog()">
+              {{ i18n.t('decklist.dialog.cancel') }}
+            </button>
+            <button type="button" class="btn btn-ghost" [disabled]="completeDeckPlanning()" (click)="refreshCompleteDeckPlan()">
+              {{ i18n.t('decklist.completion.refresh') }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              [disabled]="completeDeckPlanning() || completeDeckPlan()?.status !== 'ready'"
+              (click)="confirmCompleteDeck()"
+            >
+              {{ i18n.t('decklist.completion.apply') }}
+            </button>
+          </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+          <button type="button" (click)="closeCompleteDeckDialog()">close</button>
+        </form>
+      </dialog>
+    }
+
     @if (importYdkeDialogOpen()) {
       <dialog class="modal modal-open" open>
         <div class="modal-box max-w-2xl">
@@ -525,6 +637,7 @@ export class DecklistEditorComponent {
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly knowledge = inject(CardKnowledgeService);
+  private readonly completion = inject(DeckCompletionService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly search$ = new Subject<string>();
@@ -569,6 +682,13 @@ export class DecklistEditorComponent {
     sourceCount: 0,
     available: false,
   });
+  readonly completeDeckDialogOpen = signal(false);
+  readonly completeDeckTarget = signal(40);
+  readonly completeDeckPlanning = signal(false);
+  readonly completeDeckPlan = signal<DeckCompletionPlan | null>(null);
+  readonly mainDeckCount = computed(() =>
+    sectionCardCount(splitDeckSections(this.liveDeck().cards).main),
+  );
 
   protected readonly sectionCardCount = sectionCardCount;
   protected readonly quantityBadgeClass = quantityBadgeClass;
@@ -1154,5 +1274,55 @@ export class DecklistEditorComponent {
         );
       });
     });
+  }
+
+  openCompleteDeckDialog(): void {
+    this.completeDeckTarget.set(this.completion.defaultTargetMain());
+    this.completeDeckPlan.set(null);
+    this.completeDeckDialogOpen.set(true);
+    this.refreshCompleteDeckPlan();
+  }
+
+  closeCompleteDeckDialog(): void {
+    this.completeDeckDialogOpen.set(false);
+    this.completeDeckPlan.set(null);
+    this.completeDeckPlanning.set(false);
+  }
+
+  onCompleteDeckTargetChange(value: number | string): void {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    this.completeDeckTarget.set(this.completion.normalizeTargetMain(Number.isFinite(parsed) ? parsed : 40));
+    this.refreshCompleteDeckPlan();
+  }
+
+  refreshCompleteDeckPlan(): void {
+    const format = this.formatStore.selectedFormat();
+    if (!format || this.completeDeckPlanning()) {
+      return;
+    }
+
+    this.completeDeckPlanning.set(true);
+    this.completion.plan$(this.liveDeck(), format, this.completeDeckTarget()).subscribe({
+      next: (plan) => {
+        this.completeDeckPlan.set(plan);
+        this.completeDeckPlanning.set(false);
+      },
+      error: () => {
+        this.completeDeckPlanning.set(false);
+        this.decklistStore.notify({ key: 'decklist.feedback.completionFailed', tone: 'warning' });
+      },
+    });
+  }
+
+  confirmCompleteDeck(): void {
+    const plan = this.completeDeckPlan();
+    const deck = this.deck();
+    if (!plan || plan.status !== 'ready') {
+      return;
+    }
+
+    if (this.decklistStore.applyCompletionPlan(deck.id, plan)) {
+      this.closeCompleteDeckDialog();
+    }
   }
 }

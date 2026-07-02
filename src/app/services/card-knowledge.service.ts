@@ -129,129 +129,162 @@ export class CardKnowledgeService {
   }
 
   findRelatedForDeck$(deck: Decklist, format: YgoFormat): Observable<DeckRelatedResult> {
+    return combineLatest([this.index$, this.rankDeckSuggestions$(deck, format, MAX_DECK_SUGGESTIONS)]).pipe(
+      map(([index, suggestions]) => {
+        if (!index) {
+          return EMPTY_DECK_RESULT;
+        }
+        const uniqueCards = [...new Map(deck.cards.map((card) => [card.id, card])).values()];
+        if (uniqueCards.length === 0) {
+          return { ...EMPTY_DECK_RESULT, available: true };
+        }
+        if (suggestions.length === 0) {
+          return {
+            ...EMPTY_DECK_RESULT,
+            available: true,
+            sourceCount: uniqueCards.length,
+          };
+        }
+
+        const diversified = this.diversifySuggestions(suggestions);
+        return {
+          suggestions: diversified,
+          groups: this.groupSuggestions(diversified),
+          sourceCount: uniqueCards.length,
+          available: true,
+        };
+      }),
+    );
+  }
+
+  rankDeckSuggestions$(
+    deck: Decklist,
+    format: YgoFormat,
+    limit = 80,
+  ): Observable<CardRelatedSuggestion[]> {
     return combineLatest([this.index$, this.formatLegality$, this.comboIndex$]).pipe(
       switchMap(([index, formatIndex, comboIndex]) => {
         if (!index) {
-          return of(EMPTY_DECK_RESULT);
+          return of([]);
         }
 
         const uniqueCards = [...new Map(deck.cards.map((card) => [card.id, card])).values()];
         if (uniqueCards.length === 0) {
-          return of({ ...EMPTY_DECK_RESULT, available: true });
+          return of([]);
         }
 
-        const deckCardIds = new Set(uniqueCards.map((card) => card.id));
-        const aggregated = new Map<
-          number,
-          {
-            related: CardKnowledgeRelated;
-            score: number;
-            sources: number;
-            sourceName: string;
-            comboReady: boolean;
-          }
-        >();
-
-        const upsert = (
-          related: CardKnowledgeRelated,
-          sourceName: string,
-          score: number,
-          comboReady = false,
-        ): void => {
-          const existing = aggregated.get(related.id);
-          if (existing) {
-            existing.score += score;
-            existing.sources += 1;
-            existing.comboReady = existing.comboReady || comboReady;
-            return;
-          }
-          aggregated.set(related.id, {
-            related,
-            score,
-            sources: 1,
-            sourceName,
-            comboReady,
-          });
-        };
-
-        for (const card of uniqueCards) {
-          const entry = index.entries[String(card.id)];
-          if (!entry) {
-            continue;
-          }
-
-          for (const related of entry.related) {
-            if (deckCardIds.has(related.id)) {
-              continue;
-            }
-            upsert(related, card.name, related.score);
-          }
+        const ranked = this.aggregateDeckRanked(deck, index, comboIndex);
+        if (ranked.length === 0) {
+          return of([]);
         }
 
-        for (const card of uniqueCards) {
-          const comboEntry = comboIndex?.entries[String(card.id)];
-          if (!comboEntry) {
-            continue;
-          }
+        const pool = ranked.slice(0, Math.max(limit, MAX_DECK_SUGGESTIONS));
 
-          const enablerIds = new Set(comboEntry.enablers.map((partner) => partner.id));
-          const comboReady = [...enablerIds].some((id) => deckCardIds.has(id));
-
-          for (const target of comboEntry.targets) {
-            if (deckCardIds.has(target.id)) {
-              continue;
-            }
-            upsert(
-              this.comboPartnerToRelated(target),
-              card.name,
-              target.score * COMBO_TARGET_SCORE,
-              comboReady,
-            );
-          }
-        }
-
-        if (aggregated.size === 0) {
-          return of({
-            ...EMPTY_DECK_RESULT,
-            available: true,
-            sourceCount: uniqueCards.length,
-          });
-        }
-
-        const ranked = [...aggregated.values()]
-          .map((item) => ({
-            ...item.related,
-            score:
-              (item.score + (item.sources - 1) * MULTI_SOURCE_BOOST) *
-              (item.comboReady ? COMBO_READY_BOOST : 1),
-            sourceName: item.sourceName,
-            sources: item.sources,
-          }))
-          .sort(
-            (a, b) =>
-              relationGroupOrder(a.relation) - relationGroupOrder(b.relation) ||
-              b.score - a.score ||
-              a.name.localeCompare(b.name),
-          );
-
-        const diversified = this.pickDiversifiedDeckRelated(ranked);
-
-        return this.filterSuggestions$(diversified, format, formatIndex, (related) =>
+        return this.filterSuggestions$(pool, format, formatIndex, (related) =>
           this.toDeckSuggestion(related),
         ).pipe(
           map((suggestions) => {
             const withQty = this.applySuggestedQuantities(suggestions, deck);
-            const limited = withQty.slice(0, MAX_DECK_SUGGESTIONS);
-            return {
-              suggestions: limited,
-              groups: this.groupSuggestions(limited),
-              sourceCount: uniqueCards.length,
-              available: true,
-            };
+            return withQty
+              .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+              .slice(0, limit);
           }),
         );
       }),
     );
+  }
+
+  private aggregateDeckRanked(
+    deck: Decklist,
+    index: CardKnowledgeIndex,
+    comboIndex: ComboIndex | null,
+  ): Array<CardKnowledgeRelated & { sourceName: string; sources: number }> {
+    const uniqueCards = [...new Map(deck.cards.map((card) => [card.id, card])).values()];
+    const deckCardIds = new Set(uniqueCards.map((card) => card.id));
+    const aggregated = new Map<
+      number,
+      {
+        related: CardKnowledgeRelated;
+        score: number;
+        sources: number;
+        sourceName: string;
+        comboReady: boolean;
+      }
+    >();
+
+    const upsert = (
+      related: CardKnowledgeRelated,
+      sourceName: string,
+      score: number,
+      comboReady = false,
+    ): void => {
+      const existing = aggregated.get(related.id);
+      if (existing) {
+        existing.score += score;
+        existing.sources += 1;
+        existing.comboReady = existing.comboReady || comboReady;
+        return;
+      }
+      aggregated.set(related.id, {
+        related,
+        score,
+        sources: 1,
+        sourceName,
+        comboReady,
+      });
+    };
+
+    for (const card of uniqueCards) {
+      const entry = index.entries[String(card.id)];
+      if (!entry) {
+        continue;
+      }
+
+      for (const related of entry.related) {
+        if (deckCardIds.has(related.id)) {
+          continue;
+        }
+        upsert(related, card.name, related.score);
+      }
+    }
+
+    for (const card of uniqueCards) {
+      const comboEntry = comboIndex?.entries[String(card.id)];
+      if (!comboEntry) {
+        continue;
+      }
+
+      const enablerIds = new Set(comboEntry.enablers.map((partner) => partner.id));
+      const comboReady = [...enablerIds].some((id) => deckCardIds.has(id));
+
+      for (const target of comboEntry.targets) {
+        if (deckCardIds.has(target.id)) {
+          continue;
+        }
+        upsert(
+          this.comboPartnerToRelated(target),
+          card.name,
+          target.score * COMBO_TARGET_SCORE,
+          comboReady,
+        );
+      }
+    }
+
+    return [...aggregated.values()]
+      .map((item) => ({
+        ...item.related,
+        score:
+          (item.score + (item.sources - 1) * MULTI_SOURCE_BOOST) *
+          (item.comboReady ? COMBO_READY_BOOST : 1),
+        sourceName: item.sourceName,
+        sources: item.sources,
+      }))
+      .sort(
+        (a, b) =>
+          relationGroupOrder(a.relation) - relationGroupOrder(b.relation) ||
+          b.score - a.score ||
+          a.name.localeCompare(b.name),
+      );
   }
 
   private comboPartnerToRelated(partner: ComboPartnerRecord): CardKnowledgeRelated {
@@ -355,17 +388,15 @@ export class CardKnowledgeService {
       .filter((suggestion) => (suggestion.suggestedQty ?? 0) > 0);
   }
 
-  private pickDiversifiedDeckRelated(
-    ranked: Array<CardKnowledgeRelated & { sourceName: string; sources: number }>,
-  ): Array<CardKnowledgeRelated & { sourceName: string; sources: number }> {
-    const byRelation = new Map<string, Array<CardKnowledgeRelated & { sourceName: string; sources: number }>>();
-    for (const item of ranked) {
+  private diversifySuggestions(suggestions: CardRelatedSuggestion[]): CardRelatedSuggestion[] {
+    const byRelation = new Map<string, CardRelatedSuggestion[]>();
+    for (const item of suggestions) {
       const bucket = byRelation.get(item.relation) ?? [];
       bucket.push(item);
       byRelation.set(item.relation, bucket);
     }
 
-    const picked: Array<CardKnowledgeRelated & { sourceName: string; sources: number }> = [];
+    const picked: CardRelatedSuggestion[] = [];
     const order = [...Object.keys(RELATION_GROUP_KEYS), 'series', 'archetype'];
 
     for (const relation of order) {
@@ -374,17 +405,17 @@ export class CardKnowledgeService {
         if (picked.length >= MAX_DECK_SUGGESTIONS) {
           return picked;
         }
-        if (!picked.some((entry) => entry.id === item.id)) {
+        if (!picked.some((entry) => entry.cardId === item.cardId)) {
           picked.push(item);
         }
       }
     }
 
-    for (const item of ranked) {
+    for (const item of suggestions) {
       if (picked.length >= MAX_DECK_SUGGESTIONS) {
         break;
       }
-      if (!picked.some((entry) => entry.id === item.id)) {
+      if (!picked.some((entry) => entry.cardId === item.cardId)) {
         picked.push(item);
       }
     }

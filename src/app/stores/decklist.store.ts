@@ -17,6 +17,7 @@ import { YgoApiService } from '../services/ygo-api.service';
 import { YdkeService, YdkeSections, passcodesToQuantityMap } from '../services/ydke.service';
 import { YgoFormat } from '../models/ygo-format.model';
 import { YgoCard, LegalityResult } from '../models/ygo-card.model';
+import { DeckCompletionPlan } from '../models/deck-completion.model';
 
 export interface DecklistFeedbackMessage {
   key: string;
@@ -350,6 +351,41 @@ export class DecklistStore {
 
   notify(message: DecklistFeedbackMessage): void {
     this.flashFeedback(message);
+  }
+
+  applyCompletionPlan(deckId: string, plan: DeckCompletionPlan): boolean {
+    if (plan.status !== 'ready' || plan.adds.length === 0) {
+      return false;
+    }
+
+    const deck = this.getDeckById(deckId);
+    if (!deck) {
+      this.flashFeedback({ key: 'decklist.feedback.noDecklist', tone: 'info' });
+      return false;
+    }
+
+    let updated = deck;
+    for (const add of plan.adds) {
+      const payload = plan.payloads.find((item) => item.id === add.cardId);
+      if (!payload) {
+        continue;
+      }
+      updated = this.decklistService.addCardToDecklist(updated, payload, add.quantity);
+    }
+
+    this.replaceDeck(this.decklistService.sortDecklist(updated));
+    this.patchStorage((s) => ({ ...s, activeId: deckId }));
+
+    const totalAdded = plan.adds.reduce((sum, add) => sum + add.quantity, 0);
+    this.flashFeedback({
+      key: 'decklist.feedback.completionApplied',
+      params: {
+        count: `${totalAdded}`,
+        unique: `${plan.adds.length}`,
+      },
+      tone: 'success',
+    });
+    return true;
   }
 
   refreshActiveDeckLegality(format: YgoFormat): void {
