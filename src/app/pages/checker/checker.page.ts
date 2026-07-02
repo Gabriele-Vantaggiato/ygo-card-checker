@@ -66,6 +66,7 @@ import { CheckerStore } from '../../stores/checker.store';
                   [pinned]="true"
                   [entries]="store.searchHistory()"
                   [selectedCardId]="store.selectedCard()?.id ?? null"
+                  [formatId]="store.selectedFormatId()"
                   (cardSelected)="store.selectFromHistory($event)"
                   (clear)="store.clearSearchHistory()"
                 />
@@ -86,6 +87,7 @@ import { CheckerStore } from '../../stores/checker.store';
           <app-search-history
             [entries]="store.searchHistory()"
             [selectedCardId]="store.selectedCard()?.id ?? null"
+            [formatId]="store.selectedFormatId()"
             (cardSelected)="store.selectFromHistory($event)"
             (clear)="store.clearSearchHistory()"
           />

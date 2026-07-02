@@ -1,4 +1,6 @@
 import { Component, input, output } from '@angular/core';
+import { LegalityVerdict } from '../../models/ygo-card.model';
+import { BanlistStatus } from '../../models/ygo-format.model';
 import { SearchHistoryEntry } from '../../models/search-history.model';
 import { I18nService } from '../../services/i18n.service';
 
@@ -27,14 +29,14 @@ import { I18nService } from '../../services/i18n.service';
     } @else {
       <ul
         class="menu menu-sm bg-base-200/60 rounded-box border border-base-300 p-1 gap-0.5 overflow-y-auto"
-        [class.max-h-48]="pinned()"
-        [class.max-h-64]="!pinned()"
+        [class.max-h-52]="pinned()"
+        [class.max-h-72]="!pinned()"
       >
         @for (entry of entries(); track entry.id) {
           <li>
             <button
               type="button"
-              class="flex items-center gap-2 py-2"
+              class="!flex !items-start gap-2 py-2 h-auto min-h-0 whitespace-normal"
               [class.active]="entry.id === selectedCardId()"
               (click)="cardSelected.emit(entry)"
             >
@@ -42,15 +44,38 @@ import { I18nService } from '../../services/i18n.service';
                 <img
                   [src]="src"
                   [alt]=""
-                  class="w-8 h-11 object-cover rounded shrink-0"
+                  class="w-7 h-10 sm:w-8 sm:h-11 object-cover rounded shrink-0 mt-0.5"
                   loading="lazy"
                 />
               } @else {
-                <span class="w-8 h-11 rounded bg-base-300 shrink-0"></span>
+                <span class="w-7 h-10 sm:w-8 sm:h-11 rounded bg-base-300 shrink-0 mt-0.5"></span>
               }
-              <span class="flex flex-col items-start min-w-0 text-left">
-                <span class="font-medium text-sm truncate w-full">{{ entry.name }}</span>
-                <span class="text-xs opacity-60 truncate w-full">{{ entry.type }}</span>
+
+              <span class="flex flex-col items-start min-w-0 flex-1 gap-1 text-left">
+                <span class="font-medium text-xs sm:text-sm leading-snug line-clamp-2 w-full">
+                  {{ entry.name }}
+                </span>
+
+                @if (hasLegality(entry)) {
+                  <span class="flex flex-wrap items-center gap-1 w-full">
+                    <span
+                      class="badge badge-xs sm:badge-sm"
+                      [class]="verdictBadgeClass(entry.verdict!)"
+                      [title]="i18n.t('history.playability')"
+                    >
+                      {{ verdictLabel(entry.verdict!) }}
+                    </span>
+                    <span
+                      class="badge badge-xs sm:badge-sm badge-outline"
+                      [class]="quantityBadgeClass(entry.banlistStatus!)"
+                      [title]="i18n.t('history.quantity')"
+                    >
+                      {{ quantityLabel(entry.banlistStatus!) }}
+                    </span>
+                  </span>
+                } @else if (entry.formatId !== formatId()) {
+                  <span class="text-[10px] sm:text-xs opacity-50">{{ i18n.t('history.stale') }}</span>
+                }
               </span>
             </button>
           </li>
@@ -63,10 +88,66 @@ import { I18nService } from '../../services/i18n.service';
 export class SearchHistoryComponent {
   readonly entries = input.required<SearchHistoryEntry[]>();
   readonly selectedCardId = input<number | null>(null);
+  readonly formatId = input.required<string>();
   readonly pinned = input(false);
 
   readonly cardSelected = output<SearchHistoryEntry>();
   readonly clear = output<void>();
 
   constructor(protected readonly i18n: I18nService) {}
+
+  hasLegality(entry: SearchHistoryEntry): boolean {
+    return (
+      entry.formatId === this.formatId() &&
+      entry.verdict !== null &&
+      entry.banlistStatus !== null
+    );
+  }
+
+  verdictLabel(verdict: LegalityVerdict): string {
+    switch (verdict) {
+      case 'legal':
+        return this.i18n.t('result.legal');
+      case 'restricted':
+        return this.i18n.t('result.restricted');
+      default:
+        return this.i18n.t('result.notLegal');
+    }
+  }
+
+  quantityLabel(status: BanlistStatus): string {
+    switch (status) {
+      case 'Forbidden':
+        return this.i18n.t('history.quantity.forbidden');
+      case 'Limited':
+        return this.i18n.t('history.quantity.limited');
+      case 'Semi-Limited':
+        return this.i18n.t('history.quantity.semiLimited');
+      default:
+        return this.i18n.t('history.quantity.unlimited');
+    }
+  }
+
+  verdictBadgeClass(verdict: LegalityVerdict): string {
+    switch (verdict) {
+      case 'legal':
+        return 'badge-success';
+      case 'restricted':
+        return 'badge-warning';
+      default:
+        return 'badge-error';
+    }
+  }
+
+  quantityBadgeClass(status: BanlistStatus): string {
+    switch (status) {
+      case 'Forbidden':
+        return 'badge-error';
+      case 'Limited':
+      case 'Semi-Limited':
+        return 'badge-warning';
+      default:
+        return 'badge-success';
+    }
+  }
 }
