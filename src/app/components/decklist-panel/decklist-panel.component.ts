@@ -5,6 +5,7 @@ import { filter, map } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { DecklistEditorComponent } from '../decklist-editor/decklist-editor.component';
 import { DecklistGridComponent } from '../decklist-grid/decklist-grid.component';
+import { DeckFeedbackBannerComponent } from '../deck-feedback-banner/deck-feedback-banner.component';
 import { I18nService } from '../../services/i18n.service';
 import { DecklistStore } from '../../stores/decklist.store';
 
@@ -13,18 +14,17 @@ type DecklistView = 'grid' | 'editor';
 @Component({
   selector: 'app-decklist-panel',
   standalone: true,
-  imports: [FormsModule, DecklistGridComponent, DecklistEditorComponent],
+  imports: [FormsModule, DecklistGridComponent, DecklistEditorComponent, DeckFeedbackBannerComponent],
   template: `
     <section class="flex flex-col min-h-0 gap-4">
-      @if (decklistStore.feedback(); as fb) {
-        <div class="alert alert-sm py-2 text-xs" [class]="feedbackClass(fb.tone)">
-          <span>{{ feedbackMessage(fb) }}</span>
-        </div>
-      }
+      <app-deck-feedback-banner
+        [message]="decklistStore.feedback()"
+        (dismiss)="decklistStore.clearFeedback()"
+      />
 
       @if (createOpen()) {
         <dialog class="modal modal-open" open>
-          <div class="modal-box">
+          <div class="modal-box duel-modal">
             <h3 class="font-bold text-lg">{{ i18n.t('decklist.create.title') }}</h3>
             <input
               type="text"
@@ -132,20 +132,5 @@ export class DecklistPanelComponent {
     this.createOpen.set(false);
     this.newDeckName.set('');
     this.openEditor(id);
-  }
-
-  feedbackMessage(fb: { key: string; params?: Record<string, string> }): string {
-    return this.i18n.t(fb.key, fb.params);
-  }
-
-  feedbackClass(tone: string): string {
-    switch (tone) {
-      case 'success':
-        return 'alert-success';
-      case 'warning':
-        return 'alert-warning';
-      default:
-        return 'alert-info';
-    }
   }
 }

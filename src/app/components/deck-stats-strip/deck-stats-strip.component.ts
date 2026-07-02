@@ -1,0 +1,81 @@
+import { Component, computed, inject, input } from '@angular/core';
+import { DecklistCard } from '../../models/decklist.model';
+import { I18nService } from '../../services/i18n.service';
+import { sectionCardCount, splitDeckSections } from '../../utils/deck-card.utils';
+
+export interface DeckSectionStat {
+  key: 'main' | 'extra' | 'side';
+  labelKey: string;
+  count: number;
+  max: number | null;
+  progress: number | null;
+}
+
+@Component({
+  selector: 'app-deck-stats-strip',
+  standalone: true,
+  template: `
+    <div class="duel-panel px-3 py-2.5 sm:px-4 flex flex-wrap items-center gap-3 sm:gap-4">
+      @for (stat of stats(); track stat.key) {
+        <div class="flex items-center gap-2">
+          <span class="duel-section-chip bg-base-200/80 text-base-content/80">
+            {{ i18n.t(stat.labelKey) }}
+            <span class="text-primary">{{ stat.count }}</span>
+            @if (stat.max !== null) {
+              <span class="text-base-content/40">/{{ stat.max }}</span>
+            }
+          </span>
+          @if (stat.progress !== null) {
+            <progress
+              class="progress progress-primary w-14 sm:w-24 h-1.5"
+              [value]="stat.progress"
+              max="100"
+            ></progress>
+          }
+        </div>
+      }
+      <div class="ml-auto text-xs text-base-content/50 tabular-nums font-medium">
+        {{ i18n.t('decklist.stats.total', { count: '' + totalCards() }) }}
+      </div>
+    </div>
+  `,
+})
+export class DeckStatsStripComponent {
+  readonly cards = input.required<readonly DecklistCard[]>();
+  readonly mainTarget = input(40);
+
+  protected readonly i18n = inject(I18nService);
+
+  readonly totalCards = computed(() =>
+    this.cards().reduce((sum, card) => sum + card.quantity, 0),
+  );
+
+  readonly stats = computed((): DeckSectionStat[] => {
+    const sections = splitDeckSections(this.cards());
+    const mainCount = sectionCardCount(sections.main);
+    const target = this.mainTarget();
+    return [
+      {
+        key: 'main',
+        labelKey: 'decklist.editor.main',
+        count: mainCount,
+        max: target,
+        progress: Math.min(100, Math.round((mainCount / target) * 100)),
+      },
+      {
+        key: 'extra',
+        labelKey: 'decklist.editor.extra',
+        count: sectionCardCount(sections.extra),
+        max: 15,
+        progress: null,
+      },
+      {
+        key: 'side',
+        labelKey: 'decklist.editor.side',
+        count: sectionCardCount(sections.side),
+        max: 15,
+        progress: null,
+      },
+    ];
+  });
+}

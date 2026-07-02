@@ -32,6 +32,7 @@ import {
 } from '../../utils/legality-display.utils';
 import { FormatSelectorComponent } from '../format-selector/format-selector.component';
 import { DeckSuggestionsPanelComponent } from '../deck-suggestions-panel/deck-suggestions-panel.component';
+import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.component';
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckCompletionService } from '../../services/deck-completion.service';
 import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
@@ -44,63 +45,72 @@ type InspectTarget =
 @Component({
   selector: 'app-decklist-editor',
   standalone: true,
-  imports: [FormsModule, FormatSelectorComponent, DeckSuggestionsPanelComponent],
+  imports: [FormsModule, FormatSelectorComponent, DeckSuggestionsPanelComponent, DeckStatsStripComponent],
   template: `
     @if (deck(); as activeDeck) {
       <section class="flex flex-col min-h-0 gap-4">
-        <header
-          class="flex flex-wrap items-center gap-2 sm:gap-3 rounded-xl border border-base-300 bg-base-100 px-3 py-2 sm:px-4 sm:py-3"
-        >
-          <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" (click)="back.emit()">
-            ←
-          </button>
+        <header class="duel-panel px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-3">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" (click)="back.emit()">
+              ←
+            </button>
 
-          <div class="flex-1 min-w-0 flex items-center gap-2">
-            @if (renaming()) {
-              <input
-                type="text"
-                class="input input-bordered input-sm flex-1 min-w-0"
-                [ngModel]="renameDraft()"
-                (ngModelChange)="renameDraft.set($event)"
-                (keydown.enter)="commitRename()"
-                (keydown.escape)="cancelRename()"
-              />
-              <button type="button" class="btn btn-primary btn-sm" (click)="commitRename()">
-                {{ i18n.t('decklist.renameSave') }}
-              </button>
-            } @else {
-              <h2 class="font-bold text-lg truncate">{{ activeDeck.name }}</h2>
-              <button
-                type="button"
-                class="btn btn-ghost btn-xs btn-square shrink-0"
-                [attr.aria-label]="i18n.t('decklist.rename')"
-                (click)="startRename(activeDeck.name)"
-              >
-                ✎
-              </button>
-            }
+            <div class="flex-1 min-w-0 flex items-center gap-2">
+              @if (renaming()) {
+                <input
+                  type="text"
+                  class="input input-bordered input-sm flex-1 min-w-0"
+                  [ngModel]="renameDraft()"
+                  (ngModelChange)="renameDraft.set($event)"
+                  (keydown.enter)="commitRename()"
+                  (keydown.escape)="cancelRename()"
+                />
+                <button type="button" class="btn btn-primary btn-sm" (click)="commitRename()">
+                  {{ i18n.t('decklist.renameSave') }}
+                </button>
+              } @else {
+                <h2 class="font-bold text-lg truncate tracking-tight">{{ activeDeck.name }}</h2>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-xs btn-square shrink-0"
+                  [attr.aria-label]="i18n.t('decklist.rename')"
+                  (click)="startRename(activeDeck.name)"
+                >
+                  ✎
+                </button>
+              }
+            </div>
           </div>
 
-          <span class="badge badge-lg badge-primary font-mono tabular-nums">
-            {{ decklistStore.totalCardsForDeck(activeDeck.id) }}
-          </span>
-
-          <div class="flex flex-wrap gap-1 w-full sm:w-auto sm:ml-auto">
-            <button type="button" class="btn btn-ghost btn-sm" (click)="decklistStore.sortActiveDeck()">
-              {{ i18n.t('decklist.editor.sort') }}
-            </button>
-            <button type="button" class="btn btn-outline btn-sm" (click)="openCompleteDeckDialog()">
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" class="btn btn-primary btn-sm" (click)="openCompleteDeckDialog()">
               {{ i18n.t('decklist.completeDeck') }}
             </button>
-            <button type="button" class="btn btn-outline btn-sm" (click)="openImportYdkeDialog()">
-              {{ i18n.t('decklist.importYdke') }}
-            </button>
-            <button type="button" class="btn btn-outline btn-sm" (click)="openYdkeDialog(activeDeck)">
-              {{ i18n.t('decklist.exportYdke') }}
+            <div class="join hidden sm:inline-flex">
+              <button type="button" class="btn btn-outline btn-sm join-item" (click)="openImportYdkeDialog()">
+                {{ i18n.t('decklist.importYdke') }}
+              </button>
+              <button type="button" class="btn btn-outline btn-sm join-item" (click)="openYdkeDialog(activeDeck)">
+                {{ i18n.t('decklist.exportYdke') }}
+              </button>
+            </div>
+            <div class="dropdown dropdown-end sm:hidden">
+              <button type="button" tabindex="0" class="btn btn-outline btn-sm">
+                {{ i18n.t('decklist.toolbar.more') }}
+              </button>
+              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-44 p-2 shadow-lg border border-base-300">
+                <li><button type="button" (click)="openImportYdkeDialog()">{{ i18n.t('decklist.importYdke') }}</button></li>
+                <li><button type="button" (click)="openYdkeDialog(activeDeck)">{{ i18n.t('decklist.exportYdke') }}</button></li>
+                <li><button type="button" (click)="decklistStore.sortActiveDeck()">{{ i18n.t('decklist.editor.sort') }}</button></li>
+                <li><button type="button" class="text-error" (click)="decklistStore.deleteActiveDecklist(); back.emit()">{{ i18n.t('decklist.delete') }}</button></li>
+              </ul>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm hidden sm:inline-flex" (click)="decklistStore.sortActiveDeck()">
+              {{ i18n.t('decklist.editor.sort') }}
             </button>
             <button
               type="button"
-              class="btn btn-ghost btn-sm text-error"
+              class="btn btn-ghost btn-sm text-error hidden sm:inline-flex ml-auto"
               (click)="decklistStore.deleteActiveDecklist(); back.emit()"
             >
               {{ i18n.t('decklist.delete') }}
@@ -108,7 +118,9 @@ type InspectTarget =
           </div>
         </header>
 
-        <div class="rounded-xl border border-base-300 bg-base-100 px-3 py-2 sm:px-4 sm:py-3">
+        <app-deck-stats-strip [cards]="liveDeck().cards" [mainTarget]="completeDeckTarget()" />
+
+        <div class="duel-panel px-3 py-2 sm:px-4 sm:py-3">
           <app-format-selector
             [compact]="true"
             [formats]="formatStore.formats()"
@@ -118,8 +130,8 @@ type InspectTarget =
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_minmax(0,18rem)] gap-4 min-h-0">
-          <aside class="hidden xl:flex flex-col rounded-xl border border-base-300 bg-base-100 overflow-hidden min-h-[28rem] max-h-[calc(100vh-12rem)]">
-            <div class="px-3 py-2 border-b border-base-300 text-xs font-semibold uppercase tracking-wide text-base-content/60 shrink-0">
+          <aside class="hidden xl:flex flex-col duel-panel overflow-hidden min-h-[28rem] max-h-[calc(100vh-12rem)]">
+            <div class="duel-panel-header shrink-0">
               {{ i18n.t('decklist.editor.preview') }}
             </div>
             <div class="flex-1 min-h-0 flex flex-col p-3">
@@ -207,7 +219,7 @@ type InspectTarget =
             </div>
           </aside>
 
-          <div class="rounded-xl border border-base-300 bg-base-100 overflow-hidden flex flex-col min-h-[24rem]">
+          <div class="duel-panel overflow-hidden flex flex-col min-h-[24rem]">
             <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-4 max-h-[min(70vh,48rem)]">
               @for (section of sections(activeDeck); track section.key) {
                 <div>
@@ -275,8 +287,8 @@ type InspectTarget =
             </div>
           </div>
 
-          <aside class="rounded-xl border border-base-300 bg-base-100 flex flex-col xl:self-start overflow-hidden">
-            <div class="px-3 py-2 border-b border-base-300 shrink-0">
+          <aside class="duel-panel flex flex-col xl:self-start overflow-hidden">
+            <div class="duel-panel-header shrink-0 space-y-2">
               <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">
                 {{ i18n.t('decklist.editor.search') }}
               </p>
@@ -447,7 +459,7 @@ type InspectTarget =
 
     @if (completeDeckDialogOpen()) {
       <dialog class="modal modal-open" open>
-        <div class="modal-box max-w-2xl max-h-[90vh] flex flex-col">
+        <div class="modal-box duel-modal max-w-2xl max-h-[90vh] flex flex-col">
           <h3 class="font-bold text-lg">{{ i18n.t('decklist.completion.title') }}</h3>
           <p class="text-sm text-base-content/60 mt-1">{{ i18n.t('decklist.completion.hint') }}</p>
 
@@ -553,7 +565,7 @@ type InspectTarget =
 
     @if (importYdkeDialogOpen()) {
       <dialog class="modal modal-open" open>
-        <div class="modal-box max-w-2xl">
+        <div class="modal-box duel-modal max-w-2xl">
           <h3 class="font-bold text-lg">{{ i18n.t('decklist.ydke.importTitle') }}</h3>
           <p class="text-sm text-base-content/60 mt-1">{{ i18n.t('decklist.ydke.importHint') }}</p>
           <textarea
@@ -601,7 +613,7 @@ type InspectTarget =
 
     @if (ydkeDialogOpen()) {
       <dialog class="modal modal-open" open>
-        <div class="modal-box max-w-2xl">
+        <div class="modal-box duel-modal max-w-2xl">
           <h3 class="font-bold text-lg">{{ i18n.t('decklist.ydke.title') }}</h3>
           <p class="text-sm text-base-content/60 mt-1">{{ ydkeHint() }}</p>
           <textarea
@@ -670,7 +682,7 @@ export class DecklistEditorComponent {
     return `${deck.id}:${deck.updatedAt}:${total}:${deck.cards.length}`;
   });
 
-  private readonly liveDeck = computed(() => {
+  protected readonly liveDeck = computed(() => {
     const deckId = this.deck().id;
     return this.decklistStore.decklists().find((item) => item.id === deckId) ?? this.deck();
   });
