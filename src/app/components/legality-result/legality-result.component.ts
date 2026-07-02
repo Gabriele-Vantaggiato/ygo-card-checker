@@ -1,4 +1,5 @@
 import { Component, input } from '@angular/core';
+import { CardTilt3dComponent } from '../card-tilt-3d/card-tilt-3d.component';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { BanlistStatus, YgoFormat } from '../../models/ygo-format.model';
 import { I18nService } from '../../services/i18n.service';
@@ -6,6 +7,7 @@ import { I18nService } from '../../services/i18n.service';
 @Component({
   selector: 'app-legality-result',
   standalone: true,
+  imports: [CardTilt3dComponent],
   template: `
     @if (!card()) {
       <div
@@ -23,14 +25,7 @@ import { I18nService } from '../../services/i18n.service';
           >
             @if (cardImageLarge(); as src) {
               <div class="mx-auto h-fit w-full max-w-[220px] self-start sm:max-w-[260px] lg:mx-0 lg:max-w-[280px]">
-                <figure class="m-0 aspect-[59/86] w-full">
-                  <img
-                    [src]="src"
-                    [alt]="card()!.name"
-                    class="h-full w-full rounded-xl object-cover shadow-lg"
-                    loading="lazy"
-                  />
-                </figure>
+                <app-card-tilt-3d [src]="src" [alt]="card()!.name" />
               </div>
             }
 
