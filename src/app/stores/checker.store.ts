@@ -157,13 +157,9 @@ export class CheckerStore {
           });
         }),
         switchMap((intent) =>
-          this.i18n.lang$.pipe(
-            switchMap((lang) =>
-              this.ygoApi.searchCards$(intent.query.trim(), lang).pipe(
-                defaultIfEmpty([] as YgoCard[]),
-                map((suggestions) => ({ suggestions, error: null as string | null })),
-              ),
-            ),
+          this.ygoApi.searchCards$(intent.query.trim(), this.i18n.lang()).pipe(
+            defaultIfEmpty([] as YgoCard[]),
+            map((suggestions) => ({ suggestions, error: null as string | null })),
           ),
         ),
         tap({
@@ -187,16 +183,15 @@ export class CheckerStore {
     this.cardPick$
       .pipe(
         switchMap((pick) =>
-          this.i18n.lang$.pipe(
-            switchMap((lang) =>
-              this.ygoApi.getCardById$(pick.id, lang).pipe(
-                defaultIfEmpty(pick),
-                map((full) => full ?? pick),
-              ),
-            ),
+          this.ygoApi.getCardById$(pick.id, this.i18n.lang()).pipe(
+            defaultIfEmpty(pick),
+            map((full) => full ?? pick),
           ),
         ),
-        tap((card) => this.selectedCardSubject.next(card)),
+        tap((card) => {
+          this.selectedCardSubject.next(card);
+          this.searchQuery$.next(card.name);
+        }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
@@ -247,10 +242,13 @@ export class CheckerStore {
     this.i18n.lang$
       .pipe(
         skip(1),
-        withLatestFrom(this.searchQuery$),
-        tap(([, query]) => {
+        withLatestFrom(this.searchQuery$, this.selectedCardSubject),
+        tap(([, query, selected]) => {
           if (query.trim().length >= 2) {
             this.searchIntent$.next({ query, fromSelection: false });
+          }
+          if (selected) {
+            this.cardPick$.next(selected);
           }
         }),
         takeUntilDestroyed(this.destroyRef),
