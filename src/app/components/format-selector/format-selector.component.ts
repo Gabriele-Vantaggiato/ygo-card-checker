@@ -8,13 +8,11 @@ import { I18nService } from '../../services/i18n.service';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <label class="form-control w-full">
-      <div class="label">
-        <span class="label-text font-medium">{{ i18n.t('format.label') }}</span>
-      </div>
-      @if (formats().length > 0) {
+    @if (compact()) {
+      <label class="flex flex-wrap items-center gap-2 sm:gap-3 w-full min-w-0">
+        <span class="text-sm font-medium shrink-0">{{ i18n.t('format.label') }}</span>
         <select
-          class="select select-bordered w-full"
+          class="select select-bordered select-sm flex-1 min-w-[10rem] max-w-md"
           [ngModel]="selectedId()"
           (ngModelChange)="onSelect($event)"
         >
@@ -22,20 +20,38 @@ import { I18nService } from '../../services/i18n.service';
             <option [ngValue]="format.id">{{ format.name[i18n.lang()] }}</option>
           }
         </select>
-        @if (selectedFormat(); as format) {
-          <div class="label">
-            <span class="label-text-alt text-base-content/70 whitespace-normal break-words">
-              {{ format.description[i18n.lang()] }}
-            </span>
-          </div>
+      </label>
+    } @else {
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text font-medium">{{ i18n.t('format.label') }}</span>
+        </div>
+        @if (formats().length > 0) {
+          <select
+            class="select select-bordered w-full"
+            [ngModel]="selectedId()"
+            (ngModelChange)="onSelect($event)"
+          >
+            @for (format of formats(); track format.id) {
+              <option [ngValue]="format.id">{{ format.name[i18n.lang()] }}</option>
+            }
+          </select>
+          @if (selectedFormat(); as format) {
+            <div class="label">
+              <span class="label-text-alt text-base-content/70 whitespace-normal break-words">
+                {{ format.description[i18n.lang()] }}
+              </span>
+            </div>
+          }
         }
-      }
-    </label>
+      </label>
+    }
   `,
 })
 export class FormatSelectorComponent {
   readonly formats = input.required<YgoFormat[]>();
   readonly selectedId = input.required<string>();
+  readonly compact = input(false);
   readonly selectedChange = output<string>();
 
   constructor(protected readonly i18n: I18nService) {}

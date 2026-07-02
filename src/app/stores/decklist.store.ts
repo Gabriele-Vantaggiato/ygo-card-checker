@@ -278,25 +278,56 @@ export class DecklistStore {
         this.ygoApi.getCardById$(card.id, this.i18n.lang()).pipe(
           switchMap((full) => {
             if (!full) {
-              return of({ id: card.id, banlistStatus: card.banlistStatus ?? null });
+              return of({
+                id: card.id,
+                banlistStatus: card.banlistStatus ?? null,
+                legalityVerdict: card.legalityVerdict ?? null,
+              });
             }
             return this.cardLegality.evaluate$(full, format).pipe(
-              map((result) => ({ id: card.id, banlistStatus: result.banlistStatus })),
+              map((result) => ({
+                id: card.id,
+                banlistStatus: result.banlistStatus,
+                legalityVerdict: result.verdict,
+              })),
             );
           }),
         ),
       ),
     ).subscribe((updates) => {
-      const byId = new Map(updates.map((item) => [item.id, item.banlistStatus]));
+      const byId = new Map(updates.map((item) => [item.id, item]));
       this.replaceDeck({
         ...deck,
         updatedAt: new Date().toISOString(),
-        cards: deck.cards.map((card) => ({
-          ...card,
-          banlistStatus: byId.get(card.id) ?? card.banlistStatus ?? null,
-        })),
+        cards: deck.cards.map((card) => {
+          const update = byId.get(card.id);
+          if (!update) {
+            return card;
+          }
+          return {
+            ...card,
+            banlistStatus: update.banlistStatus ?? card.banlistStatus ?? null,
+            legalityVerdict: update.legalityVerdict ?? card.legalityVerdict ?? null,
+          };
+        }),
       });
     });
+  }
+
+  removeOneCopy(cardId: number): void {
+    const deck = this.activeDecklist();
+    if (!deck) {
+      return;
+    }
+    const card = deck.cards.find((c) => c.id === cardId);
+    if (!card) {
+      return;
+    }
+    if (card.quantity <= 1) {
+      this.removeCard(cardId);
+      return;
+    }
+    this.decrementCard(cardId, card.banlistStatus ?? null);
   }
 
   private bootstrapDefaultDecklist(): void {

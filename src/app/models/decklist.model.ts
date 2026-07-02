@@ -1,4 +1,5 @@
 import { BanlistStatus } from './ygo-format.model';
+import { LegalityVerdict } from './ygo-card.model';
 
 export interface DecklistCard {
   id: number;
@@ -7,6 +8,7 @@ export interface DecklistCard {
   imageUrlSmall: string | null;
   quantity: number;
   banlistStatus?: BanlistStatus | null;
+  legalityVerdict?: LegalityVerdict | null;
 }
 
 export interface Decklist {
@@ -27,6 +29,7 @@ export interface AddToDecklistPayload {
   type: string;
   imageUrlSmall: string | null;
   banlistStatus?: BanlistStatus | null;
+  legalityVerdict?: LegalityVerdict | null;
 }
 
 export function maxCopiesForStatus(status: BanlistStatus | null | undefined): number {

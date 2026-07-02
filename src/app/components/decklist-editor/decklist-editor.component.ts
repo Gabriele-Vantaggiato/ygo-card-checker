@@ -22,7 +22,9 @@ import {
   quantityBadgeClass,
   quantityLabelKey,
   verdictBadgeClass,
+  verdictBannerClass,
   verdictLabelKey,
+  verdictShortKey,
 } from '../../utils/legality-display.utils';
 import { FormatSelectorComponent } from '../format-selector/format-selector.component';
 
@@ -87,6 +89,15 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
           </div>
         </header>
 
+        <div class="rounded-xl border border-base-300 bg-base-100 px-3 py-2 sm:px-4 sm:py-3">
+          <app-format-selector
+            [compact]="true"
+            [formats]="formatStore.formats()"
+            [selectedId]="formatStore.formatId()"
+            (selectedChange)="formatStore.setFormatId($event)"
+          />
+        </div>
+
         <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_minmax(0,18rem)] gap-4 min-h-0">
           <aside class="hidden xl:flex flex-col rounded-xl border border-base-300 bg-base-100 overflow-hidden min-h-[28rem]">
             <div class="px-3 py-2 border-b border-base-300 text-xs font-semibold uppercase tracking-wide text-base-content/60">
@@ -94,18 +105,24 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
             </div>
             <div class="flex-1 p-3 flex flex-col items-center justify-center">
               @if (selectedCard(); as card) {
-                @if (card.imageUrlSmall; as src) {
-                  <img [src]="src" [alt]="card.name" class="w-full max-w-[14rem] rounded-lg shadow-lg" />
-                }
+                <div class="relative w-full max-w-[14rem]">
+                  @if (card.legalityVerdict; as verdict) {
+                    <div
+                      class="absolute top-0 inset-x-0 z-10 rounded-t-lg px-2 py-1.5 text-xs font-bold text-center shadow-md"
+                      [class]="verdictBannerClass(verdict)"
+                    >
+                      {{ verdictLabel(verdict) }}
+                      @if (card.banlistStatus; as status) {
+                        <span class="opacity-90"> · {{ quantityLabel(status) }}</span>
+                      }
+                    </div>
+                  }
+                  @if (card.imageUrlSmall; as src) {
+                    <img [src]="src" [alt]="card.name" class="w-full rounded-lg shadow-lg" />
+                  }
+                </div>
                 <p class="mt-3 font-semibold text-sm text-center line-clamp-2">{{ card.name }}</p>
                 <p class="text-xs text-base-content/60 text-center mt-1">{{ card.type }}</p>
-                @if (card.banlistStatus; as status) {
-                  <div class="flex flex-wrap justify-center gap-1 mt-2">
-                    <span class="badge badge-xs badge-outline" [class]="quantityBadgeClass(status)">
-                      {{ quantityLabel(status) }}
-                    </span>
-                  </div>
-                }
                 <div class="join mt-4">
                   <button type="button" class="btn btn-sm join-item" (click)="decklistStore.decrementCard(card.id)">−</button>
                   <span class="btn btn-sm join-item btn-disabled tabular-nums no-animation">×{{ card.quantity }}</span>
@@ -114,9 +131,9 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
                 <button
                   type="button"
                   class="btn btn-ghost btn-sm text-error mt-2"
-                  (click)="removeAndClear(card.id)"
+                  (click)="removeOneCopy(card.id)"
                 >
-                  {{ i18n.t('decklist.removeCard') }}
+                  {{ i18n.t('decklist.editor.removeCopy') }}
                 </button>
               } @else {
                 <p class="text-sm text-base-content/50 text-center px-4">{{ i18n.t('decklist.editor.selectCard') }}</p>
@@ -125,7 +142,7 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
           </aside>
 
           <div class="rounded-xl border border-base-300 bg-base-100 overflow-hidden flex flex-col min-h-[24rem]">
-            <div class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 max-h-[min(70vh,48rem)]">
+            <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-4 max-h-[min(70vh,48rem)]">
               @for (section of sections(activeDeck); track section.key) {
                 <div>
                   <div
@@ -147,21 +164,43 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
                       {{ sectionEmpty(section.key) }}
                     </p>
                   } @else {
-                    <div class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
+                    <div class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-1">
                       @for (card of expandSection(section.cards); track card.id + '-' + $index) {
-                        <button
-                          type="button"
-                          class="relative aspect-[59/86] rounded overflow-hidden border-2 transition-all hover:scale-105 hover:z-10"
-                          [class.border-primary]="selectedCard()?.id === card.id"
-                          [class.border-transparent]="selectedCard()?.id !== card.id"
-                          (click)="selectCard(card)"
+                        <div
+                          class="group relative aspect-[59/86] rounded transition-transform duration-200 ease-out hover:scale-[1.35] hover:z-30"
                         >
-                          @if (card.imageUrlSmall; as src) {
-                            <img [src]="src" [alt]="" class="w-full h-full object-cover" loading="lazy" />
-                          } @else {
-                            <span class="block w-full h-full bg-base-300"></span>
-                          }
-                        </button>
+                          <button
+                            type="button"
+                            class="relative w-full h-full rounded overflow-hidden border-2 transition-colors"
+                            [class.border-primary]="selectedCard()?.id === card.id"
+                            [class.border-transparent]="selectedCard()?.id !== card.id"
+                            [class.ring-2]="selectedCard()?.id === card.id"
+                            [class.ring-primary/40]="selectedCard()?.id === card.id"
+                            (click)="selectCard(card)"
+                          >
+                            @if (card.imageUrlSmall; as src) {
+                              <img [src]="src" [alt]="" class="w-full h-full object-cover" loading="lazy" />
+                            } @else {
+                              <span class="block w-full h-full bg-base-300"></span>
+                            }
+                            @if (card.legalityVerdict; as verdict) {
+                              <span
+                                class="absolute bottom-0 inset-x-0 z-10 text-[8px] sm:text-[9px] font-bold text-center py-0.5 leading-tight truncate px-0.5"
+                                [class]="verdictBannerClass(verdict)"
+                              >
+                                {{ verdictShort(verdict) }}
+                              </span>
+                            }
+                          </button>
+                          <button
+                            type="button"
+                            class="absolute -top-1 -right-1 z-20 btn btn-error btn-xs btn-circle opacity-0 group-hover:opacity-100 shadow-md transition-opacity"
+                            [attr.aria-label]="i18n.t('decklist.editor.removeCopy')"
+                            (click)="removeOneCopy(card.id, $event)"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       }
                     </div>
                   }
@@ -171,13 +210,8 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
           </div>
 
           <aside class="rounded-xl border border-base-300 bg-base-100 flex flex-col min-h-[20rem] xl:min-h-[28rem]">
-            <div class="px-3 py-2 border-b border-base-300 space-y-3">
-              <app-format-selector
-                [formats]="formatStore.formats()"
-                [selectedId]="formatStore.formatId()"
-                (selectedChange)="formatStore.setFormatId($event)"
-              />
-              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60">
+            <div class="px-3 py-2 border-b border-base-300">
+              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">
                 {{ i18n.t('decklist.editor.search') }}
               </p>
               <div class="flex gap-2">
@@ -256,16 +290,39 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
         @if (selectedCard(); as card) {
           <div class="xl:hidden rounded-xl border border-base-300 bg-base-100 p-3 flex gap-3 items-center">
             @if (card.imageUrlSmall; as src) {
-              <img [src]="src" [alt]="" class="w-14 h-20 object-cover rounded-lg shrink-0" />
+              <div class="relative shrink-0">
+                @if (card.legalityVerdict; as verdict) {
+                  <span
+                    class="absolute top-0 inset-x-0 z-10 text-[8px] font-bold text-center py-0.5 rounded-t"
+                    [class]="verdictBannerClass(verdict)"
+                  >
+                    {{ verdictShort(verdict) }}
+                  </span>
+                }
+                <img [src]="src" [alt]="" class="w-14 h-20 object-cover rounded-lg" />
+              </div>
             }
             <div class="flex-1 min-w-0">
               <p class="font-semibold text-sm truncate">{{ card.name }}</p>
+              @if (card.legalityVerdict; as verdict) {
+                <span class="badge badge-xs mt-1" [class]="verdictBadgeClass(verdict)">
+                  {{ verdictLabel(verdict) }}
+                </span>
+              }
               <div class="join mt-2">
                 <button type="button" class="btn btn-xs join-item" (click)="decklistStore.decrementCard(card.id)">−</button>
                 <span class="btn btn-xs join-item btn-disabled tabular-nums no-animation">×{{ card.quantity }}</span>
                 <button type="button" class="btn btn-xs join-item" (click)="decklistStore.incrementCard(card.id)">+</button>
               </div>
             </div>
+            <button
+              type="button"
+              class="btn btn-ghost btn-xs btn-circle text-error shrink-0"
+              [attr.aria-label]="i18n.t('decklist.editor.removeCopy')"
+              (click)="removeOneCopy(card.id)"
+            >
+              ✕
+            </button>
           </div>
         }
       </section>
@@ -325,6 +382,7 @@ export class DecklistEditorComponent {
   protected readonly sectionCardCount = sectionCardCount;
   protected readonly quantityBadgeClass = quantityBadgeClass;
   protected readonly verdictBadgeClass = verdictBadgeClass;
+  protected readonly verdictBannerClass = verdictBannerClass;
 
   constructor() {
     this.search$
@@ -377,7 +435,9 @@ export class DecklistEditorComponent {
       const fresh = deck.cards.find((c) => c.id === selected.id);
       if (
         fresh &&
-        (fresh.quantity !== selected.quantity || fresh.banlistStatus !== selected.banlistStatus)
+        (fresh.quantity !== selected.quantity ||
+          fresh.banlistStatus !== selected.banlistStatus ||
+          fresh.legalityVerdict !== selected.legalityVerdict)
       ) {
         this.selectedCard.set(fresh);
       }
@@ -457,10 +517,15 @@ export class DecklistEditorComponent {
     this.selectedCard.set(fresh);
   }
 
-  removeAndClear(cardId: number): void {
-    this.decklistStore.removeCard(cardId);
-    if (this.selectedCard()?.id === cardId) {
-      this.selectedCard.set(null);
+  removeOneCopy(cardId: number, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    this.decklistStore.removeOneCopy(cardId);
+    const selected = this.selectedCard();
+    if (selected?.id === cardId) {
+      const deck = this.deck();
+      const fresh = deck.cards.find((c) => c.id === cardId);
+      this.selectedCard.set(fresh ?? null);
     }
   }
 
@@ -489,6 +554,7 @@ export class DecklistEditorComponent {
       type: card.type,
       imageUrlSmall: card.card_images[0]?.image_url_small ?? null,
       banlistStatus: legality?.banlistStatus ?? null,
+      legalityVerdict: legality?.verdict ?? null,
     });
   }
 
@@ -506,6 +572,10 @@ export class DecklistEditorComponent {
 
   quantityLabel(status: BanlistStatus): string {
     return this.i18n.t(quantityLabelKey(status));
+  }
+
+  verdictShort(verdict: LegalityResult['verdict']): string {
+    return this.i18n.t(verdictShortKey(verdict));
   }
 
   openYdkeDialog(deck: Decklist): void {

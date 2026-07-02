@@ -132,6 +132,7 @@ export class SearchHistoryComponent {
       type: entry.type,
       imageUrlSmall: entry.imageUrlSmall,
       banlistStatus: this.hasLegality(entry) ? entry.banlistStatus : null,
+      legalityVerdict: this.hasLegality(entry) ? entry.verdict : null,
     };
   }
 

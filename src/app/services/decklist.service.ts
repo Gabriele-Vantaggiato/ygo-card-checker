@@ -74,6 +74,7 @@ export class DecklistService {
                 type: payload.type,
                 imageUrlSmall: payload.imageUrlSmall ?? c.imageUrlSmall,
                 banlistStatus: payload.banlistStatus ?? c.banlistStatus ?? null,
+                legalityVerdict: payload.legalityVerdict ?? c.legalityVerdict ?? null,
               }
             : c,
         ),
@@ -92,6 +93,7 @@ export class DecklistService {
           imageUrlSmall: payload.imageUrlSmall,
           quantity: Math.min(quantity, max),
           banlistStatus: payload.banlistStatus ?? null,
+          legalityVerdict: payload.legalityVerdict ?? null,
         },
       ],
     };

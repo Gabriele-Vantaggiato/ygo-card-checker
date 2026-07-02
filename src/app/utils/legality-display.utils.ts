@@ -47,3 +47,25 @@ export function verdictLabelKey(verdict: LegalityVerdict): string {
       return 'result.notLegal';
   }
 }
+
+export function verdictBannerClass(verdict: LegalityVerdict): string {
+  switch (verdict) {
+    case 'legal':
+      return 'bg-success text-success-content';
+    case 'restricted':
+      return 'bg-warning text-warning-content';
+    default:
+      return 'bg-error text-error-content';
+  }
+}
+
+export function verdictShortKey(verdict: LegalityVerdict): string {
+  switch (verdict) {
+    case 'legal':
+      return 'decklist.editor.verdictShort.legal';
+    case 'restricted':
+      return 'decklist.editor.verdictShort.restricted';
+    default:
+      return 'decklist.editor.verdictShort.notLegal';
+  }
+}
