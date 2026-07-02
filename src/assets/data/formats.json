@@ -1,0 +1,67 @@
+[
+  {
+    "id": "goat",
+    "name": { "it": "Goat Format", "en": "Goat Format" },
+    "banlistId": null,
+    "banlistEffectiveDate": "2005-04-01",
+    "cardPoolEndDate": "2005-08-17",
+    "cardPoolStartDate": "2002-03-08",
+    "banlistSource": "ban_goat",
+    "description": {
+      "it": "Formato estivo 2005 con banlist di aprile 2005 e card pool fino a The Lost Millennium.",
+      "en": "Summer 2005 format with the April 2005 banlist and card pool through The Lost Millennium."
+    }
+  },
+  {
+    "id": "edison",
+    "name": { "it": "Edison Format", "en": "Edison Format" },
+    "banlistId": "edison-2010-03",
+    "banlistEffectiveDate": "2010-03-01",
+    "cardPoolEndDate": "2010-04-20",
+    "cardPoolStartDate": "2002-03-08",
+    "banlistSource": "local",
+    "description": {
+      "it": "Formato marzo 2010 con card pool fino a Duelist Pack: Kaiba.",
+      "en": "March 2010 format with card pool through Duelist Pack: Kaiba."
+    }
+  },
+  {
+    "id": "tengu",
+    "name": { "it": "Tengu Format", "en": "Tengu Format" },
+    "banlistId": "tengu-2011-09",
+    "banlistEffectiveDate": "2011-09-01",
+    "cardPoolEndDate": "2011-09-17",
+    "cardPoolStartDate": "2002-03-08",
+    "banlistSource": "local",
+    "description": {
+      "it": "Formato YCS Toronto 2011 con banlist di settembre 2011.",
+      "en": "YCS Toronto 2011 format with the September 2011 banlist."
+    }
+  },
+  {
+    "id": "hat",
+    "name": { "it": "HAT Format", "en": "HAT Format" },
+    "banlistId": "hat-2014-04",
+    "banlistEffectiveDate": "2014-04-01",
+    "cardPoolEndDate": "2014-07-13",
+    "cardPoolStartDate": "2002-03-08",
+    "banlistSource": "local",
+    "description": {
+      "it": "Standard NAWCQ 2014: banlist aprile 2014, card pool fino al 13 luglio 2014.",
+      "en": "2014 NAWCQ standard: April 2014 banlist, card pool through July 13, 2014."
+    }
+  },
+  {
+    "id": "tcg",
+    "name": { "it": "TCG Avanzato", "en": "Advanced TCG" },
+    "banlistId": null,
+    "banlistEffectiveDate": null,
+    "cardPoolEndDate": null,
+    "cardPoolStartDate": "2002-03-08",
+    "banlistSource": "ban_tcg",
+    "description": {
+      "it": "Formato TCG attuale con banlist live.",
+      "en": "Current TCG format with the live banlist."
+    }
+  }
+]
