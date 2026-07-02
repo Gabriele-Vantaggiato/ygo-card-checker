@@ -1,5 +1,6 @@
-import { Component, effect, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Decklist } from '../../models/decklist.model';
 import { I18nService } from '../../services/i18n.service';
 import { DecklistStore } from '../../stores/decklist.store';
 
@@ -8,37 +9,19 @@ import { DecklistStore } from '../../stores/decklist.store';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <section
-      class="flex flex-col min-h-0"
-      [class.border-t]="!fullPage()"
-      [class.border-base-300]="!fullPage()"
-      [class.pt-4]="!fullPage()"
-    >
-      <div class="flex items-center justify-between gap-2 mb-3">
-        @if (!fullPage()) {
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/80">
-            {{ i18n.t('decklist.title') }}
-          </h3>
-        } @else {
-          <span></span>
-        }
-        <span class="text-xs sm:text-sm text-base-content/50">
-          {{ totalLabel() }}
-        </span>
-      </div>
-
+    <section class="flex flex-col min-h-0 gap-4">
       @if (decklistStore.feedback(); as fb) {
-        <div class="alert alert-sm py-2 mb-2 text-xs" [class]="feedbackClass(fb.tone)">
+        <div class="alert alert-sm py-2 text-xs" [class]="feedbackClass(fb.tone)">
           <span>{{ feedbackMessage(fb) }}</span>
         </div>
       }
 
       @if (createOpen()) {
-        <div class="rounded-lg border border-primary/30 bg-primary/5 p-3 mb-4 space-y-2">
-          <p class="text-sm font-medium">{{ i18n.t('decklist.create.title') }}</p>
+        <div class="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <p class="font-semibold">{{ i18n.t('decklist.create.title') }}</p>
           <input
             type="text"
-            class="input input-bordered input-sm w-full"
+            class="input input-bordered w-full"
             [placeholder]="i18n.t('decklist.create.placeholder')"
             [ngModel]="newDeckName()"
             (ngModelChange)="newDeckName.set($event)"
@@ -55,118 +38,134 @@ import { DecklistStore } from '../../stores/decklist.store';
         </div>
       }
 
-      <div class="flex flex-wrap gap-2 mb-4">
-        <select
-          class="select select-bordered flex-1 min-w-0"
-          [class.select-sm]="!fullPage()"
-          [ngModel]="decklistStore.activeDecklistId()"
-          (ngModelChange)="decklistStore.setActiveDecklist($event)"
-        >
-          @for (deck of decklistStore.decklists(); track deck.id) {
-            <option [ngValue]="deck.id">{{ deck.name }}</option>
-          }
-        </select>
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/70">
+          {{ i18n.t('decklist.decksTitle') }}
+        </h2>
         <button
           type="button"
-          class="btn btn-primary btn-square"
-          [class.btn-sm]="!fullPage()"
-          [attr.aria-label]="i18n.t('decklist.create.button')"
+          class="btn btn-primary btn-sm gap-1"
           (click)="openCreateDeck()"
         >
-          +
+          + {{ i18n.t('decklist.create.button') }}
         </button>
       </div>
 
-      @if (decklistStore.activeDecklist(); as deck) {
-        <div class="flex flex-col sm:flex-row gap-2 mb-4">
-          <input
-            type="text"
-            class="input input-bordered flex-1 min-w-0"
-            [class.input-sm]="!fullPage()"
-            [ngModel]="renameDraft()"
-            (ngModelChange)="renameDraft.set($event)"
-            (keydown.enter)="commitRename()"
-          />
+      <div class="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory">
+        @for (deck of decklistStore.decklists(); track deck.id) {
           <button
             type="button"
-            class="btn btn-ghost"
-            [class.btn-sm]="!fullPage()"
-            (click)="commitRename()"
+            class="snap-start shrink-0 w-36 sm:w-44 rounded-xl border-2 p-3 text-left transition-all hover:shadow-md"
+            [class.border-primary]="deck.id === decklistStore.activeDecklistId()"
+            [class.bg-primary/10]="deck.id === decklistStore.activeDecklistId()"
+            [class.border-base-300]="deck.id !== decklistStore.activeDecklistId()"
+            [class.bg-base-100]="deck.id !== decklistStore.activeDecklistId()"
+            (click)="decklistStore.setActiveDecklist(deck.id)"
           >
-            {{ i18n.t('decklist.rename') }}
+            <p class="font-semibold text-sm truncate">{{ deck.name }}</p>
+            <p class="text-xs text-base-content/60 mt-1">
+              {{ deckStatsLabel(deck) }}
+            </p>
           </button>
-          <button
-            type="button"
-            class="btn btn-ghost text-error"
-            [class.btn-sm]="!fullPage()"
-            [attr.aria-label]="i18n.t('decklist.delete')"
-            (click)="decklistStore.deleteActiveDecklist()"
-          >
-            {{ i18n.t('decklist.delete') }}
-          </button>
-        </div>
-
-        @if (deck.cards.length === 0) {
-          <p class="text-sm text-base-content/50 py-4 text-center">{{ i18n.t('decklist.empty') }}</p>
-        } @else {
-          <ul
-            class="menu bg-base-200/60 rounded-box border border-base-300 p-1 gap-1 overflow-y-auto"
-            [class.menu-sm]="!fullPage()"
-            [class.max-h-48]="!fullPage()"
-            [class.max-h-[min(32rem,calc(100vh-18rem))]]="fullPage()"
-          >
-            @for (card of deck.cards; track card.id) {
-              <li>
-                <div class="flex w-full items-center gap-3 py-2 px-2">
-                  @if (card.imageUrlSmall; as src) {
-                    <img
-                      [src]="src"
-                      [alt]=""
-                      class="object-cover rounded shrink-0"
-                      [class]="fullPage() ? 'w-10 h-14' : 'w-6 h-8'"
-                      loading="lazy"
-                    />
-                  } @else {
-                    <span class="w-6 h-8 rounded bg-base-300 shrink-0"></span>
-                  }
-                  <span class="flex-1 min-w-0 text-left">
-                    <span class="block font-medium truncate" [class.text-xs]="!fullPage()" [class.text-sm]="fullPage()">
-                      {{ card.name }}
-                    </span>
-                    <span class="block opacity-60 truncate" [class.text-[10px]]="!fullPage()" [class.text-xs]="fullPage()">
-                      {{ card.type }}
-                    </span>
-                  </span>
-                  <div class="flex items-center gap-0.5 shrink-0">
-                    <button
-                      type="button"
-                      class="btn btn-ghost btn-xs btn-square"
-                      (click)="decklistStore.decrementCard(card.id)"
-                    >
-                      −
-                    </button>
-                    <span class="text-xs w-4 text-center tabular-nums">{{ card.quantity }}</span>
-                    <button
-                      type="button"
-                      class="btn btn-ghost btn-xs btn-square"
-                      (click)="decklistStore.incrementCard(card.id)"
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-ghost btn-xs btn-square text-error"
-                      [attr.aria-label]="i18n.t('decklist.removeCard')"
-                      (click)="decklistStore.removeCard(card.id)"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              </li>
-            }
-          </ul>
         }
+      </div>
+
+      @if (decklistStore.activeDecklist(); as deck) {
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+          <div class="card-body p-4 sm:p-5 gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+              <label class="form-control flex-1 min-w-0">
+                <span class="label py-0 mb-1">
+                  <span class="label-text font-medium">{{ i18n.t('decklist.rename') }}</span>
+                </span>
+                <input
+                  type="text"
+                  class="input input-bordered w-full"
+                  [ngModel]="renameDraft()"
+                  (ngModelChange)="renameDraft.set($event)"
+                  (keydown.enter)="commitRename()"
+                />
+              </label>
+              <div class="flex gap-2 shrink-0">
+                <button type="button" class="btn btn-primary btn-sm" (click)="commitRename()">
+                  {{ i18n.t('decklist.renameSave') }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm text-error"
+                  (click)="decklistStore.deleteActiveDecklist()"
+                >
+                  {{ i18n.t('decklist.delete') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3 text-xs sm:text-sm text-base-content/70 border-y border-base-300 py-3">
+              <span>{{ i18n.t('decklist.stats.total', { count: '' + decklistStore.totalCardsForDeck(deck.id) }) }}</span>
+              <span>{{ i18n.t('decklist.stats.unique', { count: '' + decklistStore.uniqueCardsForDeck(deck.id) }) }}</span>
+            </div>
+
+            @if (deck.cards.length === 0) {
+              <div class="text-center py-10 px-4 rounded-xl bg-base-200/40 border border-dashed border-base-300">
+                <p class="text-sm text-base-content/60">{{ i18n.t('decklist.empty') }}</p>
+              </div>
+            } @else {
+              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                @for (card of deck.cards; track card.id) {
+                  <article
+                    class="flex gap-3 p-3 rounded-xl border border-base-300 bg-base-200/30 hover:bg-base-200/60 transition-colors"
+                  >
+                    @if (card.imageUrlSmall; as src) {
+                      <img
+                        [src]="src"
+                        [alt]=""
+                        class="w-12 h-[4.25rem] object-cover rounded-lg shadow shrink-0"
+                        loading="lazy"
+                      />
+                    } @else {
+                      <span class="w-12 h-[4.25rem] rounded-lg bg-base-300 shrink-0"></span>
+                    }
+                    <div class="flex-1 min-w-0 flex flex-col gap-2">
+                      <div>
+                        <p class="font-semibold text-sm leading-snug line-clamp-2">{{ card.name }}</p>
+                        <p class="text-xs text-base-content/60 truncate">{{ card.type }}</p>
+                      </div>
+                      <div class="flex items-center justify-between gap-1 mt-auto">
+                        <div class="join">
+                          <button
+                            type="button"
+                            class="btn btn-xs join-item"
+                            (click)="decklistStore.decrementCard(card.id)"
+                          >
+                            −
+                          </button>
+                          <span class="btn btn-xs join-item btn-disabled tabular-nums no-animation">
+                            ×{{ card.quantity }}
+                          </span>
+                          <button
+                            type="button"
+                            class="btn btn-xs join-item"
+                            (click)="decklistStore.incrementCard(card.id)"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          class="btn btn-ghost btn-xs text-error"
+                          [attr.aria-label]="i18n.t('decklist.removeCard')"
+                          (click)="decklistStore.removeCard(card.id)"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                }
+              </div>
+            }
+          </div>
+        </div>
       }
     </section>
   `,
@@ -184,6 +183,13 @@ export class DecklistPanelComponent {
   constructor() {
     effect(() => {
       this.renameDraft.set(this.decklistStore.activeDecklist()?.name ?? '');
+    });
+  }
+
+  deckStatsLabel(deck: Decklist): string {
+    return this.i18n.t('decklist.deckCardCount', {
+      total: `${this.decklistStore.totalCardsForDeck(deck.id)}`,
+      unique: `${this.decklistStore.uniqueCardsForDeck(deck.id)}`,
     });
   }
 
@@ -209,12 +215,6 @@ export class DecklistPanelComponent {
     this.decklistStore.createDecklist(name);
     this.createOpen.set(false);
     this.newDeckName.set('');
-  }
-
-  totalLabel(): string {
-    return this.i18n.t('decklist.total', {
-      count: `${this.decklistStore.activeTotalCards()}`,
-    });
   }
 
   feedbackMessage(fb: { key: string; params?: Record<string, string> }): string {

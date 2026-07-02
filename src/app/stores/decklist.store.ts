@@ -65,21 +65,25 @@ export class DecklistStore {
     return deck.id;
   }
 
-  renameActiveDecklist(name: string): void {
+  renameDecklist(deckId: string, name: string): void {
     const trimmed = name.trim();
     if (!trimmed) {
-      return;
-    }
-    const activeId = this.activeDecklistId();
-    if (!activeId) {
       return;
     }
     this.patchStorage((s) => ({
       ...s,
       decklists: s.decklists.map((d) =>
-        d.id === activeId ? { ...d, name: trimmed, updatedAt: new Date().toISOString() } : d,
+        d.id === deckId ? { ...d, name: trimmed, updatedAt: new Date().toISOString() } : d,
       ),
     }));
+  }
+
+  renameActiveDecklist(name: string): void {
+    const activeId = this.activeDecklistId();
+    if (!activeId) {
+      return;
+    }
+    this.renameDecklist(activeId, name);
   }
 
   deleteActiveDecklist(): void {
@@ -179,6 +183,15 @@ export class DecklistStore {
     this.replaceDeck(
       this.decklistService.setCardQuantity(deck, cardId, card.quantity - 1, max),
     );
+  }
+
+  totalCardsForDeck(deckId: string): number {
+    const deck = this.getDeckById(deckId);
+    return deck ? this.decklistService.totalCards(deck.cards) : 0;
+  }
+
+  uniqueCardsForDeck(deckId: string): number {
+    return this.getDeckById(deckId)?.cards.length ?? 0;
   }
 
   getDeckById(deckId: string): Decklist | null {
