@@ -18,7 +18,7 @@ import { I18nService } from '../services/i18n.service';
           <ul class="menu menu-horizontal gap-1 px-1">
             <li>
               <a
-                routerLink="/search"
+                routerLink="/"
                 routerLinkActive="active"
                 [routerLinkActiveOptions]="{ exact: true }"
                 class="text-sm sm:text-base"

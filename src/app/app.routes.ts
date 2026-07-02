@@ -8,10 +8,9 @@ export const routes: Routes = [
     path: '',
     component: AppShellComponent,
     children: [
-      { path: '', redirectTo: 'search', pathMatch: 'full' },
-      { path: 'search', component: CheckerPage },
+      { path: '', component: CheckerPage },
       { path: 'decklist', component: DecklistPage },
     ],
   },
-  { path: '**', redirectTo: 'search' },
+  { path: '**', redirectTo: '' },
 ];
