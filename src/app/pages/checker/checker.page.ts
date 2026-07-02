@@ -68,6 +68,7 @@ import { CheckerStore } from '../../stores/checker.store';
                   [selectedCardId]="store.selectedCard()?.id ?? null"
                   [formatId]="store.selectedFormatId()"
                   (cardSelected)="store.selectFromHistory($event)"
+                  (remove)="store.removeSearchHistoryEntry($event)"
                   (clear)="store.clearSearchHistory()"
                 />
               </div>
@@ -91,6 +92,7 @@ import { CheckerStore } from '../../stores/checker.store';
             [selectedCardId]="store.selectedCard()?.id ?? null"
             [formatId]="store.selectedFormatId()"
             (cardSelected)="store.selectFromHistory($event)"
+            (remove)="store.removeSearchHistoryEntry($event)"
             (clear)="store.clearSearchHistory()"
           />
         </div>
