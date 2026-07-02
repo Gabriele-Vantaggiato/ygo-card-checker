@@ -34,7 +34,22 @@ git merge refactor/02-decklist-ux
 git push origin main
 ```
 
-## Branch legacy (pre-numerazione)
+## Deploy (Vercel)
+
+L'app carica i suggerimenti da `src/assets/data/card-knowledge/*.json` via HTTP (`assets/data/...`).
+
+- **SQLite** (`data/card-knowledge/cards.db`) resta locale e gitignored.
+- **JSON export** (~50 MB) sono **versionati** e inclusi nel bundle Angular su ogni deploy.
+
+Dopo aver rigenerato il DB:
+
+```bash
+npm run db:build
+git add src/assets/data/card-knowledge/*.json
+git commit -m "chore(data): aggiorna knowledge index"
+git push origin main
+```
+
 
 Non in coda sequenziale — già mergiati o sostituiti:
 
