@@ -10,6 +10,7 @@
   "history.title": "Ricerche recenti",
   "history.empty": "Nessuna carta consultata di recente",
   "history.clear": "Svuota",
+  "history.remove": "Rimuovi dallo storico",
   "history.playability": "Giocabilità",
   "history.quantity": "Copie consentite",
   "history.quantity.forbidden": "×0",

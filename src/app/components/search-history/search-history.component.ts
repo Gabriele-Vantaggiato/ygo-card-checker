@@ -34,50 +34,64 @@ import { I18nService } from '../../services/i18n.service';
       >
         @for (entry of entries(); track entry.id) {
           <li>
-            <button
-              type="button"
-              class="!flex !items-start gap-2 py-2 h-auto min-h-0 whitespace-normal"
-              [class.active]="entry.id === selectedCardId()"
-              (click)="cardSelected.emit(entry)"
+            <div
+              class="flex w-full items-stretch gap-0.5 rounded-lg"
+              [class.bg-base-300]="entry.id === selectedCardId()"
             >
-              @if (entry.imageUrlSmall; as src) {
-                <img
-                  [src]="src"
-                  [alt]=""
-                  class="w-7 h-10 sm:w-8 sm:h-11 object-cover rounded shrink-0 mt-0.5"
-                  loading="lazy"
-                />
-              } @else {
-                <span class="w-7 h-10 sm:w-8 sm:h-11 rounded bg-base-300 shrink-0 mt-0.5"></span>
-              }
-
-              <span class="flex flex-col items-start min-w-0 flex-1 gap-1 text-left">
-                <span class="font-medium text-xs sm:text-sm leading-snug line-clamp-2 w-full">
-                  {{ entry.name }}
-                </span>
-
-                @if (hasLegality(entry)) {
-                  <span class="flex flex-wrap items-center gap-1 w-full">
-                    <span
-                      class="badge badge-xs sm:badge-sm"
-                      [class]="verdictBadgeClass(entry.verdict!)"
-                      [title]="i18n.t('history.playability')"
-                    >
-                      {{ verdictLabel(entry.verdict!) }}
-                    </span>
-                    <span
-                      class="badge badge-xs sm:badge-sm badge-outline"
-                      [class]="quantityBadgeClass(entry.banlistStatus!)"
-                      [title]="i18n.t('history.quantity')"
-                    >
-                      {{ quantityLabel(entry.banlistStatus!) }}
-                    </span>
-                  </span>
-                } @else if (entry.formatId !== formatId()) {
-                  <span class="text-[10px] sm:text-xs opacity-50">{{ i18n.t('history.stale') }}</span>
+              <button
+                type="button"
+                class="!flex !flex-1 !items-start gap-2 py-2 px-2 h-auto min-h-0 min-w-0 whitespace-normal rounded-lg"
+                (click)="cardSelected.emit(entry)"
+              >
+                @if (entry.imageUrlSmall; as src) {
+                  <img
+                    [src]="src"
+                    [alt]=""
+                    class="w-7 h-10 sm:w-8 sm:h-11 object-cover rounded shrink-0 mt-0.5"
+                    loading="lazy"
+                  />
+                } @else {
+                  <span class="w-7 h-10 sm:w-8 sm:h-11 rounded bg-base-300 shrink-0 mt-0.5"></span>
                 }
-              </span>
-            </button>
+
+                <span class="flex flex-col items-start min-w-0 flex-1 gap-1 text-left">
+                  <span class="font-medium text-xs sm:text-sm leading-snug line-clamp-2 w-full pr-1">
+                    {{ entry.name }}
+                  </span>
+
+                  @if (hasLegality(entry)) {
+                    <span class="flex flex-wrap items-center gap-1 w-full">
+                      <span
+                        class="badge badge-xs sm:badge-sm"
+                        [class]="verdictBadgeClass(entry.verdict!)"
+                        [title]="i18n.t('history.playability')"
+                      >
+                        {{ verdictLabel(entry.verdict!) }}
+                      </span>
+                      <span
+                        class="badge badge-xs sm:badge-sm badge-outline"
+                        [class]="quantityBadgeClass(entry.banlistStatus!)"
+                        [title]="i18n.t('history.quantity')"
+                      >
+                        {{ quantityLabel(entry.banlistStatus!) }}
+                      </span>
+                    </span>
+                  } @else if (entry.formatId !== formatId()) {
+                    <span class="text-[10px] sm:text-xs opacity-50">{{ i18n.t('history.stale') }}</span>
+                  }
+                </span>
+              </button>
+
+              <button
+                type="button"
+                class="btn btn-ghost btn-xs btn-square shrink-0 self-center text-base-content/40 hover:text-error"
+                [attr.aria-label]="i18n.t('history.remove')"
+                [title]="i18n.t('history.remove')"
+                (click)="onRemove($event, entry.id)"
+              >
+                ✕
+              </button>
+            </div>
           </li>
         }
       </ul>
@@ -92,9 +106,15 @@ export class SearchHistoryComponent {
   readonly pinned = input(false);
 
   readonly cardSelected = output<SearchHistoryEntry>();
+  readonly remove = output<number>();
   readonly clear = output<void>();
 
   constructor(protected readonly i18n: I18nService) {}
+
+  onRemove(event: Event, cardId: number): void {
+    event.stopPropagation();
+    this.remove.emit(cardId);
+  }
 
   hasLegality(entry: SearchHistoryEntry): boolean {
     return (

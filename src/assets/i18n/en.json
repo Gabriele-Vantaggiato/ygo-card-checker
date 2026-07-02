@@ -10,6 +10,7 @@
   "history.title": "Recent searches",
   "history.empty": "No recently viewed cards",
   "history.clear": "Clear",
+  "history.remove": "Remove from history",
   "history.playability": "Playability",
   "history.quantity": "Allowed copies",
   "history.quantity.forbidden": "×0",

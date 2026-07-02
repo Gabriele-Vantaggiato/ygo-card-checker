@@ -147,6 +147,18 @@ export class CheckerStore {
     this.persistSearchHistory([]);
   }
 
+  removeSearchHistoryEntry(cardId: number): void {
+    const next = this.searchHistorySubject.value.filter((item) => item.id !== cardId);
+    this.searchHistorySubject.next(next);
+    this.persistSearchHistory(next);
+
+    if (this.selectedCardSubject.value?.id === cardId) {
+      this.selectedCardSubject.next(null);
+      this.searchQuery$.next('');
+      this.legalityStateSubject.next(EMPTY_LEGALITY);
+    }
+  }
+
   private bindFormatBootstrap(): void {
     this.formats$
       .pipe(
