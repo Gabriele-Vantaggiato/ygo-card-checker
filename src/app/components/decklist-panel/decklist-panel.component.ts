@@ -14,13 +14,13 @@ import { DecklistStore } from '../../stores/decklist.store';
           {{ i18n.t('decklist.title') }}
         </h3>
         <span class="text-xs text-base-content/50">
-          {{ i18n.t('decklist.total', { count: '' + decklistStore.activeTotalCards() }) }}
+          {{ totalLabel() }}
         </span>
       </div>
 
       @if (decklistStore.feedback(); as fb) {
         <div class="alert alert-sm py-2 mb-2 text-xs" [class]="feedbackClass(fb)">
-          <span>{{ i18n.t('decklist.feedback.' + fb) }}</span>
+          <span>{{ feedbackMessage(fb) }}</span>
         </div>
       }
 
@@ -125,6 +125,16 @@ export class DecklistPanelComponent {
 
   commitRename(): void {
     this.decklistStore.renameActiveDecklist(this.renameDraft());
+  }
+
+  totalLabel(): string {
+    return this.i18n.t('decklist.total', {
+      count: `${this.decklistStore.activeTotalCards()}`,
+    });
+  }
+
+  feedbackMessage(feedback: string): string {
+    return this.i18n.t(`decklist.feedback.${feedback}`);
   }
 
   feedbackClass(feedback: string): string {

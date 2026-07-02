@@ -45,7 +45,7 @@ export class AddToDecklistButtonComponent {
     }
     const qty = this.decklistStore.quantityInActive(this.payload().id);
     return qty > 0
-      ? this.i18n.t('decklist.addWithQty', { qty: String(qty) })
+      ? this.i18n.t('decklist.addWithQty', { qty: `${qty}` })
       : this.i18n.t('decklist.add');
   }
 
