@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../services/i18n.service';
 import { DecklistStore } from '../../stores/decklist.store';
@@ -8,12 +8,21 @@ import { DecklistStore } from '../../stores/decklist.store';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <section class="flex flex-col min-h-0 border-t border-base-300 pt-4">
-      <div class="flex items-center justify-between gap-2 mb-2">
-        <h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/80">
-          {{ i18n.t('decklist.title') }}
-        </h3>
-        <span class="text-xs text-base-content/50">
+    <section
+      class="flex flex-col min-h-0"
+      [class.border-t]="!fullPage()"
+      [class.border-base-300]="!fullPage()"
+      [class.pt-4]="!fullPage()"
+    >
+      <div class="flex items-center justify-between gap-2 mb-3">
+        @if (!fullPage()) {
+          <h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/80">
+            {{ i18n.t('decklist.title') }}
+          </h3>
+        } @else {
+          <span></span>
+        }
+        <span class="text-xs sm:text-sm text-base-content/50">
           {{ totalLabel() }}
         </span>
       </div>
@@ -24,9 +33,10 @@ import { DecklistStore } from '../../stores/decklist.store';
         </div>
       }
 
-      <div class="flex flex-wrap gap-2 mb-3">
+      <div class="flex flex-wrap gap-2 mb-4">
         <select
-          class="select select-bordered select-sm flex-1 min-w-0"
+          class="select select-bordered flex-1 min-w-0"
+          [class.select-sm]="!fullPage()"
           [ngModel]="decklistStore.activeDecklistId()"
           (ngModelChange)="decklistStore.setActiveDecklist($event)"
         >
@@ -34,26 +44,38 @@ import { DecklistStore } from '../../stores/decklist.store';
             <option [ngValue]="deck.id">{{ deck.name }}</option>
           }
         </select>
-        <button type="button" class="btn btn-primary btn-sm btn-square" (click)="decklistStore.createDecklist()">
+        <button
+          type="button"
+          class="btn btn-primary btn-square"
+          [class.btn-sm]="!fullPage()"
+          (click)="decklistStore.createDecklist()"
+        >
           +
         </button>
       </div>
 
       @if (decklistStore.activeDecklist(); as deck) {
-        <div class="flex gap-2 mb-3">
+        <div class="flex flex-col sm:flex-row gap-2 mb-4">
           <input
             type="text"
-            class="input input-bordered input-sm flex-1 min-w-0"
+            class="input input-bordered flex-1 min-w-0"
+            [class.input-sm]="!fullPage()"
             [ngModel]="renameDraft()"
             (ngModelChange)="renameDraft.set($event)"
             (keydown.enter)="commitRename()"
           />
-          <button type="button" class="btn btn-ghost btn-sm" (click)="commitRename()">
+          <button
+            type="button"
+            class="btn btn-ghost"
+            [class.btn-sm]="!fullPage()"
+            (click)="commitRename()"
+          >
             {{ i18n.t('decklist.rename') }}
           </button>
           <button
             type="button"
-            class="btn btn-ghost btn-sm text-error"
+            class="btn btn-ghost text-error"
+            [class.btn-sm]="!fullPage()"
             [attr.aria-label]="i18n.t('decklist.delete')"
             (click)="decklistStore.deleteActiveDecklist()"
           >
@@ -62,20 +84,35 @@ import { DecklistStore } from '../../stores/decklist.store';
         </div>
 
         @if (deck.cards.length === 0) {
-          <p class="text-xs text-base-content/50 py-2">{{ i18n.t('decklist.empty') }}</p>
+          <p class="text-sm text-base-content/50 py-4 text-center">{{ i18n.t('decklist.empty') }}</p>
         } @else {
-          <ul class="menu menu-sm bg-base-200/60 rounded-box border border-base-300 p-1 gap-0.5 max-h-48 overflow-y-auto">
+          <ul
+            class="menu bg-base-200/60 rounded-box border border-base-300 p-1 gap-1 overflow-y-auto"
+            [class.menu-sm]="!fullPage()"
+            [class.max-h-48]="!fullPage()"
+            [class.max-h-[min(32rem,calc(100vh-18rem))]]="fullPage()"
+          >
             @for (card of deck.cards; track card.id) {
               <li>
-                <div class="flex w-full items-center gap-2 py-1.5 px-1">
+                <div class="flex w-full items-center gap-3 py-2 px-2">
                   @if (card.imageUrlSmall; as src) {
-                    <img [src]="src" [alt]="" class="w-6 h-8 object-cover rounded shrink-0" loading="lazy" />
+                    <img
+                      [src]="src"
+                      [alt]=""
+                      class="object-cover rounded shrink-0"
+                      [class]="fullPage() ? 'w-10 h-14' : 'w-6 h-8'"
+                      loading="lazy"
+                    />
                   } @else {
                     <span class="w-6 h-8 rounded bg-base-300 shrink-0"></span>
                   }
                   <span class="flex-1 min-w-0 text-left">
-                    <span class="block text-xs font-medium truncate">{{ card.name }}</span>
-                    <span class="block text-[10px] opacity-60 truncate">{{ card.type }}</span>
+                    <span class="block font-medium truncate" [class.text-xs]="!fullPage()" [class.text-sm]="fullPage()">
+                      {{ card.name }}
+                    </span>
+                    <span class="block opacity-60 truncate" [class.text-[10px]]="!fullPage()" [class.text-xs]="fullPage()">
+                      {{ card.type }}
+                    </span>
                   </span>
                   <div class="flex items-center gap-0.5 shrink-0">
                     <button
@@ -112,6 +149,8 @@ import { DecklistStore } from '../../stores/decklist.store';
   `,
 })
 export class DecklistPanelComponent {
+  readonly fullPage = input(false);
+
   protected readonly decklistStore = inject(DecklistStore);
   protected readonly i18n = inject(I18nService);
 

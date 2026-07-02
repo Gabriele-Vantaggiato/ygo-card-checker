@@ -11,7 +11,7 @@ import { I18nService } from '../services/i18n.service';
 
 export type DecklistFeedback = 'added' | 'maxReached' | 'forbidden' | 'noDecklist';
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class DecklistStore {
   private readonly decklistService = inject(DecklistService);
   private readonly i18n = inject(I18nService);
