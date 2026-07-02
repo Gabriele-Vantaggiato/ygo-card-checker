@@ -5,6 +5,8 @@ import {
   Subject,
   combineLatest,
   defaultIfEmpty,
+  forkJoin,
+  of,
 } from 'rxjs';
 import {
   debounceTime,
@@ -64,6 +66,7 @@ export class CheckerStore {
   private readonly searchHistorySubject = new BehaviorSubject<SearchHistoryEntry[]>(
     this.loadSearchHistory(),
   );
+  private readonly cardCache = new Map<number, YgoCard>();
 
   readonly formats$ = this.formatConfig.loadFormats$().pipe(
     shareReplay({ bufferSize: 1, refCount: true }),
@@ -113,6 +116,7 @@ export class CheckerStore {
     this.bindSearch();
     this.bindCardSelection();
     this.bindLegality();
+    this.bindHistoryRefresh();
     this.bindLanguageChange();
   }
 
@@ -208,9 +212,9 @@ export class CheckerStore {
           ),
         ),
         tap((card) => {
+          this.cardCache.set(card.id, card);
           this.selectedCardSubject.next(card);
           this.searchQuery$.next(card.name);
-          this.pushSearchHistory(card);
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -233,6 +237,7 @@ export class CheckerStore {
               this.legalityService.readBanlistFromCard(card, format),
             );
             this.legalityStateSubject.next({ result, error: null });
+            this.upsertHistoryEntry(card, format, result);
           }
         }),
         filter(
@@ -240,11 +245,14 @@ export class CheckerStore {
             !!card && !!format && this.legalityService.needsLocalBanlist(format),
         ),
         switchMap(([card, format]) =>
-          this.legalityService.evaluateWithLocalBanlist$(card!, format!),
+          this.legalityService.evaluateWithLocalBanlist$(card!, format!).pipe(
+            map((result) => ({ card: card!, format: format!, result })),
+          ),
         ),
         tap({
-          next: (result) => {
+          next: ({ card, format, result }) => {
             this.legalityStateSubject.next({ result, error: null });
+            this.upsertHistoryEntry(card, format, result);
           },
           error: () => {
             this.legalityStateSubject.next({
@@ -252,6 +260,28 @@ export class CheckerStore {
               error: this.i18n.t('error.generic'),
             });
           },
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+  }
+
+  private bindHistoryRefresh(): void {
+    this.formatId$
+      .pipe(
+        skip(1),
+        distinctUntilChanged(),
+        withLatestFrom(this.formats$),
+        switchMap(([formatId, formats]) => {
+          const format = formats.find((f) => f.id === formatId);
+          if (!format || this.searchHistorySubject.value.length === 0) {
+            return of(this.searchHistorySubject.value);
+          }
+          return this.recomputeHistory$(format);
+        }),
+        tap((entries) => {
+          this.searchHistorySubject.next(entries);
+          this.persistSearchHistory(entries);
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -278,8 +308,8 @@ export class CheckerStore {
       .subscribe();
   }
 
-  private pushSearchHistory(card: YgoCard): void {
-    const entry = this.toHistoryEntry(card);
+  private upsertHistoryEntry(card: YgoCard, format: YgoFormat, result: LegalityResult): void {
+    const entry = this.toHistoryEntry(card, format.id, result);
     const next = [
       entry,
       ...this.searchHistorySubject.value.filter((item) => item.id !== entry.id),
@@ -288,12 +318,48 @@ export class CheckerStore {
     this.persistSearchHistory(next);
   }
 
-  private toHistoryEntry(card: YgoCard): SearchHistoryEntry {
+  private recomputeHistory$(format: YgoFormat) {
+    const entries = this.searchHistorySubject.value;
+    if (entries.length === 0) {
+      return of([] as SearchHistoryEntry[]);
+    }
+
+    return forkJoin(
+      entries.map((entry) => {
+        const card = this.cardCache.get(entry.id);
+        if (!card) {
+          return of({ ...entry, formatId: format.id, verdict: null, banlistStatus: null });
+        }
+
+        if (this.legalityService.needsLocalBanlist(format)) {
+          return this.legalityService.evaluateWithLocalBanlist$(card, format).pipe(
+            map((result) => this.toHistoryEntry(card, format.id, result)),
+          );
+        }
+
+        const result = this.legalityService.evaluate(
+          card,
+          format,
+          this.legalityService.readBanlistFromCard(card, format),
+        );
+        return of(this.toHistoryEntry(card, format.id, result));
+      }),
+    );
+  }
+
+  private toHistoryEntry(
+    card: YgoCard,
+    formatId: string,
+    result: LegalityResult,
+  ): SearchHistoryEntry {
     return {
       id: card.id,
       name: card.name,
       type: card.type,
       imageUrlSmall: card.card_images?.[0]?.image_url_small ?? null,
+      formatId,
+      verdict: result.verdict,
+      banlistStatus: result.banlistStatus,
     };
   }
 
@@ -317,7 +383,14 @@ export class CheckerStore {
         return [];
       }
       const parsed = JSON.parse(raw) as SearchHistoryEntry[];
-      return Array.isArray(parsed) ? parsed.slice(0, MAX_HISTORY) : [];
+      return Array.isArray(parsed)
+        ? parsed.slice(0, MAX_HISTORY).map((entry) => ({
+            ...entry,
+            formatId: entry.formatId ?? '',
+            verdict: entry.verdict ?? null,
+            banlistStatus: entry.banlistStatus ?? null,
+          }))
+        : [];
     } catch {
       return [];
     }
