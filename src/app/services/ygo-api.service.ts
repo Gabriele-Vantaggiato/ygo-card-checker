@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map, shareReplay } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { catchError, map, shareReplay } from 'rxjs/operators';
 import { CardInfoResponse, YgoCard } from '../models/ygo-card.model';
 import { Lang } from './i18n.service';
 
@@ -33,6 +33,7 @@ export class YgoApiService {
 
     const request$ = this.http.get<CardInfoResponse>(API_BASE, { params }).pipe(
       map((response) => response.data ?? []),
+      catchError(() => of([] as YgoCard[])),
       shareReplay({ bufferSize: 1, refCount: false }),
     );
 
