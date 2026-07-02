@@ -15,6 +15,7 @@ import {
   map,
   skip,
   switchMap,
+  take,
   tap,
   withLatestFrom,
 } from 'rxjs/operators';
@@ -125,6 +126,17 @@ export class CheckerStore {
 
   selectFromHistory(entry: SearchHistoryEntry): void {
     this.selectCard(this.toYgoCard(entry));
+  }
+
+  openCardById(cardId: number): void {
+    this.ygoApi
+      .getCardById$(cardId, this.i18n.lang())
+      .pipe(defaultIfEmpty(null), take(1))
+      .subscribe((card) => {
+        if (card) {
+          this.selectCard(card);
+        }
+      });
   }
 
   clearSearchHistory(): void {

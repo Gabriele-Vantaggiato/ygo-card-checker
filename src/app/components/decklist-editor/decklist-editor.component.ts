@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
@@ -29,6 +30,10 @@ import {
   verdictShortKey,
 } from '../../utils/legality-display.utils';
 import { FormatSelectorComponent } from '../format-selector/format-selector.component';
+
+type InspectTarget =
+  | { kind: 'deck'; card: DecklistCard }
+  | { kind: 'search'; card: YgoCard };
 
 @Component({
   selector: 'app-decklist-editor',
@@ -101,44 +106,91 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_minmax(0,18rem)] gap-4 min-h-0">
-          <aside class="hidden xl:flex flex-col rounded-xl border border-base-300 bg-base-100 overflow-hidden min-h-[28rem]">
-            <div class="px-3 py-2 border-b border-base-300 text-xs font-semibold uppercase tracking-wide text-base-content/60">
+          <aside class="hidden xl:flex flex-col rounded-xl border border-base-300 bg-base-100 overflow-hidden min-h-[28rem] max-h-[calc(100vh-12rem)]">
+            <div class="px-3 py-2 border-b border-base-300 text-xs font-semibold uppercase tracking-wide text-base-content/60 shrink-0">
               {{ i18n.t('decklist.editor.preview') }}
             </div>
-            <div class="flex-1 p-3 flex flex-col items-center justify-center">
-              @if (selectedCard(); as card) {
-                <div class="relative w-full max-w-[14rem]">
-                  @if (card.legalityVerdict; as verdict) {
-                    <div
-                      class="absolute top-0 inset-x-0 z-10 rounded-t-lg px-2 py-1.5 text-xs font-bold text-center shadow-md"
-                      [class]="verdictBannerClass(verdict)"
-                    >
-                      {{ verdictLabel(verdict) }}
-                      @if (card.banlistStatus; as status) {
-                        <span class="opacity-90"> · {{ quantityLabel(status) }}</span>
+            <div class="flex-1 min-h-0 flex flex-col p-3">
+              @if (inspectCard(); as target) {
+                <div class="flex flex-col gap-3 min-h-0 flex-1">
+                  <div class="flex gap-3 shrink-0">
+                    @if (inspectImage(); as src) {
+                      <img [src]="src" [alt]="inspectName()" class="w-20 rounded-lg shadow-md shrink-0" />
+                    }
+                    <div class="min-w-0 flex-1">
+                      <p class="font-semibold text-sm leading-tight line-clamp-2">{{ inspectName() }}</p>
+                      <p class="text-[11px] text-base-content/60 mt-1">{{ inspectType() }}</p>
+                      @if (inspectLegality(); as legality) {
+                        <div class="flex flex-wrap gap-1 mt-2">
+                          <span class="badge badge-xs" [class]="verdictBadgeClass(legality.verdict)">
+                            {{ verdictLabel(legality.verdict) }}
+                          </span>
+                          <span class="badge badge-xs badge-outline" [class]="quantityBadgeClass(legality.banlistStatus)">
+                            {{ quantityLabel(legality.banlistStatus) }}
+                          </span>
+                        </div>
                       }
                     </div>
+                  </div>
+
+                  @if (inspectDescLoading()) {
+                    <p class="text-xs text-base-content/50">{{ i18n.t('search.loading') }}</p>
+                  } @else if (inspectDesc(); as desc) {
+                    <section class="rounded-lg bg-base-200/50 p-2.5 flex-1 min-h-0 flex flex-col">
+                      <h3 class="text-[10px] font-semibold uppercase tracking-wide text-base-content/60 mb-1.5 shrink-0">
+                        {{ i18n.t('result.effect') }}
+                      </h3>
+                      <p class="text-xs leading-relaxed whitespace-pre-line text-base-content/90 overflow-y-auto min-h-0 flex-1">
+                        {{ desc }}
+                      </p>
+                    </section>
                   }
-                  @if (card.imageUrlSmall; as src) {
-                    <img [src]="src" [alt]="card.name" class="w-full rounded-lg shadow-lg" />
-                  }
+
+                  <div class="shrink-0 space-y-2 pt-1 border-t border-base-300">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-xs text-base-content/60">
+                        {{ inspectInDeckLabel() }}
+                      </span>
+                      <div class="join">
+                        <button
+                          type="button"
+                          class="btn btn-sm join-item"
+                          [disabled]="inspectQty() === 0"
+                          (click)="decrementInspect()"
+                        >
+                          −
+                        </button>
+                        <span class="btn btn-sm join-item btn-disabled tabular-nums no-animation">×{{ inspectQty() }}</span>
+                        <button
+                          type="button"
+                          class="btn btn-sm join-item"
+                          [disabled]="!canAddInspect()"
+                          (click)="incrementInspect()"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    @if (inspectQty() > 0) {
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-xs text-error w-full"
+                        (click)="removeOneCopy(inspectedCardId()!, $event)"
+                      >
+                        {{ i18n.t('decklist.editor.removeCopy') }}
+                      </button>
+                    }
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-xs w-full text-primary/80"
+                      (click)="openInspectedInSearch()"
+                    >
+                      {{ i18n.t('decklist.editor.openInSearch') }}
+                    </button>
+                  </div>
                 </div>
-                <p class="mt-3 font-semibold text-sm text-center line-clamp-2">{{ card.name }}</p>
-                <p class="text-xs text-base-content/60 text-center mt-1">{{ card.type }}</p>
-                <div class="join mt-4">
-                  <button type="button" class="btn btn-sm join-item" (click)="decklistStore.decrementCard(card.id)">−</button>
-                  <span class="btn btn-sm join-item btn-disabled tabular-nums no-animation">×{{ card.quantity }}</span>
-                  <button type="button" class="btn btn-sm join-item" (click)="decklistStore.incrementCard(card.id)">+</button>
-                </div>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm text-error mt-2"
-                  (click)="removeOneCopy(card.id)"
-                >
-                  {{ i18n.t('decklist.editor.removeCopy') }}
-                </button>
               } @else {
-                <p class="text-sm text-base-content/50 text-center px-4">{{ i18n.t('decklist.editor.selectCard') }}</p>
+                <p class="text-sm text-base-content/50 text-center px-2 py-8">{{ i18n.t('decklist.editor.inspectHint') }}</p>
               }
             </div>
           </aside>
@@ -174,11 +226,11 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
                           <button
                             type="button"
                             class="relative w-full h-full rounded overflow-hidden border-2 transition-colors"
-                            [class.border-primary]="selectedCard()?.id === card.id"
-                            [class.border-transparent]="selectedCard()?.id !== card.id"
-                            [class.ring-2]="selectedCard()?.id === card.id"
-                            [class.ring-primary/40]="selectedCard()?.id === card.id"
-                            (click)="selectCard(card)"
+                            [class.border-primary]="isDeckInspected(card.id)"
+                            [class.border-transparent]="!isDeckInspected(card.id)"
+                            [class.ring-2]="isDeckInspected(card.id)"
+                            [class.ring-primary/40]="isDeckInspected(card.id)"
+                            (click)="inspectDeckCard(card)"
                           >
                             @if (card.imageUrlSmall; as src) {
                               <img [src]="src" [alt]="" class="w-full h-full object-cover" loading="lazy" />
@@ -211,8 +263,8 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
             </div>
           </div>
 
-          <aside class="rounded-xl border border-base-300 bg-base-100 flex flex-col min-h-[20rem] xl:min-h-[28rem]">
-            <div class="px-3 py-2 border-b border-base-300">
+          <aside class="rounded-xl border border-base-300 bg-base-100 flex flex-col xl:self-start overflow-hidden">
+            <div class="px-3 py-2 border-b border-base-300 shrink-0">
               <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">
                 {{ i18n.t('decklist.editor.search') }}
               </p>
@@ -233,55 +285,67 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
                   {{ searchResultsLabel() }}
                 </p>
               }
+              <p class="text-[10px] text-base-content/45 mt-1 px-0.5">{{ i18n.t('decklist.editor.searchRowHint') }}</p>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-2">
+            <div class="overflow-y-auto overscroll-y-contain p-2 max-h-[min(45vh,20rem)] sm:max-h-[min(50vh,22rem)] xl:max-h-[min(60vh,28rem)]">
               @if (searchLoading() || legalityLoading()) {
                 <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.loading') }}</p>
               } @else {
                 @for (card of sortedSearchResults(); track card.id) {
-                  <button
-                    type="button"
-                    class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-base-200 text-left transition-colors"
-                    [class.opacity-50]="isSearchForbidden(card.id)"
-                    [disabled]="isSearchForbidden(card.id)"
-                    (click)="addSearchCard(card)"
+                  <div
+                    class="flex items-center gap-1 rounded-lg transition-colors"
+                    [class.bg-primary/10]="isSearchInspected(card.id)"
+                    [class.ring-1]="isSearchInspected(card.id)"
+                    [class.ring-primary/30]="isSearchInspected(card.id)"
                   >
-                    @if (card.card_images[0]?.image_url_small; as src) {
-                      <img [src]="src" [alt]="" class="w-8 h-11 object-cover rounded shrink-0" loading="lazy" />
-                    } @else {
-                      <span class="w-8 h-11 rounded bg-base-300 shrink-0"></span>
-                    }
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium truncate">{{ card.name }}</p>
-                      <p class="text-[11px] text-base-content/60 truncate">{{ card.type }}</p>
-                      @if (legalityFor(card.id); as legality) {
-                        <span class="flex flex-wrap gap-1 mt-1">
-                          <span
-                            class="badge badge-xs"
-                            [class]="verdictBadgeClass(legality.verdict)"
-                            [title]="i18n.t('history.playability')"
-                          >
-                            {{ verdictLabel(legality.verdict) }}
-                          </span>
-                          <span
-                            class="badge badge-xs badge-outline"
-                            [class]="quantityBadgeClass(legality.banlistStatus)"
-                            [title]="i18n.t('history.quantity')"
-                          >
-                            {{ quantityLabel(legality.banlistStatus) }}
-                          </span>
-                        </span>
+                    <button
+                      type="button"
+                      class="flex-1 min-w-0 flex items-center gap-2 p-2 rounded-lg hover:bg-base-200/80 text-left transition-colors"
+                      [class.opacity-50]="isSearchForbidden(card.id)"
+                      (click)="inspectSearchCard(card)"
+                    >
+                      @if (card.card_images[0]?.image_url_small; as src) {
+                        <img [src]="src" [alt]="" class="w-8 h-11 object-cover rounded shrink-0" loading="lazy" />
+                      } @else {
+                        <span class="w-8 h-11 rounded bg-base-300 shrink-0"></span>
                       }
-                    </div>
-                    @if (qtyInDeck(card.id) > 0) {
-                      <span class="badge badge-xs badge-primary shrink-0">×{{ qtyInDeck(card.id) }}</span>
-                    }
-                    <span
-                      class="btn btn-primary btn-xs btn-square shrink-0"
-                      [class.btn-disabled]="isSearchForbidden(card.id)"
-                    >+</span>
-                  </button>
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium truncate">{{ card.name }}</p>
+                        <p class="text-[11px] text-base-content/60 truncate">{{ card.type }}</p>
+                        @if (legalityFor(card.id); as legality) {
+                          <span class="flex flex-wrap gap-1 mt-1">
+                            <span
+                              class="badge badge-xs"
+                              [class]="verdictBadgeClass(legality.verdict)"
+                              [title]="i18n.t('history.playability')"
+                            >
+                              {{ verdictLabel(legality.verdict) }}
+                            </span>
+                            <span
+                              class="badge badge-xs badge-outline"
+                              [class]="quantityBadgeClass(legality.banlistStatus)"
+                              [title]="i18n.t('history.quantity')"
+                            >
+                              {{ quantityLabel(legality.banlistStatus) }}
+                            </span>
+                          </span>
+                        }
+                      </div>
+                      @if (qtyInDeck(card.id) > 0) {
+                        <span class="badge badge-xs badge-primary shrink-0">×{{ qtyInDeck(card.id) }}</span>
+                      }
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-xs btn-square shrink-0 mr-1"
+                      [class.btn-disabled]="isSearchForbidden(card.id) || !canAddSearchCard(card.id)"
+                      [attr.aria-label]="i18n.t('decklist.editor.quickAdd')"
+                      (click)="quickAddSearchCard(card, $event)"
+                    >
+                      +
+                    </button>
+                  </div>
                 } @empty {
                   @if (searchQuery().trim().length >= 2) {
                     <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.noResults') }}</p>
@@ -303,42 +367,57 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
           </aside>
         </div>
 
-        @if (selectedCard(); as card) {
-          <div class="xl:hidden rounded-xl border border-base-300 bg-base-100 p-3 flex gap-3 items-center">
-            @if (card.imageUrlSmall; as src) {
-              <div class="relative shrink-0">
-                @if (card.legalityVerdict; as verdict) {
-                  <span
-                    class="absolute top-0 inset-x-0 z-10 text-[8px] font-bold text-center py-0.5 rounded-t"
-                    [class]="verdictBannerClass(verdict)"
-                  >
-                    {{ verdictShort(verdict) }}
+        @if (inspectCard(); as target) {
+          <div class="xl:hidden rounded-xl border border-base-300 bg-base-100 p-3 flex flex-col gap-3">
+            <div class="flex gap-3 items-start">
+              @if (inspectImage(); as src) {
+                <img [src]="src" [alt]="" class="w-14 h-20 object-cover rounded-lg shrink-0" />
+              }
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-sm leading-tight">{{ inspectName() }}</p>
+                @if (inspectLegality(); as legality) {
+                  <span class="badge badge-xs mt-1" [class]="verdictBadgeClass(legality.verdict)">
+                    {{ verdictLabel(legality.verdict) }}
                   </span>
                 }
-                <img [src]="src" [alt]="" class="w-14 h-20 object-cover rounded-lg" />
+                <div class="join mt-2">
+                  <button
+                    type="button"
+                    class="btn btn-xs join-item"
+                    [disabled]="inspectQty() === 0"
+                    (click)="decrementInspect()"
+                  >
+                    −
+                  </button>
+                  <span class="btn btn-xs join-item btn-disabled tabular-nums no-animation">×{{ inspectQty() }}</span>
+                  <button
+                    type="button"
+                    class="btn btn-xs join-item"
+                    [disabled]="!canAddInspect()"
+                    (click)="incrementInspect()"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            }
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-sm truncate">{{ card.name }}</p>
-              @if (card.legalityVerdict; as verdict) {
-                <span class="badge badge-xs mt-1" [class]="verdictBadgeClass(verdict)">
-                  {{ verdictLabel(verdict) }}
-                </span>
-              }
-              <div class="join mt-2">
-                <button type="button" class="btn btn-xs join-item" (click)="decklistStore.decrementCard(card.id)">−</button>
-                <span class="btn btn-xs join-item btn-disabled tabular-nums no-animation">×{{ card.quantity }}</span>
-                <button type="button" class="btn btn-xs join-item" (click)="decklistStore.incrementCard(card.id)">+</button>
-              </div>
+              <button
+                type="button"
+                class="btn btn-ghost btn-xs btn-circle text-error shrink-0"
+                [disabled]="inspectQty() === 0"
+                [attr.aria-label]="i18n.t('decklist.editor.removeCopy')"
+                (click)="removeOneCopy(inspectedCardId()!, $event)"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              type="button"
-              class="btn btn-ghost btn-xs btn-circle text-error shrink-0"
-              [attr.aria-label]="i18n.t('decklist.editor.removeCopy')"
-              (click)="removeOneCopy(card.id)"
-            >
-              ✕
-            </button>
+            @if (inspectDesc(); as desc) {
+              <section class="rounded-lg bg-base-200/50 p-2.5 max-h-32 overflow-y-auto">
+                <h3 class="text-[10px] font-semibold uppercase tracking-wide text-base-content/60 mb-1">
+                  {{ i18n.t('result.effect') }}
+                </h3>
+                <p class="text-xs leading-relaxed whitespace-pre-line text-base-content/90">{{ desc }}</p>
+              </section>
+            }
           </div>
         }
       </section>
@@ -373,6 +452,7 @@ import { FormatSelectorComponent } from '../format-selector/format-selector.comp
 })
 export class DecklistEditorComponent {
   readonly deck = input.required<Decklist>();
+  readonly focusCardId = input<number | null>(null);
   readonly back = output<void>();
 
   protected readonly decklistStore = inject(DecklistStore);
@@ -380,12 +460,15 @@ export class DecklistEditorComponent {
   protected readonly i18n = inject(I18nService);
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly search$ = new Subject<string>();
 
   readonly renaming = signal(false);
   readonly renameDraft = signal('');
-  readonly selectedCard = signal<DecklistCard | null>(null);
+  readonly inspectCard = signal<InspectTarget | null>(null);
+  readonly inspectDesc = signal<string | null>(null);
+  readonly inspectDescLoading = signal(false);
   readonly searchQuery = signal('');
   readonly searchResults = signal<YgoCard[]>([]);
   readonly searchTotalRows = signal(0);
@@ -406,6 +489,7 @@ export class DecklistEditorComponent {
   protected readonly verdictBannerClass = verdictBannerClass;
 
   private readonly searchLimit = 50;
+  private readonly descCache = new Map<number, string>();
 
   constructor() {
     this.search$
@@ -454,19 +538,34 @@ export class DecklistEditorComponent {
       });
 
     effect(() => {
-      const deck = this.deck();
-      const selected = this.selectedCard();
-      if (!selected) {
+      const id = this.focusCardId();
+      if (id == null) {
         return;
       }
-      const fresh = deck.cards.find((c) => c.id === selected.id);
+      const card = this.deck().cards.find((c) => c.id === id);
+      if (card) {
+        this.inspectDeckCard(card);
+      }
+    });
+
+    effect(() => {
+      const inspect = this.inspectCard();
+      if (inspect?.kind !== 'deck') {
+        return;
+      }
+      const deck = this.deck();
+      const fresh = deck.cards.find((c) => c.id === inspect.card.id);
+      if (!fresh) {
+        this.inspectCard.set(null);
+        this.inspectDesc.set(null);
+        return;
+      }
       if (
-        fresh &&
-        (fresh.quantity !== selected.quantity ||
-          fresh.banlistStatus !== selected.banlistStatus ||
-          fresh.legalityVerdict !== selected.legalityVerdict)
+        fresh.quantity !== inspect.card.quantity ||
+        fresh.banlistStatus !== inspect.card.banlistStatus ||
+        fresh.legalityVerdict !== inspect.card.legalityVerdict
       ) {
-        this.selectedCard.set(fresh);
+        this.inspectCard.set({ kind: 'deck', card: fresh });
       }
     });
   }
@@ -548,21 +647,192 @@ export class DecklistEditorComponent {
     this.renaming.set(false);
   }
 
-  selectCard(card: DecklistCard): void {
-    const deck = this.deck();
-    const fresh = deck.cards.find((c) => c.id === card.id) ?? card;
-    this.selectedCard.set(fresh);
+  inspectDeckCard(card: DecklistCard): void {
+    const fresh = this.deck().cards.find((c) => c.id === card.id) ?? card;
+    this.inspectCard.set({ kind: 'deck', card: fresh });
+    this.loadInspectDesc(fresh.id);
+  }
+
+  inspectSearchCard(card: YgoCard): void {
+    this.inspectCard.set({ kind: 'search', card });
+    this.inspectDesc.set(card.desc || null);
+    this.inspectDescLoading.set(false);
+  }
+
+  inspectedCardId(): number | null {
+    const inspect = this.inspectCard();
+    return inspect?.card.id ?? null;
+  }
+
+  isDeckInspected(cardId: number): boolean {
+    const inspect = this.inspectCard();
+    return inspect?.kind === 'deck' && inspect.card.id === cardId;
+  }
+
+  isSearchInspected(cardId: number): boolean {
+    const inspect = this.inspectCard();
+    return inspect?.kind === 'search' && inspect.card.id === cardId;
+  }
+
+  inspectName(): string {
+    return this.inspectCard()?.card.name ?? '';
+  }
+
+  inspectType(): string {
+    const inspect = this.inspectCard();
+    if (!inspect) {
+      return '';
+    }
+    return inspect.kind === 'deck' ? inspect.card.type : inspect.card.type;
+  }
+
+  inspectImage(): string | null {
+    const inspect = this.inspectCard();
+    if (!inspect) {
+      return null;
+    }
+    if (inspect.kind === 'deck') {
+      return inspect.card.imageUrlSmall;
+    }
+    return inspect.card.card_images[0]?.image_url_small ?? null;
+  }
+
+  inspectLegality(): LegalityResult | null {
+    const inspect = this.inspectCard();
+    if (!inspect) {
+      return null;
+    }
+    if (inspect.kind === 'search') {
+      return this.searchLegality().get(inspect.card.id) ?? null;
+    }
+    const card = inspect.card;
+    if (card.legalityVerdict && card.banlistStatus) {
+      return {
+        verdict: card.legalityVerdict,
+        banlistStatus: card.banlistStatus,
+        tcgDate: null,
+        reasons: [],
+      };
+    }
+    return null;
+  }
+
+  inspectQty(): number {
+    const id = this.inspectedCardId();
+    return id ? this.qtyInDeck(id) : 0;
+  }
+
+  inspectInDeckLabel(): string {
+    return this.i18n.t('decklist.editor.inDeck', { qty: String(this.inspectQty()) });
+  }
+
+  canAddInspect(): boolean {
+    const inspect = this.inspectCard();
+    if (!inspect) {
+      return false;
+    }
+    const cardId = inspect.card.id;
+    if (inspect.kind === 'deck' && inspect.card.banlistStatus === 'Forbidden') {
+      return false;
+    }
+    if (inspect.kind === 'search' && this.isSearchForbidden(cardId)) {
+      return false;
+    }
+    const banlistStatus =
+      inspect.kind === 'deck'
+        ? inspect.card.banlistStatus ?? null
+        : this.searchLegality().get(cardId)?.banlistStatus ?? null;
+    return this.decklistStore.canAddToDeck(this.deck().id, cardId, banlistStatus);
+  }
+
+  canAddSearchCard(cardId: number): boolean {
+    if (this.isSearchForbidden(cardId)) {
+      return false;
+    }
+    const legality = this.searchLegality().get(cardId);
+    return this.decklistStore.canAddToDeck(this.deck().id, cardId, legality?.banlistStatus ?? null);
+  }
+
+  incrementInspect(): void {
+    const inspect = this.inspectCard();
+    if (!inspect || !this.canAddInspect()) {
+      return;
+    }
+    if (inspect.kind === 'deck') {
+      this.decklistStore.incrementCard(inspect.card.id, inspect.card.banlistStatus ?? null);
+      return;
+    }
+    this.addSearchCard(inspect.card);
+  }
+
+  decrementInspect(): void {
+    const inspect = this.inspectCard();
+    const id = this.inspectedCardId();
+    if (!id || this.inspectQty() === 0) {
+      return;
+    }
+    const banlistStatus =
+      inspect?.kind === 'deck'
+        ? inspect.card.banlistStatus ?? null
+        : this.searchLegality().get(id)?.banlistStatus ?? null;
+    this.decklistStore.decrementCard(id, banlistStatus);
+  }
+
+  private loadInspectDesc(cardId: number): void {
+    const cached = this.descCache.get(cardId);
+    if (cached) {
+      this.inspectDesc.set(cached);
+      this.inspectDescLoading.set(false);
+      return;
+    }
+    this.inspectDescLoading.set(true);
+    this.inspectDesc.set(null);
+    this.ygoApi.getCardById$(cardId, this.i18n.lang()).subscribe((card) => {
+      const desc = card?.desc ?? null;
+      if (desc) {
+        this.descCache.set(cardId, desc);
+      }
+      this.inspectDesc.set(desc);
+      this.inspectDescLoading.set(false);
+    });
+  }
+
+  openInspectedInSearch(): void {
+    const id = this.inspectedCardId();
+    if (!id) {
+      return;
+    }
+    void this.router.navigate(['/'], {
+      queryParams: {
+        cardId: id,
+        from: 'decklist',
+        deckId: this.deck().id,
+      },
+    });
+  }
+
+  quickAddSearchCard(card: YgoCard, event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.inspectSearchCard(card);
+    if (this.canAddSearchCard(card.id)) {
+      this.addSearchCard(card);
+    }
   }
 
   removeOneCopy(cardId: number, event?: Event): void {
     event?.stopPropagation();
     event?.preventDefault();
     this.decklistStore.removeOneCopy(cardId);
-    const selected = this.selectedCard();
-    if (selected?.id === cardId) {
-      const deck = this.deck();
-      const fresh = deck.cards.find((c) => c.id === cardId);
-      this.selectedCard.set(fresh ?? null);
+    const inspect = this.inspectCard();
+    if (inspect?.card.id === cardId) {
+      if (inspect.kind === 'deck') {
+        const deck = this.deck();
+        const fresh = deck.cards.find((c) => c.id === cardId);
+        if (fresh) {
+          this.inspectCard.set({ kind: 'deck', card: fresh });
+        }
+      }
     }
   }
 

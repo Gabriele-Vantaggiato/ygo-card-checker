@@ -1,4 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
+import { filter, map } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { DecklistEditorComponent } from '../decklist-editor/decklist-editor.component';
 import { DecklistGridComponent } from '../decklist-grid/decklist-grid.component';
@@ -52,7 +55,11 @@ type DecklistView = 'grid' | 'editor';
           (createRequested)="openCreateDeck()"
         />
       } @else if (decklistStore.activeDecklist(); as deck) {
-        <app-decklist-editor [deck]="deck" (back)="closeEditor()" />
+        <app-decklist-editor
+          [deck]="deck"
+          [focusCardId]="focusCardId()"
+          (back)="closeEditor()"
+        />
       }
     </section>
   `,
@@ -60,17 +67,52 @@ type DecklistView = 'grid' | 'editor';
 export class DecklistPanelComponent {
   protected readonly decklistStore = inject(DecklistStore);
   protected readonly i18n = inject(I18nService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly view = signal<DecklistView>('grid');
   readonly createOpen = signal(false);
   readonly newDeckName = signal('');
+  readonly focusCardId = signal<number | null>(null);
+
+  constructor() {
+    this.route.queryParamMap
+      .pipe(
+        map((params) => ({
+          deckId: params.get('deckId'),
+          cardId: params.get('cardId'),
+          editor: params.get('editor'),
+        })),
+        filter(({ deckId, editor }) => !!deckId && editor === '1'),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(({ deckId, cardId }) => {
+        if (!deckId || !this.decklistStore.getDeckById(deckId)) {
+          return;
+        }
+        this.decklistStore.setActiveDecklist(deckId);
+        this.view.set('editor');
+        if (cardId && /^\d+$/.test(cardId)) {
+          this.focusCardId.set(Number(cardId));
+        }
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { deckId: null, cardId: null, editor: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      });
+  }
 
   openEditor(deckId: string): void {
+    this.focusCardId.set(null);
     this.decklistStore.setActiveDecklist(deckId);
     this.view.set('editor');
   }
 
   closeEditor(): void {
+    this.focusCardId.set(null);
     this.view.set('grid');
   }
 
