@@ -17,11 +17,13 @@ import { I18nService } from '../../services/i18n.service';
       </div>
     } @else if (result(); as res) {
       <div class="card bg-base-100 shadow-xl border border-base-300">
-        <div class="card-body p-4 sm:p-6">
-          <div class="flex flex-col lg:flex-row lg:gap-8 lg:items-start">
+        <div class="card-body items-start p-4 sm:p-6">
+          <div
+            class="grid w-full grid-cols-1 gap-6 lg:grid-cols-[minmax(220px,280px)_1fr] lg:gap-8 lg:items-start"
+          >
             @if (cardImageLarge(); as src) {
               <figure
-                class="shrink-0 flex justify-center mx-auto lg:mx-0 lg:sticky lg:top-24 w-full max-w-[220px] sm:max-w-[260px] lg:max-w-[280px] lg:w-[280px]"
+                class="justify-self-center lg:justify-self-start lg:sticky lg:top-24 lg:self-start w-full max-w-[220px] sm:max-w-[260px] lg:max-w-[280px]"
               >
                 <img
                   [src]="src"
@@ -32,7 +34,7 @@ import { I18nService } from '../../services/i18n.service';
               </figure>
             }
 
-            <div class="flex-1 min-w-0 space-y-4 pt-2 lg:pt-0">
+            <div class="min-w-0 space-y-4 pt-2 lg:pt-0">
               <header class="space-y-2">
                 <div class="flex flex-wrap items-center gap-2">
                   <h2 class="text-xl sm:text-2xl font-bold leading-tight">{{ card()!.name }}</h2>
