@@ -138,32 +138,47 @@ export function parseSelfSummonHandTributeAtk(desc: string): SelfSummonHandTribu
 }
 
 export function parseSpecialSummonFromGy(desc: string): SpecialSummonFromGyPayoff | null {
-  const match = desc.match(/Special Summon\s+(.+?)\s+from (?:your )?GY/i);
-  if (!match) {
-    return null;
-  }
-  const names = extractQuotedNames(match[1]);
-  if (names.length === 0) {
-    const generic = match[1].match(/["']([^"']+)["']/);
-    if (!generic) {
-      return null;
+  const patterns = [
+    /Special Summon (?:\d+\s+)?(.+?)\s+from (?:your )?GY/i,
+    /Special Summon (?:\d+\s+)?(.+?)\s+from your Graveyard/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = desc.match(pattern);
+    if (!match) {
+      continue;
     }
-    names.push(generic[1]);
+    const names = extractQuotedNames(match[1]);
+    if (names.length === 0) {
+      continue;
+    }
+    return { kind: 'special_summon_gy', names };
   }
-  return { kind: 'special_summon_gy', names };
+
+  return null;
 }
 
 export function parseAddFromDeck(desc: string): AddFromDeckPayoff | null {
-  const match = desc.match(/add\s+(.+?)\s+from your Deck(?:\s+to your hand)?/i);
-  if (!match) {
-    return null;
+  const patterns = [
+    /add\s+(?:\d+\s+)?(.+?)\s+from your Deck(?:\s+to your hand)?/i,
+    /add\s+(?:to your hand,?\s+)?(?:\d+\s+)?(.+?)\s+from your Deck/i,
+    /add\s+(?:\d+\s+)?(.+?)\s+from your Deck to your hand/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = desc.match(pattern);
+    if (!match) {
+      continue;
+    }
+    const names = extractQuotedNames(match[1]);
+    if (names.length === 0) {
+      continue;
+    }
+    const toHand = /to your hand/i.test(match[0]);
+    return { kind: 'add_from_deck', names, toHand };
   }
-  const names = extractQuotedNames(match[1]);
-  if (names.length === 0) {
-    return null;
-  }
-  const toHand = /to your hand/i.test(match[0]);
-  return { kind: 'add_from_deck', names, toHand };
+
+  return null;
 }
 
 export function parseTributeSummon(desc: string): TributeSummonPayoff | null {
@@ -182,26 +197,37 @@ export function parseTributeSummon(desc: string): TributeSummonPayoff | null {
 }
 
 export function parseTributeSpecialSummon(desc: string): TributeSpecialSummonPayoff | null {
-  const match = desc.match(
+  const patterns = [
     /Tribute (\d+)\s+(.+?)\.\s*Special Summon (?:\d+\s+)?(.+?)\s+from your (?:hand or )?Deck/i,
-  );
-  if (!match) {
-    return null;
+    /Tribute\s+(.+?)\.\s*Special Summon (?:\d+\s+)?(.+?)\s+from your (?:hand or )?Deck/i,
+    /Tribute (\d+)\s+(.+?);\s*Special Summon (?:\d+\s+)?(.+?)\s+from your (?:hand or )?Deck/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = desc.match(pattern);
+    if (!match) {
+      continue;
+    }
+
+    const tributePart = match.length === 5 ? match[2] : match[1];
+    const summonPart = match.length === 5 ? match[3] : match[2];
+    const tributeCount = match.length === 5 ? Number(match[1]) : 1;
+    const tributeNames = extractQuotedNames(tributePart);
+    const summonNames = extractQuotedNames(summonPart);
+    if (tributeNames.length === 0 || summonNames.length === 0) {
+      continue;
+    }
+
+    return {
+      kind: 'tribute_special_summon',
+      tributeCount,
+      tributeNames,
+      summonNames,
+      fromHandOrDeck: true,
+    };
   }
 
-  const tributeNames = extractQuotedNames(match[2]);
-  const summonNames = extractQuotedNames(match[3]);
-  if (tributeNames.length === 0 || summonNames.length === 0) {
-    return null;
-  }
-
-  return {
-    kind: 'tribute_special_summon',
-    tributeCount: Number(match[1]),
-    tributeNames,
-    summonNames,
-    fromHandOrDeck: true,
-  };
+  return null;
 }
 
 export function parseSpecialSummonHandOrDeck(desc: string): SpecialSummonFromDeckPayoff | null {
@@ -348,6 +374,27 @@ export function seriesNamesForCard(input: {
   }
   if (/\bCyber\b/i.test(input.name)) {
     names.add('Cyber');
+  }
+  if (/\bShaddoll\b/i.test(input.name)) {
+    names.add('Shaddoll');
+  }
+  if (/\bBranded\b/i.test(input.name) || /\bDespia\b/i.test(input.name)) {
+    names.add('Branded');
+  }
+  if (/\bLabrynth\b/i.test(input.name)) {
+    names.add('Labrynth');
+  }
+  if (/\bRunick\b/i.test(input.name)) {
+    names.add('Runick');
+  }
+  if (/\bTellarknight\b/i.test(input.name) || /\bConstellar\b/i.test(input.name)) {
+    names.add('Tellarknight');
+  }
+  if (/\bEvil\s*Eye\b/i.test(input.name)) {
+    names.add('Evil Eye');
+  }
+  if (/\bSnake[- ]Eye\b/i.test(input.name)) {
+    names.add('Snake-Eye');
   }
   return [...names];
 }

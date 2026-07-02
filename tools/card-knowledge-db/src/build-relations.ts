@@ -23,16 +23,64 @@ interface MentionIndex {
   mention: string;
 }
 
+interface EffectRow {
+  card_id: number;
+  payload_json: string;
+}
+
 const MAX_TAG_RELATIONS_PER_SOURCE = 24;
-const MAX_ARCHETYPE_LINKS_PER_CARD = 32;
+const MAX_ARCHETYPE_LINKS_PER_CARD = 16;
+const MAX_ARCHETYPE_GROUP_FULL_MESH = 22;
 const MAX_MENTIONS_PER_SOURCE = 12;
 const MAX_SHARED_MENTION_LINKS = 6;
-const MAX_SERIES_LINKS_PER_CARD = 48;
+const MAX_SERIES_LINKS_PER_CARD = 40;
+const MAX_EFFECT_TARGET_LINKS = 12;
 
-const SERIES_TOKENS = ['galaxy', 'photon', 'cyber'] as const;
+const SERIES_TOKENS = [
+  'galaxy',
+  'photon',
+  'cyber',
+  'shaddoll',
+  'branded',
+  'despia',
+  'labrynth',
+  'runick',
+  'tellarknight',
+  'constellar',
+  'snake-eye',
+  'snake eye',
+  'evil eye',
+] as const;
 
 function mentionsCardName(desc: string, cardName: string): boolean {
   return desc.toLowerCase().includes(cardName.toLowerCase());
+}
+
+function sharesArchetypeSignal(source: CardMeta, target: CardMeta): boolean {
+  return (
+    mentionsCardName(target.desc_en, source.name) ||
+    mentionsCardName(source.desc_en, target.name) ||
+    (source.archetype !== null && mentionsCardName(target.desc_en, source.archetype)) ||
+    (target.archetype !== null && mentionsCardName(source.desc_en, target.archetype))
+  );
+}
+
+function effectTargetNames(payload: Record<string, unknown>): string[] {
+  const kind = String(payload.kind ?? '');
+  switch (kind) {
+    case 'add_from_deck':
+    case 'special_summon_deck':
+    case 'special_summon_gy':
+      return Array.isArray(payload.names) ? (payload.names as string[]) : [];
+    case 'tribute_special_summon':
+      return Array.isArray(payload.summonNames) ? (payload.summonNames as string[]) : [];
+    case 'synchro_summon':
+    case 'xyz_summon':
+    case 'tribute_summon':
+      return Array.isArray(payload.names) ? (payload.names as string[]) : [];
+    default:
+      return [];
+  }
 }
 
 async function main(): Promise<void> {
@@ -81,6 +129,10 @@ async function main(): Promise<void> {
     byArchetype.set(card.archetype, bucket);
   }
 
+  const effectRows = db
+    .prepare(`SELECT card_id, payload_json FROM card_effects WHERE source = 'rule'`)
+    .all() as EffectRow[];
+
   console.log('Building rule-based relations...');
   let relations = 0;
 
@@ -112,6 +164,21 @@ async function main(): Promise<void> {
       relations += 1;
     }
 
+    for (const row of effectRows) {
+      const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
+      const names = effectTargetNames(payload);
+      let linked = 0;
+      for (const name of names) {
+        const targetId = cardsByName.get(name.toLowerCase());
+        if (!targetId || targetId === row.card_id || linked >= MAX_EFFECT_TARGET_LINKS) {
+          continue;
+        }
+        insertRelation(db, row.card_id, targetId, 'search_target', 0.94);
+        relations += 1;
+        linked += 1;
+      }
+    }
+
     for (const [_mention, cardIds] of byMention) {
       if (cardIds.length < 2) {
         continue;
@@ -134,6 +201,8 @@ async function main(): Promise<void> {
         continue;
       }
 
+      const fullMesh = group.length <= MAX_ARCHETYPE_GROUP_FULL_MESH;
+
       for (const source of group) {
         let mentionLinks = 0;
         for (const target of group) {
@@ -152,7 +221,10 @@ async function main(): Promise<void> {
           if (source.id === target.id || archetypeLinks >= MAX_ARCHETYPE_LINKS_PER_CARD) {
             continue;
           }
-          insertRelation(db, source.id, target.id, 'archetype', 0.55);
+          if (!fullMesh && !sharesArchetypeSignal(source, target)) {
+            continue;
+          }
+          insertRelation(db, source.id, target.id, 'archetype', fullMesh ? 0.55 : 0.48);
           relations += 1;
           archetypeLinks += 1;
         }
@@ -173,7 +245,7 @@ async function main(): Promise<void> {
         if (!target.name.toLowerCase().includes(token)) {
           continue;
         }
-        insertRelation(db, card.id, target.id, 'series', token === 'cyber' ? 0.65 : 0.7);
+        insertRelation(db, card.id, target.id, 'series', token === 'cyber' ? 0.65 : 0.68);
         relations += 1;
         linked += 1;
       }

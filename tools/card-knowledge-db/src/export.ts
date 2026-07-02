@@ -4,19 +4,23 @@ import { openDatabase, readMeta, REPO_ROOT } from './database';
 import { seriesNamesForCard } from './effect-parser';
 
 const EXPORT_PATH = join(REPO_ROOT, 'src', 'assets', 'data', 'card-knowledge', 'related.json');
-const MAX_RELATED_PER_CARD = 16;
-const MAX_PER_RELATION = 4;
+const MAX_RELATED_PER_CARD = 18;
+const MAX_PER_RELATION = 5;
+const MAX_PER_RELATION_LOW = 2;
 const MAX_MENTIONS = 10;
 const MAX_EFFECTS = 6;
 
 const RELATION_PRIORITY = [
   'engine',
   'gy_synergy',
+  'search_target',
   'mentions_card',
   'shared_mention',
-  'archetype',
   'series',
+  'archetype',
 ] as const;
+
+const LOW_PRIORITY_RELATIONS = new Set<string>(['archetype']);
 
 interface RelatedRow {
   source_id: number;
@@ -86,7 +90,8 @@ function pickDiversifiedRelated(rows: RelatedRow[]): ExportedRelated[] {
   for (const relation of RELATION_PRIORITY) {
     const bucket = relationMap.get(relation) ?? [];
     bucket.sort((a, b) => b.score - a.score || a.target_name.localeCompare(b.target_name));
-    for (const row of bucket.slice(0, MAX_PER_RELATION)) {
+    const limit = LOW_PRIORITY_RELATIONS.has(relation) ? MAX_PER_RELATION_LOW : MAX_PER_RELATION;
+    for (const row of bucket.slice(0, limit)) {
       if (picked.length >= MAX_RELATED_PER_CARD) {
         return picked;
       }

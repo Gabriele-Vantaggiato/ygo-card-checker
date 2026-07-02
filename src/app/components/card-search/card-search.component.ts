@@ -1,10 +1,12 @@
 import { Component, input, output, signal } from '@angular/core';
-import { YgoCard } from '../../models/ygo-card.model';
+import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
+import { CardSearchResultRowComponent } from '../card-search-result-row/card-search-result-row.component';
 import { I18nService } from '../../services/i18n.service';
 
 @Component({
   selector: 'app-card-search',
   standalone: true,
+  imports: [CardSearchResultRowComponent],
   host: { class: 'block lg:flex lg:flex-col lg:min-h-0 lg:flex-1' },
   template: `
     <div class="form-control w-full relative lg:flex lg:flex-col lg:min-h-0 lg:flex-1">
@@ -13,14 +15,14 @@ import { I18nService } from '../../services/i18n.service';
       </div>
       <input
         type="text"
-        class="input input-bordered w-full"
+        class="input input-bordered input-lg w-full text-base"
         [placeholder]="i18n.t('search.placeholder')"
         [value]="query()"
         (input)="onInput($event)"
         autocomplete="off"
       />
 
-      @if (loading()) {
+      @if (loading() || legalityLoading()) {
         <div class="label">
           <span class="label-text-alt">{{ i18n.t('search.loading') }}</span>
         </div>
@@ -28,45 +30,48 @@ import { I18nService } from '../../services/i18n.service';
 
       @if (showDropdown()) {
         <ul
-          class="menu bg-base-100 rounded-box border border-base-300 absolute z-20 w-full top-full mt-1 max-h-64 overflow-y-auto shadow-lg lg:hidden"
+          class="bg-base-100 rounded-box border border-base-300 absolute z-20 w-full top-full mt-1 max-h-[min(70vh,28rem)] overflow-y-auto shadow-xl p-1.5 space-y-1 lg:hidden"
         >
-          @for (card of suggestions(); track card.id) {
+          @if (loading() && listCards().length === 0) {
+            <li class="px-3 py-4 text-sm text-base-content/60">{{ i18n.t('search.loading') }}</li>
+          } @else {
+            @for (card of listCards(); track card.id) {
             <li>
-              <button type="button" (click)="selectCard(card)">
-                <span>{{ card.name }}</span>
-                <span class="text-xs opacity-60">{{ card.type }}</span>
-              </button>
+              <app-card-search-result-row
+                [card]="card"
+                [legality]="legalityFor(card.id)"
+                [legalityLoading]="legalityLoading()"
+                [active]="card.id === selectedCardId()"
+                [qtyInDeck]="qtyInDeck(card.id)"
+                [showAddButton]="true"
+                (cardSelect)="selectCard($event)"
+              />
             </li>
           } @empty {
-            <li class="disabled">
-              <span>{{ i18n.t('search.noResults') }}</span>
-            </li>
+            <li class="px-3 py-4 text-sm text-base-content/60">{{ i18n.t('search.noResults') }}</li>
+          }
           }
         </ul>
       }
 
       @if (showDesktopList()) {
-        <ul
-          class="menu bg-base-100 rounded-box border border-base-300 hidden lg:block mt-2 lg:flex-1 lg:min-h-0 max-h-[min(32rem,calc(100vh-18rem))] lg:max-h-none overflow-y-auto"
+        <div
+          class="hidden lg:flex lg:flex-col mt-3 lg:flex-1 lg:min-h-0 max-h-[min(36rem,calc(100vh-16rem))] lg:max-h-none overflow-y-auto rounded-box border border-base-300 bg-base-100 p-1.5 space-y-1"
         >
           @for (card of listCards(); track card.id) {
-            <li>
-              <button
-                type="button"
-                class="flex-col items-start gap-0.5"
-                [class.active]="card.id === selectedCardId()"
-                (click)="selectCard(card)"
-              >
-                <span class="font-medium">{{ card.name }}</span>
-                <span class="text-xs opacity-60">{{ card.type }}</span>
-              </button>
-            </li>
+            <app-card-search-result-row
+              [card]="card"
+              [legality]="legalityFor(card.id)"
+              [legalityLoading]="legalityLoading()"
+              [active]="card.id === selectedCardId()"
+              [qtyInDeck]="qtyInDeck(card.id)"
+              [showAddButton]="true"
+              (cardSelect)="selectCard($event)"
+            />
           } @empty {
-            <li class="disabled">
-              <span>{{ i18n.t('search.noResults') }}</span>
-            </li>
+            <p class="text-sm text-base-content/60 px-3 py-4">{{ i18n.t('search.noResults') }}</p>
           }
-        </ul>
+        </div>
       }
     </div>
   `,
@@ -74,9 +79,12 @@ import { I18nService } from '../../services/i18n.service';
 export class CardSearchComponent {
   readonly query = input.required<string>();
   readonly suggestions = input.required<YgoCard[]>();
+  readonly suggestionLegality = input<ReadonlyMap<number, LegalityResult>>(new Map());
   readonly loading = input(false);
+  readonly legalityLoading = input(false);
   readonly selectedCardId = input<number | null>(null);
   readonly selectedCard = input<YgoCard | null>(null);
+  readonly deckQuantities = input<ReadonlyMap<number, number>>(new Map());
 
   readonly queryChange = output<string>();
   readonly cardSelected = output<YgoCard>();
@@ -86,14 +94,17 @@ export class CardSearchComponent {
   constructor(protected readonly i18n: I18nService) {}
 
   showDropdown(): boolean {
+    const q = this.query().trim();
     return (
-      this.dropdownOpen() && this.query().trim().length >= 2 && !this.loading()
+      this.dropdownOpen() &&
+      q.length >= 2 &&
+      (this.loading() || this.listCards().length > 0)
     );
   }
 
   showDesktopList(): boolean {
     const q = this.query().trim();
-    return q.length >= 2 && !this.loading() && (this.suggestions().length > 0 || this.hasSelectedInQuery());
+    return q.length >= 2 && (this.loading() || this.listCards().length > 0 || this.hasSelectedInQuery());
   }
 
   listCards(): YgoCard[] {
@@ -108,6 +119,14 @@ export class CardSearchComponent {
     }
 
     return [];
+  }
+
+  legalityFor(cardId: number): LegalityResult | null {
+    return this.suggestionLegality().get(cardId) ?? null;
+  }
+
+  qtyInDeck(cardId: number): number {
+    return this.deckQuantities().get(cardId) ?? 0;
   }
 
   private hasSelectedInQuery(): boolean {

@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
@@ -65,7 +65,7 @@ interface DeckReturnContext {
       }
 
       <div
-        class="flex flex-col gap-4 sm:gap-6 lg:grid lg:grid-cols-[minmax(280px,340px)_1fr] xl:grid-cols-[minmax(300px,380px)_1fr] lg:gap-6 xl:gap-8 lg:items-start"
+        class="flex flex-col gap-4 sm:gap-6 lg:grid lg:grid-cols-[minmax(320px,420px)_1fr] xl:grid-cols-[minmax(340px,440px)_1fr] lg:gap-6 xl:gap-8 lg:items-start"
       >
         <aside
           class="card bg-base-100 shadow-xl border border-base-300 lg:sticky lg:top-16 lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto lg:overscroll-y-contain lg:flex lg:flex-col"
@@ -80,7 +80,10 @@ interface DeckReturnContext {
             <app-card-search
               [query]="store.searchQuery()"
               [suggestions]="store.suggestions()"
+              [suggestionLegality]="store.suggestionLegality()"
               [loading]="store.searchLoading()"
+              [legalityLoading]="store.suggestionLegalityLoading()"
+              [deckQuantities]="deckQuantities()"
               [selectedCardId]="store.selectedCard()?.id ?? null"
               [selectedCard]="store.selectedCard()"
               (queryChange)="store.setSearchQuery($event)"
@@ -148,6 +151,14 @@ export class CheckerPage {
   private readonly decklistStore = inject(DecklistStore);
 
   readonly deckReturn = signal<DeckReturnContext | null>(null);
+
+  readonly deckQuantities = computed(() => {
+    const deck = this.decklistStore.activeDecklist();
+    if (!deck) {
+      return new Map<number, number>();
+    }
+    return new Map(deck.cards.map((card) => [card.id, card.quantity]));
+  });
 
   constructor() {
     this.route.queryParamMap

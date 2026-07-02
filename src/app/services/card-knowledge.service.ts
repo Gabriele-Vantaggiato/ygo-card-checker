@@ -33,11 +33,13 @@ const RELATION_LABEL_KEYS: Record<string, string> = {
   archetype: 'knowledge.reason.archetype',
   mentions_card: 'knowledge.reason.mentionsCard',
   shared_mention: 'knowledge.reason.sharedMention',
+  search_target: 'knowledge.reason.searchTarget',
 };
 
 const RELATION_GROUP_KEYS: Record<string, string> = {
   engine: 'knowledge.group.engine',
   gy_synergy: 'knowledge.group.gySynergy',
+  search_target: 'knowledge.group.searchTarget',
   mentions_card: 'knowledge.group.mentionsCard',
   shared_mention: 'knowledge.group.sharedMention',
   archetype: 'knowledge.group.archetype',
@@ -564,7 +566,7 @@ export class CardKnowledgeService {
   private toSuggestion(related: CardKnowledgeRelated, sourceName: string): CardRelatedSuggestion {
     const reasonKey = RELATION_LABEL_KEYS[related.relation] ?? 'knowledge.reason.related';
     let reasonParams: Record<string, string> | undefined;
-    if (related.relation === 'mentions_card') {
+    if (related.relation === 'mentions_card' || related.relation === 'search_target') {
       reasonParams = { name: sourceName };
     } else if (related.relation === 'shared_mention' && related.archetype) {
       reasonParams = { series: related.archetype };

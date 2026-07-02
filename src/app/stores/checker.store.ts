@@ -26,8 +26,10 @@ import { CardRelatedResult } from '../models/card-knowledge.model';
 import { I18nService } from '../services/i18n.service';
 import { CardKnowledgeService } from '../services/card-knowledge.service';
 import { LegalityService } from '../services/legality.service';
+import { CardLegalityFacade } from '../services/card-legality.facade';
 import { YgoApiService } from '../services/ygo-api.service';
 import { FormatStore } from './format.store';
+import { sortYgoCardsByPlayability } from '../utils/card-sort.utils';
 
 interface SearchIntent {
   query: string;
@@ -36,7 +38,9 @@ interface SearchIntent {
 
 interface SearchState {
   suggestions: YgoCard[];
+  suggestionLegality: Map<number, LegalityResult>;
   loading: boolean;
+  legalityLoading: boolean;
   error: string | null;
 }
 
@@ -50,7 +54,13 @@ interface RelatedState {
   loading: boolean;
 }
 
-const EMPTY_SEARCH: SearchState = { suggestions: [], loading: false, error: null };
+const EMPTY_SEARCH: SearchState = {
+  suggestions: [],
+  suggestionLegality: new Map(),
+  loading: false,
+  legalityLoading: false,
+  error: null,
+};
 const EMPTY_LEGALITY: LegalityState = { result: null, error: null };
 const EMPTY_RELATED: CardRelatedResult = {
   tags: [],
@@ -71,6 +81,7 @@ export class CheckerStore {
   private readonly formatStore = inject(FormatStore);
   private readonly ygoApi = inject(YgoApiService);
   private readonly legalityService = inject(LegalityService);
+  private readonly cardLegality = inject(CardLegalityFacade);
   private readonly knowledgeService = inject(CardKnowledgeService);
   private readonly i18n = inject(I18nService);
 
@@ -103,6 +114,14 @@ export class CheckerStore {
   readonly searchLoading = toSignal(this.searchState$.pipe(map((s) => s.loading)), {
     initialValue: false,
   });
+  readonly suggestionLegalityLoading = toSignal(
+    this.searchState$.pipe(map((s) => s.legalityLoading)),
+    { initialValue: false },
+  );
+  readonly suggestionLegality = toSignal(
+    this.searchState$.pipe(map((s) => s.suggestionLegality)),
+    { initialValue: new Map<number, LegalityResult>() },
+  );
 
   readonly selectedCard$ = this.selectedCardSubject.asObservable();
   readonly selectedCard = toSignal(this.selectedCard$, { initialValue: null as YgoCard | null });
@@ -151,6 +170,7 @@ export class CheckerStore {
 
   constructor() {
     this.bindSearch();
+    this.bindSuggestionLegalityRefresh();
     this.bindCardSelection();
     this.bindLegality();
     this.bindRelated();
@@ -222,9 +242,8 @@ export class CheckerStore {
         filter((intent) => !intent.fromSelection && intent.query.trim().length >= 2),
         tap(() => {
           this.searchStateSubject.next({
-            suggestions: [],
+            ...EMPTY_SEARCH,
             loading: true,
-            error: null,
           });
         }),
         switchMap((intent) =>
@@ -233,14 +252,41 @@ export class CheckerStore {
             map((suggestions) => ({ suggestions, error: null as string | null })),
           ),
         ),
+        switchMap(({ suggestions, error }) => {
+          if (suggestions.length === 0) {
+            return of({
+              suggestions,
+              suggestionLegality: new Map<number, LegalityResult>(),
+              error,
+            });
+          }
+
+          const current = this.searchStateSubject.value;
+          this.searchStateSubject.next({
+            ...current,
+            suggestions,
+            loading: false,
+            legalityLoading: true,
+            error,
+          });
+
+          return this.evaluateSuggestions$(suggestions).pipe(
+            map((evaluated) => ({ ...evaluated, error })),
+          );
+        }),
         tap({
-          next: ({ suggestions, error }) => {
-            this.searchStateSubject.next({ suggestions, loading: false, error });
+          next: ({ suggestions, suggestionLegality, error }) => {
+            this.searchStateSubject.next({
+              suggestions,
+              suggestionLegality,
+              loading: false,
+              legalityLoading: false,
+              error,
+            });
           },
           error: () => {
             this.searchStateSubject.next({
-              suggestions: [],
-              loading: false,
+              ...EMPTY_SEARCH,
               error: this.i18n.t('error.api'),
             });
           },
@@ -248,6 +294,55 @@ export class CheckerStore {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
+  }
+
+  private bindSuggestionLegalityRefresh(): void {
+    this.formatStore.formatId$
+      .pipe(
+        skip(1),
+        distinctUntilChanged(),
+        withLatestFrom(this.searchStateSubject),
+        filter(([, state]) => state.suggestions.length > 0),
+        tap(() => {
+          const current = this.searchStateSubject.value;
+          this.searchStateSubject.next({
+            ...current,
+            legalityLoading: true,
+          });
+        }),
+        switchMap(([, state]) => this.evaluateSuggestions$(state.suggestions)),
+        tap(({ suggestions, suggestionLegality }) => {
+          this.searchStateSubject.next({
+            ...this.searchStateSubject.value,
+            suggestions,
+            suggestionLegality,
+            legalityLoading: false,
+          });
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+  }
+
+  private evaluateSuggestions$(suggestions: YgoCard[]) {
+    return this.selectedFormat$.pipe(
+      take(1),
+      switchMap((format) => {
+        if (!format || suggestions.length === 0) {
+          return of({
+            suggestions,
+            suggestionLegality: new Map<number, LegalityResult>(),
+          });
+        }
+
+        return this.cardLegality.evaluateMany$(suggestions, format).pipe(
+          map((suggestionLegality) => ({
+            suggestions: sortYgoCardsByPlayability(suggestions, suggestionLegality),
+            suggestionLegality,
+          })),
+        );
+      }),
+    );
   }
 
   private bindCardSelection(): void {

@@ -12,7 +12,10 @@ import { DecklistStore } from '../../stores/decklist.store';
   template: `
     <button
       type="button"
-      class="btn btn-primary btn-xs btn-square shrink-0"
+      class="btn btn-primary shrink-0"
+      [class.btn-xs]="size() === 'sm'"
+      [class.btn-sm]="size() === 'md'"
+      [class.btn-square]="true"
       [class.btn-disabled]="isForbidden()"
       [disabled]="isForbidden()"
       [attr.aria-label]="i18n.t('decklist.add')"
@@ -192,6 +195,7 @@ import { DecklistStore } from '../../stores/decklist.store';
 export class AddToDecklistButtonComponent {
   readonly payload = input.required<AddToDecklistPayload>();
   readonly banlistStatus = input<BanlistStatus | null>(null);
+  readonly size = input<'sm' | 'md'>('sm');
 
   protected readonly decklistStore = inject(DecklistStore);
   protected readonly i18n = inject(I18nService);

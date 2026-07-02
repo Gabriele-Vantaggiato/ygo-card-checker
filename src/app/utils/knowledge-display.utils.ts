@@ -64,10 +64,11 @@ export function toDisplayTags(tags: readonly string[]): DisplayTag[] {
 export const RELATION_GROUP_ORDER = [
   'engine',
   'gy_synergy',
+  'search_target',
   'mentions_card',
   'shared_mention',
-  'archetype',
   'series',
+  'archetype',
 ] as const;
 
 export function relationGroupOrder(relation: string): number {

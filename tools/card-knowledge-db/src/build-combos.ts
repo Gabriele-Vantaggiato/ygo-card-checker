@@ -2,10 +2,12 @@ import {
   cardMatchesNames,
   mentionsCardName,
   seriesNamesForCard,
+  type AddFromDeckPayoff,
   type ComboPayoffParsed,
   type ControlRequirement,
   type SelfSummonHandTributePayoff,
   type SpecialSummonFromDeckPayoff,
+  type SpecialSummonFromGyPayoff,
   type StructuredEffect,
   type TributeSpecialSummonPayoff,
 } from './effect-parser';
@@ -348,7 +350,7 @@ function findDeckTargets(
       (card) =>
         card.id !== sourceId &&
         isMonster(card.type) &&
-        meetsLevel(card.level, payoff.minLevel) &&
+        (payoff.minLevel <= 0 || meetsLevel(card.level, payoff.minLevel)) &&
         cardMatchesNames({
           name: card.name,
           archetype: card.archetype,
@@ -563,6 +565,18 @@ function buildLines(
   return lines;
 }
 
+function findNamedTargets(
+  cards: CardRow[],
+  names: string[],
+  sourceId: number,
+  score = 1.35,
+): ComboPartnerExport[] {
+  return findSummonTargetsByNames(cards, names, sourceId).map((partner) => ({
+    ...partner,
+    score,
+  }));
+}
+
 function buildEntryForCard(
   tagsByCard: Map<number, Set<string>>,
   effectsByCard: Map<number, StructuredEffect[]>,
@@ -577,21 +591,26 @@ function buildEntryForCard(
   const tributePayoff = parsed.payoffs.find(
     (p): p is TributeSpecialSummonPayoff => p.kind === 'tribute_special_summon',
   );
+  const addPayoff = parsed.payoffs.find((p): p is AddFromDeckPayoff => p.kind === 'add_from_deck');
+  const gyPayoff = parsed.payoffs.find((p): p is SpecialSummonFromGyPayoff => p.kind === 'special_summon_gy');
 
   const controlEnablers = requirement ? findEnablersForControl(tagsByCard, cards, requirement, source.id) : [];
   const tributeFodder = selfPayoff ? findTributeFodder(cards, selfPayoff, source.id) : [];
   const tributeNamedFodder = tributePayoff ? findTributeFodderByNames(cards, tributePayoff, source.id) : [];
+  const hasStructuredPayoff = !!(deckPayoff || selfPayoff || tributePayoff || addPayoff || gyPayoff || requirement);
   const summonSupport =
-    isMonster(source.type) && (source.archetype || selfPayoff)
+    hasStructuredPayoff && isMonster(source.type)
       ? findSummonSupport(tagsByCard, cards, source)
       : [];
   const deckTargets = deckPayoff ? findDeckTargets(cards, deckPayoff, source.id) : [];
   const namedTargets = tributePayoff ? findSummonTargetsByNames(cards, tributePayoff.summonNames, source.id) : [];
+  const addTargets = addPayoff ? findNamedTargets(cards, addPayoff.names, source.id, 1.42) : [];
+  const gyTargets = gyPayoff ? findNamedTargets(cards, gyPayoff.names, source.id, 1.3) : [];
   const enabledCards =
     isMonster(source.type) && source.level ? findEnabledCards(cardsWithRequirements, source) : [];
 
   const enablers = mergePartners(MAX_ENABLERS, controlEnablers, tributeFodder, tributeNamedFodder, summonSupport);
-  const targets = mergePartners(MAX_TARGETS, deckTargets, namedTargets, enabledCards);
+  const targets = mergePartners(MAX_TARGETS, deckTargets, namedTargets, addTargets, gyTargets, enabledCards);
 
   if (enablers.length === 0 && targets.length === 0) {
     return null;
@@ -633,10 +652,7 @@ async function main(): Promise<void> {
 
   for (const source of cards) {
     const parsed = toParsedEffects(effectsByCard.get(source.id) ?? []);
-    const hasComboSignals =
-      parsed.requirements.length > 0 ||
-      parsed.payoffs.length > 0 ||
-      (isMonster(source.type) && !!source.archetype);
+    const hasComboSignals = parsed.requirements.length > 0 || parsed.payoffs.length > 0;
     if (!hasComboSignals) {
       continue;
     }
