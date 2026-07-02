@@ -6,7 +6,12 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "db:sync": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/sync.ts",
+    "db:sync:full": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/sync.ts --it",
+    "db:tag": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/tag.ts",
+    "db:relations": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-relations.ts",
+    "db:stats": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/stats.ts"
   },
   "prettier": {
     "printWidth": 100,
@@ -47,6 +52,7 @@
     "karma-jasmine-html-reporter": "~2.1.0",
     "postcss": "^8.5.16",
     "tailwindcss": "^4.3.2",
+    "tsx": "^4.20.3",
     "typescript": "~5.9.2"
   }
 }

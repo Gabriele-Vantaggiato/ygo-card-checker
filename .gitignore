@@ -38,6 +38,10 @@ testem.log
 /typings
 __screenshots__/
 
+# Card knowledge DB (generated from YGOProDeck)
+/data/card-knowledge/*
+!/data/card-knowledge/.gitkeep
+
 # System files
 .DS_Store
 Thumbs.db
