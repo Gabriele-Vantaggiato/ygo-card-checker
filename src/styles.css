@@ -1,2 +1,62 @@
 @import "tailwindcss";
-@plugin "daisyui";
+
+@plugin "daisyui" {
+  themes: duel --default;
+}
+
+@plugin "daisyui/theme" {
+  name: "duel";
+  default: true;
+  color-scheme: dark;
+  --color-base-100: oklch(22% 0.03 265);
+  --color-base-200: oklch(18% 0.035 265);
+  --color-base-300: oklch(30% 0.04 265);
+  --color-base-content: oklch(92% 0.02 85);
+  --color-primary: oklch(78% 0.14 85);
+  --color-primary-content: oklch(18% 0.04 265);
+  --color-secondary: oklch(55% 0.12 250);
+  --color-secondary-content: oklch(95% 0.02 85);
+  --color-accent: oklch(62% 0.16 35);
+  --color-accent-content: oklch(98% 0.01 85);
+  --color-neutral: oklch(16% 0.03 265);
+  --color-neutral-content: oklch(90% 0.02 85);
+  --color-info: oklch(62% 0.12 240);
+  --color-success: oklch(68% 0.14 145);
+  --color-warning: oklch(78% 0.14 85);
+  --color-error: oklch(58% 0.18 25);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  .duel-panel {
+    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm;
+  }
+
+  .duel-panel-header {
+    @apply px-3 py-2 sm:px-4 sm:py-2.5 border-b border-base-300/70 text-xs font-semibold uppercase tracking-wider text-base-content/55;
+  }
+
+  .duel-section-chip {
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums;
+  }
+
+  .duel-kbd-hint {
+    @apply text-[10px] uppercase tracking-wide text-base-content/45;
+  }
+
+  .duel-modal {
+    @apply modal-box border border-base-300/80 bg-base-100 shadow-xl;
+  }
+}

@@ -9,32 +9,34 @@ import { I18nService } from '../services/i18n.service';
   imports: [RouterOutlet, RouterLink, RouterLinkActive, LanguageToggleComponent],
   template: `
     <div class="min-h-screen bg-base-200 flex flex-col">
-      <header class="navbar bg-base-100 shadow-sm px-4 sticky top-0 z-30">
-        <div class="flex-1 min-w-0">
-          <span class="text-lg sm:text-xl font-bold truncate">{{ i18n.t('app.title') }}</span>
+      <header class="navbar bg-base-100/95 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-30 shadow-sm">
+        <div class="flex-1 min-w-0 gap-2">
+          <span class="text-base sm:text-lg font-bold truncate tracking-tight text-primary">
+            {{ i18n.t('app.title') }}
+          </span>
         </div>
 
         <nav class="flex-none">
-          <ul class="menu menu-horizontal gap-1 px-1">
-            <li>
-              <a
-                routerLink="/"
-                routerLinkActive="active"
-                [routerLinkActiveOptions]="{ exact: true }"
-                class="text-sm sm:text-base"
-              >
-                {{ i18n.t('nav.search') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/decklist" routerLinkActive="active" class="text-sm sm:text-base">
-                {{ i18n.t('nav.decklist') }}
-              </a>
-            </li>
-          </ul>
+          <div role="tablist" class="tabs tabs-box tabs-sm sm:tabs-md bg-base-200/80 p-0.5">
+            <a
+              role="tab"
+              routerLink="/"
+              routerLinkActive="tab-active"
+              [routerLinkActiveOptions]="{ exact: true }"
+              class="tab text-xs sm:text-sm"
+            >
+              {{ i18n.t('nav.search') }}
+            </a>
+            <a role="tab" routerLink="/combo" routerLinkActive="tab-active" class="tab text-xs sm:text-sm">
+              {{ i18n.t('nav.combo') }}
+            </a>
+            <a role="tab" routerLink="/decklist" routerLinkActive="tab-active" class="tab text-xs sm:text-sm">
+              {{ i18n.t('nav.decklist') }}
+            </a>
+          </div>
         </nav>
 
-        <div class="flex-none">
+        <div class="flex-none pl-2">
           <app-language-toggle />
         </div>
       </header>
