@@ -44,6 +44,7 @@ __screenshots__/
 
 # Exported knowledge index (run npm run db:build)
 /src/assets/data/card-knowledge/related.json
+/src/assets/data/card-knowledge/combos.json
 
 # System files
 .DS_Store

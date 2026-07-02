@@ -12,9 +12,10 @@
     "db:tag": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/tag.ts",
     "db:relations": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-relations.ts",
     "db:export": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/export.ts",
+    "db:combos": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-combos.ts",
     "db:stats": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/stats.ts",
     "db:query": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/query-card.ts",
-    "db:build": "npm run db:sync && npm run db:tag && npm run db:relations && npm run db:export"
+    "db:build": "npm run db:sync && npm run db:tag && npm run db:relations && npm run db:export && npm run db:combos"
   },
   "prettier": {
     "printWidth": 100,

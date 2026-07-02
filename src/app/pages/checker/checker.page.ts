@@ -1,6 +1,6 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
 import { CardRelatedPanelComponent } from '../../components/card-related-panel/card-related-panel.component';
 import { CardSearchComponent } from '../../components/card-search/card-search.component';
@@ -26,6 +26,7 @@ interface DeckReturnContext {
     LegalityResultComponent,
     SearchHistoryComponent,
     CardRelatedPanelComponent,
+    RouterLink,
   ],
   providers: [CheckerStore],
   template: `
@@ -118,6 +119,17 @@ interface DeckReturnContext {
               [suggestions]="store.relatedSuggestions()"
               (cardSelected)="store.openRelatedCard($event)"
             />
+
+            <div class="mt-4 flex justify-end">
+              <a
+                routerLink="/combo"
+                [queryParams]="{ cardId: store.selectedCard()!.id }"
+                class="btn btn-outline btn-primary btn-sm gap-2"
+              >
+                {{ i18n.t('combo.openPage') }}
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
           }
         </section>
       </div>
