@@ -18,6 +18,7 @@ import {
   withLatestFrom,
 } from 'rxjs/operators';
 import { LegalityResult, YgoCard } from '../models/ygo-card.model';
+import { SearchHistoryEntry } from '../models/search-history.model';
 import { YgoFormat } from '../models/ygo-format.model';
 import { FormatConfigService } from '../services/format-config.service';
 import { I18nService } from '../services/i18n.service';
@@ -42,6 +43,8 @@ interface LegalityState {
 
 const EMPTY_SEARCH: SearchState = { suggestions: [], loading: false, error: null };
 const EMPTY_LEGALITY: LegalityState = { result: null, error: null };
+const HISTORY_STORAGE_KEY = 'ygo-checker-search-history';
+const MAX_HISTORY = 10;
 
 @Injectable()
 export class CheckerStore {
@@ -58,6 +61,9 @@ export class CheckerStore {
   private readonly searchStateSubject = new BehaviorSubject<SearchState>(EMPTY_SEARCH);
   private readonly selectedCardSubject = new BehaviorSubject<YgoCard | null>(null);
   private readonly legalityStateSubject = new BehaviorSubject<LegalityState>(EMPTY_LEGALITY);
+  private readonly searchHistorySubject = new BehaviorSubject<SearchHistoryEntry[]>(
+    this.loadSearchHistory(),
+  );
 
   readonly formats$ = this.formatConfig.loadFormats$().pipe(
     shareReplay({ bufferSize: 1, refCount: true }),
@@ -98,6 +104,10 @@ export class CheckerStore {
     { initialValue: null as string | null },
   );
 
+  readonly searchHistory = toSignal(this.searchHistorySubject, {
+    initialValue: [] as SearchHistoryEntry[],
+  });
+
   constructor() {
     this.bindFormatBootstrap();
     this.bindSearch();
@@ -122,6 +132,15 @@ export class CheckerStore {
     this.searchQuery$.next(card.name);
     this.searchIntent$.next({ query: card.name, fromSelection: true });
     this.cardPick$.next(card);
+  }
+
+  selectFromHistory(entry: SearchHistoryEntry): void {
+    this.selectCard(this.toYgoCard(entry));
+  }
+
+  clearSearchHistory(): void {
+    this.searchHistorySubject.next([]);
+    this.persistSearchHistory([]);
   }
 
   private bindFormatBootstrap(): void {
@@ -191,6 +210,7 @@ export class CheckerStore {
         tap((card) => {
           this.selectedCardSubject.next(card);
           this.searchQuery$.next(card.name);
+          this.pushSearchHistory(card);
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -254,5 +274,58 @@ export class CheckerStore {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
+  }
+
+  private pushSearchHistory(card: YgoCard): void {
+    const entry = this.toHistoryEntry(card);
+    const next = [
+      entry,
+      ...this.searchHistorySubject.value.filter((item) => item.id !== entry.id),
+    ].slice(0, MAX_HISTORY);
+    this.searchHistorySubject.next(next);
+    this.persistSearchHistory(next);
+  }
+
+  private toHistoryEntry(card: YgoCard): SearchHistoryEntry {
+    return {
+      id: card.id,
+      name: card.name,
+      type: card.type,
+      imageUrlSmall: card.card_images?.[0]?.image_url_small ?? null,
+    };
+  }
+
+  private toYgoCard(entry: SearchHistoryEntry): YgoCard {
+    const imageUrl = entry.imageUrlSmall ?? '';
+    return {
+      id: entry.id,
+      name: entry.name,
+      type: entry.type,
+      desc: '',
+      card_images: imageUrl
+        ? [{ id: entry.id, image_url: imageUrl, image_url_small: imageUrl }]
+        : [],
+    };
+  }
+
+  private loadSearchHistory(): SearchHistoryEntry[] {
+    try {
+      const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw) as SearchHistoryEntry[];
+      return Array.isArray(parsed) ? parsed.slice(0, MAX_HISTORY) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private persistSearchHistory(entries: SearchHistoryEntry[]): void {
+    try {
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(entries));
+    } catch {
+      // quota / private mode — in-memory only
+    }
   }
 }
