@@ -1,11 +1,13 @@
 import { Component, inject } from '@angular/core';
 import { CardSearchComponent } from '../../components/card-search/card-search.component';
+import { DecklistPanelComponent } from '../../components/decklist-panel/decklist-panel.component';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { LanguageToggleComponent } from '../../components/language-toggle/language-toggle.component';
 import { LegalityResultComponent } from '../../components/legality-result/legality-result.component';
 import { SearchHistoryComponent } from '../../components/search-history/search-history.component';
 import { I18nService } from '../../services/i18n.service';
 import { CheckerStore } from '../../stores/checker.store';
+import { DecklistStore } from '../../stores/decklist.store';
 
 @Component({
   selector: 'app-checker-page',
@@ -16,8 +18,9 @@ import { CheckerStore } from '../../stores/checker.store';
     CardSearchComponent,
     LegalityResultComponent,
     SearchHistoryComponent,
+    DecklistPanelComponent,
   ],
-  providers: [CheckerStore],
+  providers: [CheckerStore, DecklistStore],
   template: `
     <div class="min-h-screen bg-base-200">
       <div class="navbar bg-base-100 shadow-sm px-4">
@@ -61,6 +64,8 @@ import { CheckerStore } from '../../stores/checker.store';
                 (cardSelected)="store.selectCard($event)"
               />
 
+              <app-decklist-panel class="hidden lg:block shrink-0" />
+
               <div class="hidden lg:block border-t border-base-300 pt-4 lg:mt-auto lg:shrink-0">
                 <app-search-history
                   [pinned]="true"
@@ -86,7 +91,8 @@ import { CheckerStore } from '../../stores/checker.store';
           </section>
         </div>
 
-        <div class="lg:hidden">
+        <div class="lg:hidden space-y-4">
+          <app-decklist-panel />
           <app-search-history
             [entries]="store.searchHistory()"
             [selectedCardId]="store.selectedCard()?.id ?? null"

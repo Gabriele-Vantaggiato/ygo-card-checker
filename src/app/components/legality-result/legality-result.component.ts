@@ -1,13 +1,15 @@
 import { Component, input } from '@angular/core';
 import { CardTilt3dComponent } from '../card-tilt-3d/card-tilt-3d.component';
+import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
+import { AddToDecklistPayload } from '../../models/decklist.model';
 import { BanlistStatus, YgoFormat } from '../../models/ygo-format.model';
 import { I18nService } from '../../services/i18n.service';
 
 @Component({
   selector: 'app-legality-result',
   standalone: true,
-  imports: [CardTilt3dComponent],
+  imports: [CardTilt3dComponent, AddToDecklistButtonComponent],
   template: `
     @if (!card()) {
       <div
@@ -31,14 +33,21 @@ import { I18nService } from '../../services/i18n.service';
 
             <div class="min-w-0 self-start space-y-4">
               <header class="space-y-2">
-                <div class="flex flex-wrap items-center gap-2">
-                  <h2 class="text-xl sm:text-2xl font-bold leading-tight">{{ card()!.name }}</h2>
-                  <span class="badge badge-lg" [class]="badgeClass(res.verdict)">
-                    {{ verdictLabel(res.verdict) }}
-                  </span>
-                  <span class="badge badge-lg badge-outline" [class]="banlistBadgeClass(res.banlistStatus)">
-                    {{ banlistStatusLabel(res.banlistStatus) }}
-                  </span>
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+                    <h2 class="text-xl sm:text-2xl font-bold leading-tight">{{ card()!.name }}</h2>
+                    <span class="badge badge-lg" [class]="badgeClass(res.verdict)">
+                      {{ verdictLabel(res.verdict) }}
+                    </span>
+                    <span class="badge badge-lg badge-outline" [class]="banlistBadgeClass(res.banlistStatus)">
+                      {{ banlistStatusLabel(res.banlistStatus) }}
+                    </span>
+                  </div>
+                  <app-add-to-decklist-btn
+                    class="shrink-0"
+                    [payload]="deckPayload()"
+                    [banlistStatus]="res.banlistStatus"
+                  />
                 </div>
                 <p class="text-sm text-base-content/70">{{ card()!.type }}</p>
               </header>
@@ -113,6 +122,16 @@ export class LegalityResultComponent {
       this.card()?.card_images?.[0]?.image_url_small ??
       null
     );
+  }
+
+  deckPayload(): AddToDecklistPayload {
+    const card = this.card()!;
+    return {
+      id: card.id,
+      name: card.name,
+      type: card.type,
+      imageUrlSmall: card.card_images?.[0]?.image_url_small ?? null,
+    };
   }
 
   badgeClass(verdict: LegalityResult['verdict']): string {

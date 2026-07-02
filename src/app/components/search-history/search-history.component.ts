@@ -1,12 +1,15 @@
 import { Component, input, output } from '@angular/core';
 import { LegalityVerdict } from '../../models/ygo-card.model';
 import { BanlistStatus } from '../../models/ygo-format.model';
+import { AddToDecklistPayload } from '../../models/decklist.model';
 import { SearchHistoryEntry } from '../../models/search-history.model';
+import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { I18nService } from '../../services/i18n.service';
 
 @Component({
   selector: 'app-search-history',
   standalone: true,
+  imports: [AddToDecklistButtonComponent],
   template: `
   <section class="flex flex-col min-h-0" [class.mt-auto]="pinned()">
     <div class="flex items-center justify-between gap-2 mb-2">
@@ -38,6 +41,12 @@ import { I18nService } from '../../services/i18n.service';
               class="flex w-full items-stretch gap-0.5 rounded-lg"
               [class.bg-base-300]="entry.id === selectedCardId()"
             >
+              <app-add-to-decklist-btn
+                class="self-center ml-1"
+                [payload]="toPayload(entry)"
+                [banlistStatus]="entryBanlistStatus(entry)"
+              />
+
               <button
                 type="button"
                 class="!flex !flex-1 !items-start gap-2 py-2 px-2 h-auto min-h-0 min-w-0 whitespace-normal rounded-lg"
@@ -114,6 +123,19 @@ export class SearchHistoryComponent {
   onRemove(event: Event, cardId: number): void {
     event.stopPropagation();
     this.remove.emit(cardId);
+  }
+
+  toPayload(entry: SearchHistoryEntry): AddToDecklistPayload {
+    return {
+      id: entry.id,
+      name: entry.name,
+      type: entry.type,
+      imageUrlSmall: entry.imageUrlSmall,
+    };
+  }
+
+  entryBanlistStatus(entry: SearchHistoryEntry): BanlistStatus | null {
+    return this.hasLegality(entry) ? entry.banlistStatus : null;
   }
 
   hasLegality(entry: SearchHistoryEntry): boolean {
