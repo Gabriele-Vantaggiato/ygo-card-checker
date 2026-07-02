@@ -12,8 +12,12 @@ export interface YgoProDeckCard {
   archetype?: string;
   atk?: number;
   def?: number;
-  banlist_info?: { ban_tcg?: string };
-  misc_info?: Array<{ tcg_date?: string }>;
+  frameType?: string;
+  linkval?: number;
+  scale?: number;
+  linkmarkers?: string[];
+  banlist_info?: { ban_tcg?: string; ban_goat?: string };
+  misc_info?: Array<{ tcg_date?: string; formats?: string[] }>;
 }
 
 export interface CardRow {
@@ -30,6 +34,12 @@ export interface CardRow {
   def: number | null;
   tcg_date: string | null;
   ban_tcg: string | null;
+  ban_goat: string | null;
+  formats_json: string | null;
+  frame_type: string | null;
+  link_val: number | null;
+  pendulum_scale: number | null;
+  is_extra_deck: number;
   synced_at: string;
 }
 
@@ -37,6 +47,14 @@ export interface CardTagRow {
   card_id: number;
   tag: string;
   confidence: number;
+  source: TagSource;
+  created_at: string;
+}
+
+export interface CardEffectRow {
+  card_id: number;
+  effect_kind: string;
+  payload_json: string;
   source: TagSource;
   created_at: string;
 }

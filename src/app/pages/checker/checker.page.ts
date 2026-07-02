@@ -115,7 +115,10 @@ interface DeckReturnContext {
               [loading]="store.relatedLoading()"
               [available]="store.relatedAvailable()"
               [series]="store.relatedSeries()"
-              [tags]="store.relatedTags()"
+              [mentions]="store.relatedMentions()"
+              [effects]="store.relatedEffects()"
+              [displayTags]="store.relatedTags()"
+              [groups]="store.relatedGroups()"
               [suggestions]="store.relatedSuggestions()"
               (cardSelected)="store.openRelatedCard($event)"
             />

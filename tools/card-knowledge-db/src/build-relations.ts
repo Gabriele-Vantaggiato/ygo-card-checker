@@ -18,9 +18,15 @@ interface CardMeta {
   desc_en: string;
 }
 
+interface MentionIndex {
+  card_id: number;
+  mention: string;
+}
+
 const MAX_TAG_RELATIONS_PER_SOURCE = 24;
 const MAX_ARCHETYPE_LINKS_PER_CARD = 8;
-const MAX_MENTIONS_PER_SOURCE = 6;
+const MAX_MENTIONS_PER_SOURCE = 8;
+const MAX_SHARED_MENTION_LINKS = 6;
 
 function mentionsCardName(desc: string, cardName: string): boolean {
   return desc.toLowerCase().includes(cardName.toLowerCase());
@@ -44,7 +50,23 @@ async function main(): Promise<void> {
     byTag.set(row.tag, bucket);
   }
 
+  const mentionRows = db
+    .prepare('SELECT card_id, mention FROM card_mentions WHERE source = ?')
+    .all('rule') as MentionIndex[];
+
+  const byMention = new Map<string, number[]>();
+  for (const row of mentionRows) {
+    const bucket = byMention.get(row.mention) ?? [];
+    bucket.push(row.card_id);
+    byMention.set(row.mention, bucket);
+  }
+
   const cards = db.prepare('SELECT id, name, archetype, desc_en FROM cards').all() as CardMeta[];
+
+  const cardsByName = new Map<string, number>();
+  for (const card of cards) {
+    cardsByName.set(card.name.toLowerCase(), card.id);
+  }
 
   const byArchetype = new Map<string, CardMeta[]>();
   for (const card of cards) {
@@ -72,6 +94,32 @@ async function main(): Promise<void> {
             continue;
           }
           insertRelation(db, sourceId, targetId, pair.relation, 1.0);
+          relations += 1;
+          linked += 1;
+        }
+      }
+    }
+
+    for (const row of mentionRows) {
+      const targetId = cardsByName.get(row.mention.toLowerCase());
+      if (!targetId || targetId === row.card_id) {
+        continue;
+      }
+      insertRelation(db, row.card_id, targetId, 'mentions_card', 0.98);
+      relations += 1;
+    }
+
+    for (const [_mention, cardIds] of byMention) {
+      if (cardIds.length < 2) {
+        continue;
+      }
+      for (const sourceId of cardIds) {
+        let linked = 0;
+        for (const targetId of cardIds) {
+          if (sourceId === targetId || linked >= MAX_SHARED_MENTION_LINKS) {
+            continue;
+          }
+          insertRelation(db, sourceId, targetId, 'shared_mention', 0.75);
           relations += 1;
           linked += 1;
         }

@@ -1,3 +1,5 @@
+import { CardKnowledgeDisplayTag, CardKnowledgeEffect } from './card-knowledge.model';
+
 export interface ComboRequirement {
   kind: 'control';
   minLevel: number;
@@ -57,6 +59,8 @@ export interface ComboLine {
 }
 
 export interface ComboEntry {
+  tags?: string[];
+  effects?: Array<{ kind: string; payload: Record<string, unknown> }>;
   requirements: ComboRequirement[];
   payoffs: ComboPayoff[];
   enablers: ComboPartnerRecord[];
@@ -72,6 +76,9 @@ export interface ComboIndex {
 }
 
 export interface ComboResult {
+  tags: string[];
+  displayTags: CardKnowledgeDisplayTag[];
+  effects: CardKnowledgeEffect[];
   requirements: ComboRequirement[];
   payoffs: ComboPayoff[];
   enablers: ComboPartner[];

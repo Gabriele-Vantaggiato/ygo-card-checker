@@ -1,5 +1,11 @@
-import { Component, input, output } from '@angular/core';
-import { CardRelatedSuggestion } from '../../models/card-knowledge.model';
+import { Component, inject, input, output } from '@angular/core';
+import {
+  CardKnowledgeDisplayTag,
+  CardKnowledgeEffect,
+  CardRelatedGroup,
+  CardRelatedSuggestion,
+} from '../../models/card-knowledge.model';
+import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { I18nService } from '../../services/i18n.service';
 
 @Component({
@@ -18,40 +24,90 @@ import { I18nService } from '../../services/i18n.service';
         } @else if (loading()) {
           <p class="text-sm text-base-content/60">{{ i18n.t('knowledge.loading') }}</p>
         } @else {
-          @if (series().length > 0 || tags().length > 0) {
-            <div class="flex flex-wrap gap-1 items-center">
-              @if (series().length > 0) {
-                <span class="text-xs text-base-content/50 mr-1">{{ i18n.t('knowledge.series') }}:</span>
-                @for (label of series(); track label) {
-                  <span class="badge badge-primary badge-sm badge-outline">{{ label }}</span>
+          @if (displayTags().length > 0) {
+            <div class="space-y-1">
+              <span class="text-xs text-base-content/50">{{ i18n.t('knowledge.mechanics') }}</span>
+              <div class="flex flex-wrap gap-1">
+                @for (tag of displayTags(); track tag.id) {
+                  <span class="badge badge-secondary badge-sm badge-outline">{{ i18n.t(tag.labelKey) }}</span>
                 }
-              }
+              </div>
             </div>
           }
 
-          @if (suggestions().length === 0) {
+          @if (series().length > 0) {
+            <div class="space-y-1">
+              <span class="text-xs text-base-content/50">{{ i18n.t('knowledge.series') }}</span>
+              <div class="flex flex-wrap gap-1">
+                @for (label of series(); track label) {
+                  <span class="badge badge-primary badge-sm badge-outline">{{ label }}</span>
+                }
+              </div>
+            </div>
+          }
+
+          @if (mentions().length > 0) {
+            <div class="space-y-1">
+              <span class="text-xs text-base-content/50">{{ i18n.t('knowledge.mentions') }}</span>
+              <div class="flex flex-wrap gap-1">
+                @for (label of mentions(); track label) {
+                  <span class="badge badge-accent badge-sm badge-outline">{{ label }}</span>
+                }
+              </div>
+            </div>
+          }
+
+          @if (effects().length > 0) {
+            <div class="space-y-1">
+              <span class="text-xs text-base-content/50">{{ i18n.t('knowledge.effects') }}</span>
+              <div class="flex flex-wrap gap-1">
+                @for (effect of effects(); track effect.kind) {
+                  <span class="badge badge-info badge-sm badge-outline">
+                    {{ effectLabel(effect) }}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          @if (groups().length === 0) {
             <p class="text-sm text-base-content/60">{{ i18n.t('knowledge.empty') }}</p>
           } @else {
-            <ul class="space-y-2">
-              @for (item of suggestions(); track item.cardId) {
-                <li>
-                  <button
-                    type="button"
-                    class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/80 text-left transition-colors"
-                    (click)="cardSelected.emit(item.cardId)"
-                  >
-                    <img [src]="item.imageSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium truncate">{{ item.name }}</p>
-                      <p class="text-[11px] text-base-content/60 truncate">
-                        {{ i18n.t(item.reasonKey, item.reasonParams) }}
-                      </p>
-                    </div>
-                    <span class="badge badge-xs shrink-0 badge-ghost">{{ relationLabel(item.relation) }}</span>
-                  </button>
-                </li>
+            <div class="space-y-4">
+              @for (group of groups(); track group.relation) {
+                <div class="space-y-2">
+                  <h4 class="text-sm font-semibold text-base-content/80">
+                    {{ i18n.t(group.labelKey) }}
+                    <span class="badge badge-ghost badge-xs ml-1">{{ group.suggestions.length }}</span>
+                  </h4>
+                  <ul class="space-y-2">
+                    @for (item of group.suggestions; track item.cardId) {
+                      <li>
+                        <button
+                          type="button"
+                          class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/80 text-left transition-colors"
+                          (click)="cardSelected.emit(item.cardId)"
+                        >
+                          <img [src]="item.imageSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
+                          <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">{{ item.name }}</p>
+                            <p class="text-[11px] text-base-content/60 truncate">
+                              {{ i18n.t(item.reasonKey, item.reasonParams) }}
+                            </p>
+                          </div>
+                          <span class="badge badge-xs shrink-0 badge-ghost">{{ relationLabel(item.relation) }}</span>
+                          @if (item.maxCopies !== undefined && item.maxCopies < 3) {
+                            <span class="badge badge-xs shrink-0 badge-warning">
+                              {{ i18n.t('knowledge.maxCopies', { count: '' + item.maxCopies }) }}
+                            </span>
+                          }
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                </div>
               }
-            </ul>
+            </div>
           }
         }
       </div>
@@ -62,16 +118,26 @@ export class CardRelatedPanelComponent {
   readonly loading = input(false);
   readonly available = input(true);
   readonly series = input<string[]>([]);
-  readonly tags = input<string[]>([]);
+  readonly mentions = input<string[]>([]);
+  readonly effects = input<CardKnowledgeEffect[]>([]);
+  readonly displayTags = input<CardKnowledgeDisplayTag[]>([]);
+  readonly groups = input<CardRelatedGroup[]>([]);
   readonly suggestions = input<CardRelatedSuggestion[]>([]);
 
   readonly cardSelected = output<number>();
 
-  constructor(protected readonly i18n: I18nService) {}
+  protected readonly i18n = inject(I18nService);
+  private readonly knowledge = inject(CardKnowledgeService);
 
   relationLabel(relation: string): string {
     const key = `knowledge.relation.${relation}`;
     const translated = this.i18n.t(key);
     return translated === key ? relation : translated;
+  }
+
+  effectLabel(effect: CardKnowledgeEffect): string {
+    const key = this.knowledge.effectLabelKey(effect);
+    const translated = this.i18n.t(key, this.knowledge.effectLabelParams(effect));
+    return translated === key ? effect.kind : translated;
   }
 }

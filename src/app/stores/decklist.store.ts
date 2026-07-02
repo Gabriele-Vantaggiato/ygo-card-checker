@@ -1,19 +1,22 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { forkJoin, of } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { forkJoin, Observable, of } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { BanlistStatus } from '../models/ygo-format.model';
 import {
   AddToDecklistPayload,
   Decklist,
+  DecklistCard,
   DecklistStorage,
+  DeckSection,
   maxCopiesForStatus,
 } from '../models/decklist.model';
 import { DecklistService } from '../services/decklist.service';
 import { CardLegalityFacade } from '../services/card-legality.facade';
 import { I18nService } from '../services/i18n.service';
 import { YgoApiService } from '../services/ygo-api.service';
-import { YdkeService } from '../services/ydke.service';
+import { YdkeService, YdkeSections, passcodesToQuantityMap } from '../services/ydke.service';
 import { YgoFormat } from '../models/ygo-format.model';
+import { YgoCard, LegalityResult } from '../models/ygo-card.model';
 
 export interface DecklistFeedbackMessage {
   key: string;
@@ -263,6 +266,88 @@ export class DecklistStore {
     return this.ydkeService.encodeDeck(deck);
   }
 
+  importFromYdke(text: string, deckId: string, replace: boolean, format: YgoFormat): void {
+    this.importFromYdke$(text, deckId, replace, format).subscribe((result) => {
+      if (!result.ok) {
+        this.flashFeedback({ key: result.errorKey ?? 'decklist.feedback.ydkeResolveFailed', tone: 'warning' });
+        return;
+      }
+      this.flashFeedback({
+        key: 'decklist.feedback.ydkeImported',
+        params: {
+          total: `${result.total}`,
+          unique: `${result.unique}`,
+        },
+        tone: 'success',
+      });
+    });
+  }
+
+  importFromYdke$(
+    text: string,
+    deckId: string,
+    replace: boolean,
+    format: YgoFormat,
+  ): Observable<{ ok: boolean; total: number; unique: number; errorKey?: string }> {
+    let sections: YdkeSections;
+    try {
+      sections = this.ydkeService.parseUrl(text);
+    } catch {
+      return of({ ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.ydkeInvalid' });
+    }
+
+    const total = sections.main.length + sections.extra.length + sections.side.length;
+    if (total === 0) {
+      return of({ ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.ydkeEmpty' });
+    }
+
+    const deck = this.getDeckById(deckId);
+    if (!deck) {
+      return of({ ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.noDecklist' });
+    }
+
+    const sectionEntries: Array<{ section: DeckSection; quantities: Map<number, number> }> = [
+      { section: 'main', quantities: passcodesToQuantityMap(sections.main) },
+      { section: 'extra', quantities: passcodesToQuantityMap(sections.extra) },
+      { section: 'side', quantities: passcodesToQuantityMap(sections.side) },
+    ];
+
+    const uniqueIds = [
+      ...new Set(sectionEntries.flatMap((entry) => [...entry.quantities.keys()])),
+    ];
+
+    return this.ygoApi.getCardsByIds$(uniqueIds, 'en').pipe(
+      switchMap((cards) => {
+        const cardById = new Map(cards.map((card) => [card.id, card]));
+        if (cards.length === 0) {
+          return of({ ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.ydkeResolveFailed' });
+        }
+        return this.cardLegality.evaluateMany$(cards, format).pipe(
+          map((legality) => {
+            const imported = this.buildImportedCards(sectionEntries, cardById, legality);
+            if (imported.length === 0) {
+              return { ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.ydkeResolveFailed' };
+            }
+
+            const updated = replace
+              ? this.decklistService.replaceCards(deck, imported)
+              : this.decklistService.mergeCards(deck, imported);
+            const sorted = this.decklistService.sortDecklist(updated);
+            this.replaceDeck(sorted);
+            this.patchStorage((s) => ({ ...s, activeId: deckId }));
+
+            return {
+              ok: true,
+              total: this.decklistService.totalCards(sorted.cards),
+              unique: sorted.cards.length,
+            };
+          }),
+        );
+      }),
+      catchError(() => of({ ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.ydkeResolveFailed' })),
+    );
+  }
+
   notify(message: DecklistFeedbackMessage): void {
     this.flashFeedback(message);
   }
@@ -329,6 +414,44 @@ export class DecklistStore {
       return;
     }
     this.decrementCard(cardId, card.banlistStatus ?? null);
+  }
+
+  private buildImportedCards(
+    sectionEntries: Array<{ section: DeckSection; quantities: Map<number, number> }>,
+    cardById: Map<number, YgoCard>,
+    legality: Map<number, LegalityResult>,
+  ): DecklistCard[] {
+    const merged = new Map<number, DecklistCard>();
+
+    for (const { section, quantities } of sectionEntries) {
+      for (const [passcode, quantity] of quantities) {
+        const card = cardById.get(passcode);
+        if (!card) {
+          continue;
+        }
+        const verdict = legality.get(card.id);
+        const banlistStatus = verdict?.banlistStatus ?? card.banlist_info?.ban_tcg ?? null;
+        const max = maxCopiesForStatus(banlistStatus);
+        if (max === 0) {
+          continue;
+        }
+
+        const existing = merged.get(card.id);
+        const nextQty = Math.min((existing?.quantity ?? 0) + quantity, max);
+        merged.set(card.id, {
+          id: card.id,
+          name: card.name,
+          type: card.type,
+          imageUrlSmall: card.card_images[0]?.image_url_small ?? null,
+          quantity: nextQty,
+          section,
+          banlistStatus,
+          legalityVerdict: verdict?.verdict ?? null,
+        });
+      }
+    }
+
+    return [...merged.values()];
   }
 
   private bootstrapDefaultDecklist(): void {

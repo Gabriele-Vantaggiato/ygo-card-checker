@@ -12,6 +12,7 @@ import {
 import { YgoCard } from '../models/ygo-card.model';
 import { BanlistStatus, YgoFormat } from '../models/ygo-format.model';
 import { CardLegalityFacade } from './card-legality.facade';
+import { toDisplayTags } from '../utils/knowledge-display.utils';
 
 const INDEX_URL = 'assets/data/card-knowledge/combos.json';
 
@@ -53,14 +54,7 @@ export class CardComboService {
     const partners = [...entry.enablers, ...entry.targets];
     const stubs = partners.map((partner) => this.toYgoCard(partner));
     if (stubs.length === 0) {
-      return of({
-        requirements: entry.requirements,
-        payoffs: entry.payoffs,
-        enablers: [],
-        targets: [],
-        lines: [],
-        available: true,
-      });
+      return of(this.toResult(entry, [], [], []));
     }
 
     return this.cardLegality.evaluateMany$(stubs, format).pipe(
@@ -88,16 +82,30 @@ export class CardComboService {
           }))
           .filter((line) => line.steps.some((step) => step.role === 'target'));
 
-        return {
-          requirements: entry.requirements,
-          payoffs: entry.payoffs,
-          enablers,
-          targets,
-          lines: lines.slice(0, 8),
-          available: true,
-        };
+        return this.toResult(entry, enablers, targets, lines.slice(0, 8));
       }),
     );
+  }
+
+  private toResult(
+    entry: ComboEntry,
+    enablers: ComboPartner[],
+    targets: ComboPartner[],
+    lines: ComboResult['lines'],
+  ): ComboResult {
+    const tags = entry.tags ?? [];
+    const effects = (entry.effects ?? []) as ComboResult['effects'];
+    return {
+      tags,
+      displayTags: toDisplayTags(tags),
+      effects,
+      requirements: entry.requirements,
+      payoffs: entry.payoffs,
+      enablers,
+      targets,
+      lines,
+      available: true,
+    };
   }
 
   private toPartner(partner: ComboPartnerRecord): ComboPartner {
@@ -135,6 +143,9 @@ export class CardComboService {
 
   private emptyResult(): ComboResult {
     return {
+      tags: [],
+      displayTags: [],
+      effects: [],
       requirements: [],
       payoffs: [],
       enablers: [],

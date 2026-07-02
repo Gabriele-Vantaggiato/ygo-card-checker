@@ -9,9 +9,16 @@ export interface CardKnowledgeRelated {
   imageSmall: string;
 }
 
+export interface CardKnowledgeEffect {
+  kind: string;
+  payload: Record<string, unknown>;
+}
+
 export interface CardKnowledgeEntry {
   tags: string[];
   series: string[];
+  mentions: string[];
+  effects: CardKnowledgeEffect[];
   related: CardKnowledgeRelated[];
 }
 
@@ -31,11 +38,43 @@ export interface CardRelatedSuggestion {
   imageSmall: string;
   reasonKey: string;
   reasonParams?: Record<string, string>;
+  maxCopies?: number;
+  suggestedQty?: number;
+}
+
+export interface FormatLegalityIndex {
+  version: number;
+  generatedAt: string;
+  formats: string[];
+  playable: Record<string, string[]>;
+  maxCopies: Record<string, Record<string, number>>;
+}
+
+export interface CardRelatedGroup {
+  relation: string;
+  labelKey: string;
+  suggestions: CardRelatedSuggestion[];
+}
+
+export interface CardKnowledgeDisplayTag {
+  id: string;
+  labelKey: string;
 }
 
 export interface CardRelatedResult {
   tags: string[];
+  displayTags: CardKnowledgeDisplayTag[];
   series: string[];
+  mentions: string[];
+  effects: CardKnowledgeEffect[];
   suggestions: CardRelatedSuggestion[];
+  groups: CardRelatedGroup[];
+  available: boolean;
+}
+
+export interface DeckRelatedResult {
+  suggestions: CardRelatedSuggestion[];
+  groups: CardRelatedGroup[];
+  sourceCount: number;
   available: boolean;
 }

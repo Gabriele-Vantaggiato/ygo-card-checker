@@ -1,5 +1,5 @@
 import { DecklistCard } from '../models/decklist.model';
-import { isExtraDeckType } from '../services/ydke.service';
+import { isExtraDeckType, resolveDeckSection } from '../services/ydke.service';
 import { verdictPlayabilityRank } from './legality-display.utils';
 
 export interface DeckTypeStats {
@@ -32,16 +32,20 @@ export function splitDeckSections(cards: readonly DecklistCard[]): {
 } {
   const main: DecklistCard[] = [];
   const extra: DecklistCard[] = [];
+  const side: DecklistCard[] = [];
 
   for (const card of cards) {
-    if (isExtraDeckType(card.type)) {
+    const section = resolveDeckSection(card);
+    if (section === 'extra') {
       extra.push(card);
+    } else if (section === 'side') {
+      side.push(card);
     } else {
       main.push(card);
     }
   }
 
-  return { main, extra, side: [] };
+  return { main, extra, side };
 }
 
 export function computeTypeStats(cards: readonly DecklistCard[]): DeckTypeStats {

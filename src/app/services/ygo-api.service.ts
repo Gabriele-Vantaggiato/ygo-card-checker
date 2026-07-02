@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, map, shareReplay } from 'rxjs/operators';
 import { CardInfoResponse, YgoCard } from '../models/ygo-card.model';
 import { Lang } from './i18n.service';
@@ -18,6 +18,7 @@ export interface CardSearchPage {
 export class YgoApiService {
   private readonly searchCache = new Map<string, Observable<CardSearchPage>>();
   private readonly cardCache = new Map<string, Observable<YgoCard | null>>();
+  private readonly batchCache = new Map<string, Observable<YgoCard[]>>();
 
   constructor(private readonly http: HttpClient) {}
 
@@ -74,17 +75,52 @@ export class YgoApiService {
       return cached;
     }
 
-    let params = new HttpParams().set('id', String(id)).set('misc', 'yes');
-    if (lang === 'it') {
-      params = params.set('language', 'it');
-    }
-
-    const request$ = this.http.get<CardInfoResponse>(API_BASE, { params }).pipe(
-      map((response) => response.data?.[0] ?? null),
+    const request$ = this.fetchCardsByIds$([id], lang).pipe(
+      map((cards) => cards[0] ?? null),
       shareReplay({ bufferSize: 1, refCount: false }),
     );
-
     this.cardCache.set(cacheKey, request$);
     return request$;
+  }
+
+  getCardsByIds$(ids: readonly number[], lang: Lang): Observable<YgoCard[]> {
+    return this.fetchCardsByIds$(ids, lang);
+  }
+
+  private fetchCardsByIds$(ids: readonly number[], lang: Lang): Observable<YgoCard[]> {
+    const uniqueIds = [...new Set(ids.filter((id) => id > 0))];
+    if (uniqueIds.length === 0) {
+      return of([]);
+    }
+
+    const chunkSize = 25;
+    const chunks: number[][] = [];
+    for (let i = 0; i < uniqueIds.length; i += chunkSize) {
+      chunks.push(uniqueIds.slice(i, i + chunkSize));
+    }
+
+    const requests = chunks.map((chunk) => {
+      const cacheKey = `batch:${lang}:${chunk.join(',')}`;
+      const cached = this.batchCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      let params = new HttpParams().set('id', chunk.join(',')).set('misc', 'yes');
+      if (lang === 'it') {
+        params = params.set('language', 'it');
+      }
+
+      const request$ = this.http.get<CardInfoResponse>(API_BASE, { params }).pipe(
+        map((response) => response.data ?? []),
+        catchError(() => of([] as YgoCard[])),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+
+      this.batchCache.set(cacheKey, request$);
+      return request$;
+    });
+
+    return forkJoin(requests).pipe(map((pages) => pages.flat()));
   }
 }

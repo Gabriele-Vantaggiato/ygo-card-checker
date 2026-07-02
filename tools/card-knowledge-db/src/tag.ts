@@ -1,4 +1,4 @@
-import { detectCardTags } from './mechanic-tags';
+import { detectCardTags, mentionTagName } from './mechanic-tags';
 import { listCardsForTagging, openDatabase, replaceRuleTags, runInTransaction } from './database';
 
 async function main(): Promise<void> {
@@ -14,14 +14,23 @@ async function main(): Promise<void> {
 
   runInTransaction(db, () => {
     for (const card of cards) {
-      const tags = detectCardTags({
-        name: card.name,
-        archetype: card.archetype,
-        descEn: card.desc_en,
-        descIt: card.desc_it,
-      });
-      replaceRuleTags(db, card.id, tags);
-      if (tags.length > 0) {
+      const tags = new Set(
+        detectCardTags({
+          name: card.name,
+          archetype: card.archetype,
+          descEn: card.desc_en,
+          descIt: card.desc_it,
+          mentions: card.mentions,
+        }),
+      );
+
+      for (const mention of card.mentions) {
+        tags.add(mentionTagName(mention));
+      }
+
+      const tagList = [...tags];
+      replaceRuleTags(db, card.id, tagList);
+      if (tagList.length > 0) {
         tagged += 1;
       }
     }

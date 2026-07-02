@@ -52,7 +52,16 @@ interface RelatedState {
 
 const EMPTY_SEARCH: SearchState = { suggestions: [], loading: false, error: null };
 const EMPTY_LEGALITY: LegalityState = { result: null, error: null };
-const EMPTY_RELATED: CardRelatedResult = { tags: [], series: [], suggestions: [], available: false };
+const EMPTY_RELATED: CardRelatedResult = {
+  tags: [],
+  displayTags: [],
+  series: [],
+  mentions: [],
+  effects: [],
+  suggestions: [],
+  groups: [],
+  available: false,
+};
 const HISTORY_STORAGE_KEY = 'ygo-checker-search-history';
 const MAX_HISTORY = 10;
 
@@ -113,11 +122,20 @@ export class CheckerStore {
   readonly relatedSeries = toSignal(this.relatedState$.pipe(map((s) => s.result.series)), {
     initialValue: EMPTY_RELATED.series,
   });
-  readonly relatedTags = toSignal(this.relatedState$.pipe(map((s) => s.result.tags)), {
-    initialValue: EMPTY_RELATED.tags,
+  readonly relatedTags = toSignal(this.relatedState$.pipe(map((s) => s.result.displayTags)), {
+    initialValue: EMPTY_RELATED.displayTags,
+  });
+  readonly relatedMentions = toSignal(this.relatedState$.pipe(map((s) => s.result.mentions)), {
+    initialValue: EMPTY_RELATED.mentions,
+  });
+  readonly relatedEffects = toSignal(this.relatedState$.pipe(map((s) => s.result.effects)), {
+    initialValue: EMPTY_RELATED.effects,
   });
   readonly relatedSuggestions = toSignal(this.relatedState$.pipe(map((s) => s.result.suggestions)), {
     initialValue: EMPTY_RELATED.suggestions,
+  });
+  readonly relatedGroups = toSignal(this.relatedState$.pipe(map((s) => s.result.groups)), {
+    initialValue: EMPTY_RELATED.groups,
   });
 
   readonly error = toSignal(

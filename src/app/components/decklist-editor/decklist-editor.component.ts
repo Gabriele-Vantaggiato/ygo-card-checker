@@ -10,7 +10,7 @@ import { BanlistStatus } from '../../models/ygo-format.model';
 import { CardLegalityFacade } from '../../services/card-legality.facade';
 import { I18nService } from '../../services/i18n.service';
 import { YgoApiService } from '../../services/ygo-api.service';
-import { splitDeckIntoYdkeSections } from '../../services/ydke.service';
+import { splitDeckIntoYdkeSections, parseYdkeUrl } from '../../services/ydke.service';
 import { DecklistStore } from '../../stores/decklist.store';
 import { FormatStore } from '../../stores/format.store';
 import {
@@ -30,6 +30,9 @@ import {
   verdictShortKey,
 } from '../../utils/legality-display.utils';
 import { FormatSelectorComponent } from '../format-selector/format-selector.component';
+import { DeckSuggestionsPanelComponent } from '../deck-suggestions-panel/deck-suggestions-panel.component';
+import { CardKnowledgeService } from '../../services/card-knowledge.service';
+import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
 
 type InspectTarget =
   | { kind: 'deck'; card: DecklistCard }
@@ -38,7 +41,7 @@ type InspectTarget =
 @Component({
   selector: 'app-decklist-editor',
   standalone: true,
-  imports: [FormsModule, FormatSelectorComponent],
+  imports: [FormsModule, FormatSelectorComponent, DeckSuggestionsPanelComponent],
   template: `
     @if (deck(); as activeDeck) {
       <section class="flex flex-col min-h-0 gap-4">
@@ -82,6 +85,9 @@ type InspectTarget =
           <div class="flex flex-wrap gap-1 w-full sm:w-auto sm:ml-auto">
             <button type="button" class="btn btn-ghost btn-sm" (click)="decklistStore.sortActiveDeck()">
               {{ i18n.t('decklist.editor.sort') }}
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" (click)="openImportYdkeDialog()">
+              {{ i18n.t('decklist.importYdke') }}
             </button>
             <button type="button" class="btn btn-outline btn-sm" (click)="openYdkeDialog(activeDeck)">
               {{ i18n.t('decklist.exportYdke') }}
@@ -421,6 +427,64 @@ type InspectTarget =
           </div>
         }
       </section>
+
+      @if (activeDeck.cards.length > 0) {
+        <app-deck-suggestions-panel
+          [loading]="deckSuggestionsLoading()"
+          [available]="deckSuggestions().available"
+          [sourceCount]="deckSuggestions().sourceCount"
+          [groups]="deckSuggestions().groups"
+          (cardSelected)="addSuggestion($event)"
+        />
+      }
+    }
+
+    @if (importYdkeDialogOpen()) {
+      <dialog class="modal modal-open" open>
+        <div class="modal-box max-w-2xl">
+          <h3 class="font-bold text-lg">{{ i18n.t('decklist.ydke.importTitle') }}</h3>
+          <p class="text-sm text-base-content/60 mt-1">{{ i18n.t('decklist.ydke.importHint') }}</p>
+          <textarea
+            class="textarea textarea-bordered w-full mt-4 font-mono text-xs leading-relaxed min-h-28"
+            [ngModel]="importYdkeDraft()"
+            (ngModelChange)="onImportYdkeDraftChange($event)"
+            [placeholder]="i18n.t('decklist.ydke.importPlaceholder')"
+          ></textarea>
+          @if (importYdkePreview(); as preview) {
+            <p class="text-xs text-base-content/60 mt-2">
+              {{ i18n.t('decklist.ydke.hint', preview) }}
+            </p>
+          }
+          <label class="label cursor-pointer justify-start gap-3 mt-3">
+            <input
+              type="checkbox"
+              class="checkbox checkbox-sm"
+              [ngModel]="importYdkeReplace()"
+              (ngModelChange)="importYdkeReplace.set($event)"
+            />
+            <span class="label-text">{{ i18n.t('decklist.ydke.importReplace') }}</span>
+          </label>
+          <div class="modal-action">
+            <button type="button" class="btn btn-ghost" (click)="closeImportYdkeDialog()">
+              {{ i18n.t('decklist.dialog.cancel') }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              [disabled]="!importYdkeDraft().trim() || importYdkeImporting()"
+              (click)="confirmImportYdke()"
+            >
+              @if (importYdkeImporting()) {
+                <span class="loading loading-spinner loading-xs"></span>
+              }
+              {{ i18n.t('decklist.ydke.importConfirm') }}
+            </button>
+          </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+          <button type="button" (click)="closeImportYdkeDialog()">close</button>
+        </form>
+      </dialog>
     }
 
     @if (ydkeDialogOpen()) {
@@ -460,6 +524,7 @@ export class DecklistEditorComponent {
   protected readonly i18n = inject(I18nService);
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
+  private readonly knowledge = inject(CardKnowledgeService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly search$ = new Subject<string>();
@@ -482,6 +547,28 @@ export class DecklistEditorComponent {
   readonly ydkeDialogOpen = signal(false);
   readonly ydkeUrl = signal('');
   readonly ydkeHint = signal('');
+  readonly importYdkeDialogOpen = signal(false);
+  readonly importYdkeDraft = signal('');
+  readonly importYdkeReplace = signal(true);
+  readonly importYdkeImporting = signal(false);
+  readonly deckRevision = computed(() => {
+    const deck = this.liveDeck();
+    const total = deck.cards.reduce((sum, card) => sum + card.quantity, 0);
+    return `${deck.id}:${deck.updatedAt}:${total}:${deck.cards.length}`;
+  });
+
+  private readonly liveDeck = computed(() => {
+    const deckId = this.deck().id;
+    return this.decklistStore.decklists().find((item) => item.id === deckId) ?? this.deck();
+  });
+  readonly importYdkePreview = signal<{ main: string; extra: string; side: string } | null>(null);
+  readonly deckSuggestionsLoading = signal(false);
+  readonly deckSuggestions = signal<DeckRelatedResult>({
+    suggestions: [],
+    groups: [],
+    sourceCount: 0,
+    available: false,
+  });
 
   protected readonly sectionCardCount = sectionCardCount;
   protected readonly quantityBadgeClass = quantityBadgeClass;
@@ -567,6 +654,31 @@ export class DecklistEditorComponent {
       ) {
         this.inspectCard.set({ kind: 'deck', card: fresh });
       }
+    });
+
+    effect((onCleanup) => {
+      const revision = this.deckRevision();
+      const deck = this.liveDeck();
+      const format = this.formatStore.selectedFormat();
+      void revision;
+
+      if (!format || deck.cards.length === 0) {
+        this.deckSuggestions.set({
+          suggestions: [],
+          groups: [],
+          sourceCount: 0,
+          available: !!format,
+        });
+        this.deckSuggestionsLoading.set(false);
+        return;
+      }
+
+      this.deckSuggestionsLoading.set(true);
+      const sub = this.knowledge.findRelatedForDeck$(deck, format).subscribe((result) => {
+        this.deckSuggestions.set(result);
+        this.deckSuggestionsLoading.set(false);
+      });
+      onCleanup(() => sub.unsubscribe());
     });
   }
 
@@ -956,5 +1068,91 @@ export class DecklistEditorComponent {
     } catch {
       // Clipboard blocked: textarea remains selectable for manual copy.
     }
+  }
+
+  openImportYdkeDialog(): void {
+    this.importYdkeDraft.set('');
+    this.importYdkeReplace.set(true);
+    this.importYdkePreview.set(null);
+    this.importYdkeDialogOpen.set(true);
+  }
+
+  closeImportYdkeDialog(): void {
+    this.importYdkeDialogOpen.set(false);
+    this.importYdkeDraft.set('');
+    this.importYdkePreview.set(null);
+  }
+
+  onImportYdkeDraftChange(value: string): void {
+    this.importYdkeDraft.set(value);
+    try {
+      const sections = parseYdkeUrl(value);
+      this.importYdkePreview.set({
+        main: `${sections.main.length}`,
+        extra: `${sections.extra.length}`,
+        side: `${sections.side.length}`,
+      });
+    } catch {
+      this.importYdkePreview.set(null);
+    }
+  }
+
+  confirmImportYdke(): void {
+    const deck = this.deck();
+    const format = this.formatStore.selectedFormat();
+    const draft = this.importYdkeDraft().trim();
+    if (!draft || !format || this.importYdkeImporting()) {
+      return;
+    }
+
+    this.importYdkeImporting.set(true);
+    this.decklistStore.importFromYdke$(draft, deck.id, this.importYdkeReplace(), format).subscribe({
+      next: (result) => {
+        this.importYdkeImporting.set(false);
+        if (result.ok) {
+          this.decklistStore.notify({
+            key: 'decklist.feedback.ydkeImported',
+            params: { total: `${result.total}`, unique: `${result.unique}` },
+            tone: 'success',
+          });
+          this.closeImportYdkeDialog();
+          return;
+        }
+        this.decklistStore.notify({
+          key: result.errorKey ?? 'decklist.feedback.ydkeResolveFailed',
+          tone: 'warning',
+        });
+      },
+      error: () => {
+        this.importYdkeImporting.set(false);
+        this.decklistStore.notify({ key: 'decklist.feedback.ydkeResolveFailed', tone: 'warning' });
+      },
+    });
+  }
+
+  addSuggestion(suggestion: CardRelatedSuggestion): void {
+    const format = this.formatStore.selectedFormat();
+    const qty = suggestion.suggestedQty ?? 1;
+    if (!format || qty <= 0) {
+      return;
+    }
+    this.ygoApi.getCardById$(suggestion.cardId, this.i18n.lang()).subscribe((card) => {
+      if (!card) {
+        return;
+      }
+      this.cardLegality.evaluate$(card, format).subscribe((result) => {
+        this.decklistStore.addCard(
+          {
+            id: card.id,
+            name: card.name,
+            type: card.type,
+            imageUrlSmall: card.card_images[0]?.image_url_small ?? null,
+            banlistStatus: result.banlistStatus,
+            legalityVerdict: result.verdict,
+          },
+          qty,
+        );
+      });
+    });
   }
 }

@@ -5,13 +5,18 @@ import { combineLatest, of } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { ComboPayoff, ComboRequirement, ComboResult } from '../../models/card-combo.model';
+import { CardKnowledgeEffect } from '../../models/card-knowledge.model';
 import { YgoCard } from '../../models/ygo-card.model';
 import { CardComboService } from '../../services/card-combo.service';
+import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { I18nService } from '../../services/i18n.service';
 import { YgoApiService } from '../../services/ygo-api.service';
 import { FormatStore } from '../../stores/format.store';
 
 const EMPTY_COMBO: ComboResult = {
+  tags: [],
+  displayTags: [],
+  effects: [],
   requirements: [],
   payoffs: [],
   enablers: [],
@@ -82,7 +87,20 @@ const EMPTY_COMBO: ComboResult = {
         ) {
           <p class="text-sm text-base-content/60">{{ i18n.t('combo.unparsed') }}</p>
         } @else {
-          @if (combo().requirements.length > 0 || combo().payoffs.length > 0) {
+          @if (combo().displayTags.length > 0) {
+            <section class="card bg-base-100 shadow-xl border border-base-300">
+              <div class="card-body p-4 sm:p-6 space-y-2">
+                <h3 class="font-semibold text-sm">{{ i18n.t('knowledge.mechanics') }}</h3>
+                <div class="flex flex-wrap gap-1">
+                  @for (tag of combo().displayTags; track tag.id) {
+                    <span class="badge badge-secondary badge-sm badge-outline">{{ i18n.t(tag.labelKey) }}</span>
+                  }
+                </div>
+              </div>
+            </section>
+          }
+
+          @if (combo().requirements.length > 0 || combo().payoffs.length > 0 || combo().effects.length > 0) {
             <section class="card bg-base-100 shadow-xl border border-base-300">
               <div class="card-body p-4 sm:p-6 space-y-3">
                 <h3 class="font-semibold">{{ i18n.t('combo.parsedEffects') }}</h3>
@@ -95,6 +113,11 @@ const EMPTY_COMBO: ComboResult = {
                   @for (pay of combo().payoffs; track $index) {
                     <span class="badge badge-outline badge-secondary">
                       {{ payoffLabel(pay) }}
+                    </span>
+                  }
+                  @for (effect of combo().effects; track effect.kind) {
+                    <span class="badge badge-outline badge-info">
+                      {{ effectLabel(effect) }}
                     </span>
                   }
                 </div>
@@ -203,6 +226,7 @@ export class ComboPage {
   private readonly router = inject(Router);
   private readonly ygoApi = inject(YgoApiService);
   private readonly comboService = inject(CardComboService);
+  private readonly knowledge = inject(CardKnowledgeService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(true);
@@ -264,6 +288,12 @@ export class ComboPage {
       level: String(pay.minLevel),
       names: pay.names.join(' / '),
     });
+  }
+
+  effectLabel(effect: CardKnowledgeEffect): string {
+    const key = this.knowledge.effectLabelKey(effect);
+    const translated = this.i18n.t(key, this.knowledge.effectLabelParams(effect));
+    return translated === key ? effect.kind : translated;
   }
 
   openCard(cardId: number): void {

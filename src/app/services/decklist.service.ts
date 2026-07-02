@@ -93,6 +93,7 @@ export class DecklistService {
           type: payload.type,
           imageUrlSmall: payload.imageUrlSmall,
           quantity: Math.min(quantity, max),
+          section: payload.section,
           banlistStatus: payload.banlistStatus ?? null,
           legalityVerdict: payload.legalityVerdict ?? null,
         },
@@ -163,6 +164,43 @@ export class DecklistService {
       updatedAt: new Date().toISOString(),
       cards: this.sortCards(decklist.cards),
     };
+  }
+
+  replaceCards(decklist: Decklist, cards: DecklistCard[]): Decklist {
+    return {
+      ...decklist,
+      updatedAt: new Date().toISOString(),
+      cards: this.sortCards(cards),
+    };
+  }
+
+  mergeCards(decklist: Decklist, imported: readonly DecklistCard[]): Decklist {
+    return imported.reduce((deck, card) => {
+      const existing = deck.cards.find((item) => item.id === card.id);
+      if (!existing) {
+        return this.addCardToDecklist(deck, card, card.quantity);
+      }
+      const max = maxCopiesForStatus(card.banlistStatus);
+      const nextQty = Math.min(existing.quantity + card.quantity, max);
+      return {
+        ...deck,
+        updatedAt: new Date().toISOString(),
+        cards: deck.cards.map((item) =>
+          item.id === card.id
+            ? {
+                ...item,
+                quantity: nextQty,
+                section: card.section ?? item.section,
+                name: card.name,
+                type: card.type,
+                imageUrlSmall: card.imageUrlSmall ?? item.imageUrlSmall,
+                banlistStatus: card.banlistStatus ?? item.banlistStatus ?? null,
+                legalityVerdict: card.legalityVerdict ?? item.legalityVerdict ?? null,
+              }
+            : item,
+        ),
+      };
+    }, decklist);
   }
 
   private emptyStorage(): DecklistStorage {

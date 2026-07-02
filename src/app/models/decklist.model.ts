@@ -1,12 +1,15 @@
 import { BanlistStatus } from './ygo-format.model';
 import { LegalityVerdict } from './ygo-card.model';
 
+export type DeckSection = 'main' | 'extra' | 'side';
+
 export interface DecklistCard {
   id: number;
   name: string;
   type: string;
   imageUrlSmall: string | null;
   quantity: number;
+  section?: DeckSection;
   banlistStatus?: BanlistStatus | null;
   legalityVerdict?: LegalityVerdict | null;
 }
@@ -28,6 +31,7 @@ export interface AddToDecklistPayload {
   name: string;
   type: string;
   imageUrlSmall: string | null;
+  section?: DeckSection;
   banlistStatus?: BanlistStatus | null;
   legalityVerdict?: LegalityVerdict | null;
 }

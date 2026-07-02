@@ -1,9 +1,21 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DATA_DIR, openDatabase, readMeta, REPO_ROOT } from './database';
+import { openDatabase, readMeta, REPO_ROOT } from './database';
 
 const EXPORT_PATH = join(REPO_ROOT, 'src', 'assets', 'data', 'card-knowledge', 'related.json');
-const MAX_RELATED_PER_CARD = 12;
+const MAX_RELATED_PER_CARD = 16;
+const MAX_PER_RELATION = 4;
+const MAX_MENTIONS = 10;
+const MAX_EFFECTS = 6;
+
+const RELATION_PRIORITY = [
+  'engine',
+  'gy_synergy',
+  'mentions_card',
+  'shared_mention',
+  'archetype',
+  'series',
+] as const;
 
 interface RelatedRow {
   source_id: number;
@@ -27,9 +39,16 @@ interface ExportedRelated {
   imageSmall: string;
 }
 
+interface ExportedEffect {
+  kind: string;
+  payload: Record<string, unknown>;
+}
+
 interface ExportedCardEntry {
   tags: string[];
   series: string[];
+  mentions: string[];
+  effects: ExportedEffect[];
   related: ExportedRelated[];
 }
 
@@ -38,6 +57,61 @@ interface ExportPayload {
   generatedAt: string;
   cardCount: number;
   entries: Record<string, ExportedCardEntry>;
+}
+
+function pickDiversifiedRelated(rows: RelatedRow[]): ExportedRelated[] {
+  const relationMap = new Map<string, RelatedRow[]>();
+
+  for (const row of rows) {
+    const bucket = relationMap.get(row.relation) ?? [];
+    bucket.push(row);
+    relationMap.set(row.relation, bucket);
+  }
+
+  const picked: ExportedRelated[] = [];
+
+  for (const relation of RELATION_PRIORITY) {
+    const bucket = relationMap.get(relation) ?? [];
+    bucket.sort((a, b) => b.score - a.score || a.target_name.localeCompare(b.target_name));
+    for (const row of bucket.slice(0, MAX_PER_RELATION)) {
+      if (picked.length >= MAX_RELATED_PER_CARD) {
+        return picked;
+      }
+      picked.push({
+        id: row.target_id,
+        name: row.target_name,
+        relation: row.relation,
+        score: row.score,
+        archetype: row.target_archetype,
+        tcgDate: row.target_tcg_date,
+        banTcg: row.target_ban_tcg,
+        imageSmall: `https://images.ygoprodeck.com/images/cards_small/${row.target_id}.jpg`,
+      });
+    }
+  }
+
+  for (const [relation, bucket] of relationMap) {
+    if ((RELATION_PRIORITY as readonly string[]).includes(relation)) {
+      continue;
+    }
+    for (const row of bucket.slice(0, 2)) {
+      if (picked.length >= MAX_RELATED_PER_CARD) {
+        return picked;
+      }
+      picked.push({
+        id: row.target_id,
+        name: row.target_name,
+        relation: row.relation,
+        score: row.score,
+        archetype: row.target_archetype,
+        tcgDate: row.target_tcg_date,
+        banTcg: row.target_ban_tcg,
+        imageSmall: `https://images.ygoprodeck.com/images/cards_small/${row.target_id}.jpg`,
+      });
+    }
+  }
+
+  return picked;
 }
 
 async function main(): Promise<void> {
@@ -62,14 +136,20 @@ async function main(): Promise<void> {
     .all() as RelatedRow[];
 
   const tagRows = db
-    .prepare('SELECT card_id, tag FROM card_tags WHERE source = ?')
-    .all('rule') as Array<{ card_id: number; tag: string }>;
+    .prepare('SELECT card_id, tag FROM card_tags WHERE source IN (?, ?)')
+    .all('rule', 'format') as Array<{ card_id: number; tag: string }>;
 
   const seriesRows = db
-    .prepare(
-      `SELECT id, archetype FROM cards WHERE archetype IS NOT NULL AND archetype != ''`,
-    )
+    .prepare(`SELECT id, archetype FROM cards WHERE archetype IS NOT NULL AND archetype != ''`)
     .all() as Array<{ id: number; archetype: string }>;
+
+  const mentionRows = db
+    .prepare('SELECT card_id, mention FROM card_mentions WHERE source = ? ORDER BY mention ASC')
+    .all('rule') as Array<{ card_id: number; mention: string }>;
+
+  const effectRows = db
+    .prepare('SELECT card_id, payload_json FROM card_effects WHERE source = ?')
+    .all('rule') as Array<{ card_id: number; payload_json: string }>;
 
   db.close();
 
@@ -78,6 +158,26 @@ async function main(): Promise<void> {
     const bucket = tagsByCard.get(row.card_id) ?? [];
     bucket.push(row.tag);
     tagsByCard.set(row.card_id, bucket);
+  }
+
+  const mentionsByCard = new Map<number, string[]>();
+  for (const row of mentionRows) {
+    const bucket = mentionsByCard.get(row.card_id) ?? [];
+    if (!bucket.includes(row.mention)) {
+      bucket.push(row.mention);
+    }
+    mentionsByCard.set(row.card_id, bucket);
+  }
+
+  const effectsByCard = new Map<number, ExportedEffect[]>();
+  for (const row of effectRows) {
+    const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
+    const kind = String(payload.kind ?? 'unknown');
+    const bucket = effectsByCard.get(row.card_id) ?? [];
+    if (bucket.length < MAX_EFFECTS) {
+      bucket.push({ kind, payload });
+      effectsByCard.set(row.card_id, bucket);
+    }
   }
 
   const seriesByCard = new Map<number, string[]>();
@@ -98,40 +198,34 @@ async function main(): Promise<void> {
     }
   }
 
-  const entries: Record<string, ExportedCardEntry> = {};
+  const rowsBySource = new Map<number, RelatedRow[]>();
   for (const row of rows) {
-    const key = String(row.source_id);
-    const entry = entries[key] ?? { tags: tagsByCard.get(row.source_id) ?? [], series: seriesByCard.get(row.source_id) ?? [], related: [] };
-    if (entry.related.length >= MAX_RELATED_PER_CARD) {
-      entries[key] = entry;
-      continue;
-    }
-    entry.related.push({
-      id: row.target_id,
-      name: row.target_name,
-      relation: row.relation,
-      score: row.score,
-      archetype: row.target_archetype,
-      tcgDate: row.target_tcg_date,
-      banTcg: row.target_ban_tcg,
-      imageSmall: `https://images.ygoprodeck.com/images/cards_small/${row.target_id}.jpg`,
-    });
-    entries[key] = entry;
+    const bucket = rowsBySource.get(row.source_id) ?? [];
+    bucket.push(row);
+    rowsBySource.set(row.source_id, bucket);
   }
 
-  for (const [cardId, tags] of tagsByCard) {
-    const key = String(cardId);
-    if (!entries[key]) {
-      entries[key] = {
-        tags,
-        series: seriesByCard.get(cardId) ?? [],
-        related: [],
-      };
-    }
+  const entries: Record<string, ExportedCardEntry> = {};
+  const allCardIds = new Set<number>([
+    ...tagsByCard.keys(),
+    ...rowsBySource.keys(),
+    ...mentionsByCard.keys(),
+    ...effectsByCard.keys(),
+  ]);
+
+  for (const cardId of allCardIds) {
+    const sourceRows = rowsBySource.get(cardId) ?? [];
+    entries[String(cardId)] = {
+      tags: tagsByCard.get(cardId) ?? [],
+      series: seriesByCard.get(cardId) ?? [],
+      mentions: (mentionsByCard.get(cardId) ?? []).slice(0, MAX_MENTIONS),
+      effects: effectsByCard.get(cardId) ?? [],
+      related: sourceRows.length > 0 ? pickDiversifiedRelated(sourceRows) : [],
+    };
   }
 
   const payload: ExportPayload = {
-    version: 1,
+    version: 2,
     generatedAt: new Date().toISOString(),
     cardCount: meta?.totalCards ?? Object.keys(entries).length,
     entries,

@@ -7,5 +7,5 @@
  *   OPENAI_API_KEY=... bun tools/card-knowledge-db/src/tag-llm.ts --limit 100
  */
 console.log('LLM tagging is not implemented yet.');
-console.log('Pipeline for now: db:sync → db:tag → db:relations → db:stats');
+console.log('Pipeline for now: db:sync → db:parse-effects → db:tag → db:relations → db:export → db:combos');
 process.exit(0);
