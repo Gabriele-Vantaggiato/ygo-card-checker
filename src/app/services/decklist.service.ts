@@ -47,20 +47,28 @@ export class DecklistService {
     };
   }
 
-  addCardToDecklist(decklist: Decklist, payload: AddToDecklistPayload): Decklist {
+  addCardToDecklist(decklist: Decklist, payload: AddToDecklistPayload, quantity = 1): Decklist {
     const max = maxCopiesForStatus(payload.banlistStatus);
-    if (max === 0) {
+    if (max === 0 || quantity <= 0) {
       return decklist;
     }
 
     const existing = decklist.cards.find((c) => c.id === payload.id);
+    const current = existing?.quantity ?? 0;
+    const nextQty = Math.min(current + quantity, max);
+
+    if (nextQty <= current) {
+      return decklist;
+    }
+
     if (existing) {
-      const nextQty = Math.min(existing.quantity + 1, max);
       return {
         ...decklist,
         updatedAt: new Date().toISOString(),
         cards: decklist.cards.map((c) =>
-          c.id === payload.id ? { ...c, quantity: nextQty, name: payload.name, type: payload.type } : c,
+          c.id === payload.id
+            ? { ...c, quantity: nextQty, name: payload.name, type: payload.type, imageUrlSmall: payload.imageUrlSmall ?? c.imageUrlSmall }
+            : c,
         ),
       };
     }
@@ -75,7 +83,7 @@ export class DecklistService {
           name: payload.name,
           type: payload.type,
           imageUrlSmall: payload.imageUrlSmall,
-          quantity: 1,
+          quantity: Math.min(quantity, max),
         },
       ],
     };

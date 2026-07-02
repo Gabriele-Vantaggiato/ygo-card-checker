@@ -9,7 +9,11 @@ import {
 import { DecklistService } from '../services/decklist.service';
 import { I18nService } from '../services/i18n.service';
 
-export type DecklistFeedback = 'added' | 'maxReached' | 'forbidden' | 'noDecklist';
+export interface DecklistFeedbackMessage {
+  key: string;
+  params?: Record<string, string>;
+  tone: 'success' | 'warning' | 'info';
+}
 
 @Injectable({ providedIn: 'root' })
 export class DecklistStore {
@@ -17,7 +21,7 @@ export class DecklistStore {
   private readonly i18n = inject(I18nService);
 
   private readonly storage = signal(this.decklistService.load());
-  readonly feedback = signal<DecklistFeedback | null>(null);
+  readonly feedback = signal<DecklistFeedbackMessage | null>(null);
 
   readonly decklists = computed(() => this.storage().decklists);
   readonly activeDecklistId = computed(() => this.storage().activeId);
@@ -45,14 +49,20 @@ export class DecklistStore {
     this.feedback.set(null);
   }
 
-  createDecklist(name?: string): void {
+  createDecklist(name?: string): string {
     const deck = this.decklistService.createDecklist(
-      name?.trim() || this.i18n.t('decklist.defaultName', { n: String(this.storage().decklists.length + 1) }),
+      name?.trim() || this.i18n.t('decklist.defaultName', { n: `${this.storage().decklists.length + 1}` }),
     );
     this.patchStorage((s) => ({
       activeId: deck.id,
       decklists: [deck, ...s.decklists],
     }));
+    this.flashFeedback({
+      key: 'decklist.feedback.created',
+      params: { name: deck.name },
+      tone: 'success',
+    });
+    return deck.id;
   }
 
   renameActiveDecklist(name: string): void {
@@ -87,28 +97,46 @@ export class DecklistStore {
     });
   }
 
-  addCard(payload: AddToDecklistPayload): void {
-    const deck = this.activeDecklist();
-    if (!deck) {
-      this.flashFeedback('noDecklist');
+  addCard(payload: AddToDecklistPayload, quantity = 1): void {
+    const deckId = this.activeDecklistId();
+    if (!deckId) {
+      this.flashFeedback({ key: 'decklist.feedback.noDecklist', tone: 'info' });
       return;
+    }
+    this.addCardToDeck(deckId, payload, quantity);
+  }
+
+  addCardToDeck(deckId: string, payload: AddToDecklistPayload, quantity: number): boolean {
+    const deck = this.getDeckById(deckId);
+    if (!deck) {
+      this.flashFeedback({ key: 'decklist.feedback.noDecklist', tone: 'info' });
+      return false;
     }
 
     const max = maxCopiesForStatus(payload.banlistStatus);
     if (max === 0) {
-      this.flashFeedback('forbidden');
-      return;
+      this.flashFeedback({ key: 'decklist.feedback.forbidden', tone: 'warning' });
+      return false;
     }
 
-    const current = deck.cards.find((c) => c.id === payload.id)?.quantity ?? 0;
-    if (current >= max) {
-      this.flashFeedback('maxReached');
-      return;
+    const current = this.quantityInDeck(deckId, payload.id);
+    const allowed = max - current;
+    if (allowed <= 0) {
+      this.flashFeedback({ key: 'decklist.feedback.maxReached', tone: 'warning' });
+      return false;
     }
 
-    const updated = this.decklistService.addCardToDecklist(deck, payload);
+    const addQty = Math.min(Math.max(1, quantity), allowed);
+    const updated = this.decklistService.addCardToDecklist(deck, payload, addQty);
     this.replaceDeck(updated);
-    this.flashFeedback('added');
+    this.patchStorage((s) => ({ ...s, activeId: deckId }));
+
+    this.flashFeedback({
+      key: 'decklist.feedback.addedTo',
+      params: { qty: `${addQty}`, card: payload.name, deck: deck.name },
+      tone: 'success',
+    });
+    return true;
   }
 
   removeCard(cardId: number): void {
@@ -130,7 +158,7 @@ export class DecklistStore {
     }
     const max = maxCopiesForStatus(banlistStatus);
     if (card.quantity >= max) {
-      this.flashFeedback('maxReached');
+      this.flashFeedback({ key: 'decklist.feedback.maxReached', tone: 'warning' });
       return;
     }
     this.replaceDeck(
@@ -153,16 +181,38 @@ export class DecklistStore {
     );
   }
 
+  getDeckById(deckId: string): Decklist | null {
+    return this.storage().decklists.find((d) => d.id === deckId) ?? null;
+  }
+
+  quantityInDeck(deckId: string, cardId: number): number {
+    return this.getDeckById(deckId)?.cards.find((c) => c.id === cardId)?.quantity ?? 0;
+  }
+
   quantityInActive(cardId: number): number {
-    return this.activeDecklist()?.cards.find((c) => c.id === cardId)?.quantity ?? 0;
+    const activeId = this.activeDecklistId();
+    return activeId ? this.quantityInDeck(activeId, cardId) : 0;
+  }
+
+  remainingCopies(deckId: string, cardId: number, banlistStatus: BanlistStatus | null | undefined): number {
+    const max = maxCopiesForStatus(banlistStatus);
+    return Math.max(0, max - this.quantityInDeck(deckId, cardId));
+  }
+
+  maxCopies(banlistStatus: BanlistStatus | null | undefined): number {
+    return maxCopiesForStatus(banlistStatus);
+  }
+
+  canAddToDeck(deckId: string, cardId: number, banlistStatus: BanlistStatus | null | undefined): boolean {
+    return this.remainingCopies(deckId, cardId, banlistStatus) > 0;
   }
 
   canAdd(payload: AddToDecklistPayload): boolean {
-    const max = maxCopiesForStatus(payload.banlistStatus);
-    if (max === 0) {
+    const activeId = this.activeDecklistId();
+    if (!activeId) {
       return false;
     }
-    return this.quantityInActive(payload.id) < max;
+    return this.canAddToDeck(activeId, payload.id, payload.banlistStatus);
   }
 
   clearFeedback(): void {
@@ -191,12 +241,12 @@ export class DecklistStore {
     this.decklistService.save(this.storage());
   }
 
-  private flashFeedback(kind: DecklistFeedback): void {
-    this.feedback.set(kind);
+  private flashFeedback(message: DecklistFeedbackMessage): void {
+    this.feedback.set(message);
     window.setTimeout(() => {
-      if (this.feedback() === kind) {
+      if (this.feedback() === message) {
         this.feedback.set(null);
       }
-    }, 2200);
+    }, 2800);
   }
 }

@@ -28,8 +28,30 @@ import { DecklistStore } from '../../stores/decklist.store';
       </div>
 
       @if (decklistStore.feedback(); as fb) {
-        <div class="alert alert-sm py-2 mb-2 text-xs" [class]="feedbackClass(fb)">
+        <div class="alert alert-sm py-2 mb-2 text-xs" [class]="feedbackClass(fb.tone)">
           <span>{{ feedbackMessage(fb) }}</span>
+        </div>
+      }
+
+      @if (createOpen()) {
+        <div class="rounded-lg border border-primary/30 bg-primary/5 p-3 mb-4 space-y-2">
+          <p class="text-sm font-medium">{{ i18n.t('decklist.create.title') }}</p>
+          <input
+            type="text"
+            class="input input-bordered input-sm w-full"
+            [placeholder]="i18n.t('decklist.create.placeholder')"
+            [ngModel]="newDeckName()"
+            (ngModelChange)="newDeckName.set($event)"
+            (keydown.enter)="submitCreateDeck()"
+          />
+          <div class="flex gap-2 justify-end">
+            <button type="button" class="btn btn-ghost btn-sm" (click)="cancelCreateDeck()">
+              {{ i18n.t('decklist.dialog.cancel') }}
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="submitCreateDeck()">
+              {{ i18n.t('decklist.create.confirm') }}
+            </button>
+          </div>
         </div>
       }
 
@@ -48,7 +70,8 @@ import { DecklistStore } from '../../stores/decklist.store';
           type="button"
           class="btn btn-primary btn-square"
           [class.btn-sm]="!fullPage()"
-          (click)="decklistStore.createDecklist()"
+          [attr.aria-label]="i18n.t('decklist.create.button')"
+          (click)="openCreateDeck()"
         >
           +
         </button>
@@ -155,6 +178,8 @@ export class DecklistPanelComponent {
   protected readonly i18n = inject(I18nService);
 
   readonly renameDraft = signal('');
+  readonly createOpen = signal(false);
+  readonly newDeckName = signal('');
 
   constructor() {
     effect(() => {
@@ -166,22 +191,41 @@ export class DecklistPanelComponent {
     this.decklistStore.renameActiveDecklist(this.renameDraft());
   }
 
+  openCreateDeck(): void {
+    this.newDeckName.set('');
+    this.createOpen.set(true);
+  }
+
+  cancelCreateDeck(): void {
+    this.createOpen.set(false);
+    this.newDeckName.set('');
+  }
+
+  submitCreateDeck(): void {
+    const name = this.newDeckName().trim();
+    if (!name) {
+      return;
+    }
+    this.decklistStore.createDecklist(name);
+    this.createOpen.set(false);
+    this.newDeckName.set('');
+  }
+
   totalLabel(): string {
     return this.i18n.t('decklist.total', {
       count: `${this.decklistStore.activeTotalCards()}`,
     });
   }
 
-  feedbackMessage(feedback: string): string {
-    return this.i18n.t(`decklist.feedback.${feedback}`);
+  feedbackMessage(fb: { key: string; params?: Record<string, string> }): string {
+    return this.i18n.t(fb.key, fb.params);
   }
 
-  feedbackClass(feedback: string): string {
-    switch (feedback) {
-      case 'added':
+  feedbackClass(tone: string): string {
+    switch (tone) {
+      case 'success':
         return 'alert-success';
-      case 'forbidden':
-      case 'maxReached':
+      case 'warning':
         return 'alert-warning';
       default:
         return 'alert-info';
