@@ -6,6 +6,7 @@ export interface DecklistCard {
   type: string;
   imageUrlSmall: string | null;
   quantity: number;
+  banlistStatus?: BanlistStatus | null;
 }
 
 export interface Decklist {

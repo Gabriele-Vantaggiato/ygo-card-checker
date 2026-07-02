@@ -67,7 +67,14 @@ export class DecklistService {
         updatedAt: new Date().toISOString(),
         cards: decklist.cards.map((c) =>
           c.id === payload.id
-            ? { ...c, quantity: nextQty, name: payload.name, type: payload.type, imageUrlSmall: payload.imageUrlSmall ?? c.imageUrlSmall }
+            ? {
+                ...c,
+                quantity: nextQty,
+                name: payload.name,
+                type: payload.type,
+                imageUrlSmall: payload.imageUrlSmall ?? c.imageUrlSmall,
+                banlistStatus: payload.banlistStatus ?? c.banlistStatus ?? null,
+              }
             : c,
         ),
       };
@@ -84,6 +91,7 @@ export class DecklistService {
           type: payload.type,
           imageUrlSmall: payload.imageUrlSmall,
           quantity: Math.min(quantity, max),
+          banlistStatus: payload.banlistStatus ?? null,
         },
       ],
     };

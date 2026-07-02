@@ -49,25 +49,38 @@ import { DecklistStore } from '../../stores/decklist.store';
             [class.bg-neutral]="deck.id !== decklistStore.activeDecklistId()"
             (click)="deckSelected.emit(deck.id)"
           >
-            <div class="relative h-full flex flex-col bg-gradient-to-b from-neutral to-neutral-focus text-neutral-content p-3">
-              <div class="flex-1 flex items-center justify-center">
-                <div class="relative w-16 sm:w-20 h-20 sm:h-24">
-                  <span
-                    class="absolute inset-x-2 bottom-0 h-14 sm:h-16 rounded-md bg-primary/80 border border-primary-content/20 shadow-inner"
-                  ></span>
-                  <span
-                    class="absolute inset-x-4 bottom-3 h-12 sm:h-14 rounded-md bg-primary border border-primary-content/30 shadow-md"
-                  ></span>
-                  <span
-                    class="absolute inset-x-6 bottom-6 h-10 sm:h-12 rounded-md bg-primary-focus border border-primary-content/40 shadow-lg flex items-center justify-center text-xs font-bold text-primary-content"
-                  >
-                    {{ deckInitial(deck.name) }}
-                  </span>
-                </div>
+            <div class="relative h-full flex flex-col text-neutral-content p-3 overflow-hidden">
+              @if (deckCover(deck); as cover) {
+                <div
+                  class="absolute inset-0 bg-cover bg-center scale-110"
+                  [style.background-image]="'url(' + cover + ')'"
+                  aria-hidden="true"
+                ></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/75 to-black/40" aria-hidden="true"></div>
+              } @else {
+                <div class="absolute inset-0 bg-gradient-to-b from-neutral to-neutral-focus" aria-hidden="true"></div>
+              }
+
+              <div class="relative z-10 flex-1 flex items-center justify-center">
+                @if (!deckCover(deck)) {
+                  <div class="relative w-16 sm:w-20 h-20 sm:h-24">
+                    <span
+                      class="absolute inset-x-2 bottom-0 h-14 sm:h-16 rounded-md bg-primary/80 border border-primary-content/20 shadow-inner"
+                    ></span>
+                    <span
+                      class="absolute inset-x-4 bottom-3 h-12 sm:h-14 rounded-md bg-primary border border-primary-content/30 shadow-md"
+                    ></span>
+                    <span
+                      class="absolute inset-x-6 bottom-6 h-10 sm:h-12 rounded-md bg-primary-focus border border-primary-content/40 shadow-lg flex items-center justify-center text-xs font-bold text-primary-content"
+                    >
+                      {{ deckInitial(deck.name) }}
+                    </span>
+                  </div>
+                }
               </div>
-              <div class="pt-2 border-t border-white/10">
-                <p class="font-semibold text-sm truncate">{{ deck.name }}</p>
-                <p class="text-[11px] text-neutral-content/70 mt-0.5">
+              <div class="relative z-10 pt-2 border-t border-white/15">
+                <p class="font-semibold text-sm truncate drop-shadow">{{ deck.name }}</p>
+                <p class="text-[11px] text-neutral-content/80 mt-0.5 drop-shadow">
                   {{ deckCountLabel(deck) }}
                 </p>
               </div>
@@ -94,5 +107,9 @@ export class DecklistGridComponent {
       total: `${this.decklistStore.totalCardsForDeck(deck.id)}`,
       unique: `${this.decklistStore.uniqueCardsForDeck(deck.id)}`,
     });
+  }
+
+  deckCover(deck: Decklist): string | null {
+    return deck.cards[0]?.imageUrlSmall ?? null;
   }
 }

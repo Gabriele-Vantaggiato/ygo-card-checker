@@ -1,25 +1,35 @@
-import { Component, DestroyRef, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
 import { Decklist, DecklistCard } from '../../models/decklist.model';
-import { YgoCard } from '../../models/ygo-card.model';
+import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
+import { BanlistStatus } from '../../models/ygo-format.model';
+import { CardLegalityFacade } from '../../services/card-legality.facade';
 import { I18nService } from '../../services/i18n.service';
 import { YgoApiService } from '../../services/ygo-api.service';
 import { splitDeckIntoYdkeSections } from '../../services/ydke.service';
 import { DecklistStore } from '../../stores/decklist.store';
+import { FormatStore } from '../../stores/format.store';
 import {
   computeTypeStats,
   deckSections,
   expandCardsForGrid,
   sectionCardCount,
 } from '../../utils/deck-card.utils';
+import {
+  quantityBadgeClass,
+  quantityLabelKey,
+  verdictBadgeClass,
+  verdictLabelKey,
+} from '../../utils/legality-display.utils';
+import { FormatSelectorComponent } from '../format-selector/format-selector.component';
 
 @Component({
   selector: 'app-decklist-editor',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, FormatSelectorComponent],
   template: `
     @if (deck(); as activeDeck) {
       <section class="flex flex-col min-h-0 gap-4">
@@ -89,6 +99,13 @@ import {
                 }
                 <p class="mt-3 font-semibold text-sm text-center line-clamp-2">{{ card.name }}</p>
                 <p class="text-xs text-base-content/60 text-center mt-1">{{ card.type }}</p>
+                @if (card.banlistStatus; as status) {
+                  <div class="flex flex-wrap justify-center gap-1 mt-2">
+                    <span class="badge badge-xs badge-outline" [class]="quantityBadgeClass(status)">
+                      {{ quantityLabel(status) }}
+                    </span>
+                  </div>
+                }
                 <div class="join mt-4">
                   <button type="button" class="btn btn-sm join-item" (click)="decklistStore.decrementCard(card.id)">−</button>
                   <span class="btn btn-sm join-item btn-disabled tabular-nums no-animation">×{{ card.quantity }}</span>
@@ -154,8 +171,13 @@ import {
           </div>
 
           <aside class="rounded-xl border border-base-300 bg-base-100 flex flex-col min-h-[20rem] xl:min-h-[28rem]">
-            <div class="px-3 py-2 border-b border-base-300">
-              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">
+            <div class="px-3 py-2 border-b border-base-300 space-y-3">
+              <app-format-selector
+                [formats]="formatStore.formats()"
+                [selectedId]="formatStore.formatId()"
+                (selectedChange)="formatStore.setFormatId($event)"
+              />
+              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60">
                 {{ i18n.t('decklist.editor.search') }}
               </p>
               <div class="flex gap-2">
@@ -173,13 +195,15 @@ import {
             </div>
 
             <div class="flex-1 overflow-y-auto p-2">
-              @if (searchLoading()) {
+              @if (searchLoading() || legalityLoading()) {
                 <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.loading') }}</p>
               } @else {
                 @for (card of searchResults(); track card.id) {
                   <button
                     type="button"
                     class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-base-200 text-left transition-colors"
+                    [class.opacity-50]="isSearchForbidden(card.id)"
+                    [disabled]="isSearchForbidden(card.id)"
                     (click)="addSearchCard(card)"
                   >
                     @if (card.card_images[0]?.image_url_small; as src) {
@@ -190,11 +214,32 @@ import {
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium truncate">{{ card.name }}</p>
                       <p class="text-[11px] text-base-content/60 truncate">{{ card.type }}</p>
+                      @if (legalityFor(card.id); as legality) {
+                        <span class="flex flex-wrap gap-1 mt-1">
+                          <span
+                            class="badge badge-xs"
+                            [class]="verdictBadgeClass(legality.verdict)"
+                            [title]="i18n.t('history.playability')"
+                          >
+                            {{ verdictLabel(legality.verdict) }}
+                          </span>
+                          <span
+                            class="badge badge-xs badge-outline"
+                            [class]="quantityBadgeClass(legality.banlistStatus)"
+                            [title]="i18n.t('history.quantity')"
+                          >
+                            {{ quantityLabel(legality.banlistStatus) }}
+                          </span>
+                        </span>
+                      }
                     </div>
                     @if (qtyInDeck(card.id) > 0) {
                       <span class="badge badge-xs badge-primary shrink-0">×{{ qtyInDeck(card.id) }}</span>
                     }
-                    <span class="btn btn-primary btn-xs btn-square shrink-0">+</span>
+                    <span
+                      class="btn btn-primary btn-xs btn-square shrink-0"
+                      [class.btn-disabled]="isSearchForbidden(card.id)"
+                    >+</span>
                   </button>
                 } @empty {
                   @if (searchQuery().trim().length >= 2) {
@@ -258,8 +303,10 @@ export class DecklistEditorComponent {
   readonly back = output<void>();
 
   protected readonly decklistStore = inject(DecklistStore);
+  protected readonly formatStore = inject(FormatStore);
   protected readonly i18n = inject(I18nService);
   private readonly ygoApi = inject(YgoApiService);
+  private readonly cardLegality = inject(CardLegalityFacade);
   private readonly destroyRef = inject(DestroyRef);
   private readonly search$ = new Subject<string>();
 
@@ -269,11 +316,15 @@ export class DecklistEditorComponent {
   readonly searchQuery = signal('');
   readonly searchResults = signal<YgoCard[]>([]);
   readonly searchLoading = signal(false);
+  readonly legalityLoading = signal(false);
+  readonly searchLegality = signal<Map<number, LegalityResult>>(new Map());
   readonly ydkeDialogOpen = signal(false);
   readonly ydkeUrl = signal('');
   readonly ydkeHint = signal('');
 
   protected readonly sectionCardCount = sectionCardCount;
+  protected readonly quantityBadgeClass = quantityBadgeClass;
+  protected readonly verdictBadgeClass = verdictBadgeClass;
 
   constructor() {
     this.search$
@@ -284,6 +335,7 @@ export class DecklistEditorComponent {
           const trimmed = query.trim();
           if (trimmed.length < 2) {
             this.searchLoading.set(false);
+            this.searchLegality.set(new Map());
             return of([] as YgoCard[]);
           }
           this.searchLoading.set(true);
@@ -292,7 +344,58 @@ export class DecklistEditorComponent {
         tap(() => this.searchLoading.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((cards) => this.searchResults.set(cards));
+      .subscribe((cards) => {
+        this.searchResults.set(cards);
+        const format = this.formatStore.selectedFormat();
+        if (format && cards.length > 0) {
+          this.evaluateSearchLegality(cards, format);
+        } else {
+          this.searchLegality.set(new Map());
+        }
+      });
+
+    this.formatStore.formatId$
+      .pipe(distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        const format = this.formatStore.selectedFormat();
+        if (!format) {
+          return;
+        }
+        this.decklistStore.refreshActiveDeckLegality(format);
+        const cards = this.searchResults();
+        if (cards.length > 0) {
+          this.evaluateSearchLegality(cards, format);
+        }
+      });
+
+    effect(() => {
+      const deck = this.deck();
+      const selected = this.selectedCard();
+      if (!selected) {
+        return;
+      }
+      const fresh = deck.cards.find((c) => c.id === selected.id);
+      if (
+        fresh &&
+        (fresh.quantity !== selected.quantity || fresh.banlistStatus !== selected.banlistStatus)
+      ) {
+        this.selectedCard.set(fresh);
+      }
+    });
+  }
+
+  private evaluateSearchLegality(cards: YgoCard[], format: NonNullable<ReturnType<FormatStore['selectedFormat']>>): void {
+    this.legalityLoading.set(true);
+    this.cardLegality.evaluateMany$(cards, format).subscribe({
+      next: (map) => {
+        this.searchLegality.set(map);
+        this.legalityLoading.set(false);
+      },
+      error: () => {
+        this.searchLegality.set(new Map());
+        this.legalityLoading.set(false);
+      },
+    });
   }
 
   sections(deck: Decklist) {
@@ -375,12 +478,34 @@ export class DecklistEditorComponent {
   }
 
   addSearchCard(card: YgoCard): void {
+    const legality = this.searchLegality().get(card.id);
+    if (legality?.banlistStatus === 'Forbidden') {
+      return;
+    }
+
     this.decklistStore.addCard({
       id: card.id,
       name: card.name,
       type: card.type,
       imageUrlSmall: card.card_images[0]?.image_url_small ?? null,
+      banlistStatus: legality?.banlistStatus ?? null,
     });
+  }
+
+  legalityFor(cardId: number): LegalityResult | null {
+    return this.searchLegality().get(cardId) ?? null;
+  }
+
+  isSearchForbidden(cardId: number): boolean {
+    return this.searchLegality().get(cardId)?.banlistStatus === 'Forbidden';
+  }
+
+  verdictLabel(verdict: LegalityResult['verdict']): string {
+    return this.i18n.t(verdictLabelKey(verdict));
+  }
+
+  quantityLabel(status: BanlistStatus): string {
+    return this.i18n.t(quantityLabelKey(status));
   }
 
   openYdkeDialog(deck: Decklist): void {

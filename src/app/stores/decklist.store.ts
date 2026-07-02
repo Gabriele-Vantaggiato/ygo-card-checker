@@ -1,4 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { forkJoin, of } from 'rxjs';
+import { map, switchMap } from 'rxjs/operators';
 import { BanlistStatus } from '../models/ygo-format.model';
 import {
   AddToDecklistPayload,
@@ -7,8 +9,11 @@ import {
   maxCopiesForStatus,
 } from '../models/decklist.model';
 import { DecklistService } from '../services/decklist.service';
+import { CardLegalityFacade } from '../services/card-legality.facade';
 import { I18nService } from '../services/i18n.service';
+import { YgoApiService } from '../services/ygo-api.service';
 import { YdkeService } from '../services/ydke.service';
+import { YgoFormat } from '../models/ygo-format.model';
 
 export interface DecklistFeedbackMessage {
   key: string;
@@ -21,6 +26,8 @@ export class DecklistStore {
   private readonly decklistService = inject(DecklistService);
   private readonly i18n = inject(I18nService);
   private readonly ydkeService = inject(YdkeService);
+  private readonly ygoApi = inject(YgoApiService);
+  private readonly cardLegality = inject(CardLegalityFacade);
 
   private readonly storage = signal(this.decklistService.load());
   readonly feedback = signal<DecklistFeedbackMessage | null>(null);
@@ -176,7 +183,7 @@ export class DecklistStore {
     if (!card) {
       return;
     }
-    const max = maxCopiesForStatus(banlistStatus);
+    const max = maxCopiesForStatus(banlistStatus ?? card.banlistStatus);
     if (card.quantity >= max) {
       this.flashFeedback({ key: 'decklist.feedback.maxReached', tone: 'warning' });
       return;
@@ -195,7 +202,7 @@ export class DecklistStore {
     if (!card) {
       return;
     }
-    const max = maxCopiesForStatus(banlistStatus);
+    const max = maxCopiesForStatus(banlistStatus ?? card.banlistStatus);
     this.replaceDeck(
       this.decklistService.setCardQuantity(deck, cardId, card.quantity - 1, max),
     );
@@ -258,6 +265,38 @@ export class DecklistStore {
 
   notify(message: DecklistFeedbackMessage): void {
     this.flashFeedback(message);
+  }
+
+  refreshActiveDeckLegality(format: YgoFormat): void {
+    const deck = this.activeDecklist();
+    if (!deck || deck.cards.length === 0) {
+      return;
+    }
+
+    forkJoin(
+      deck.cards.map((card) =>
+        this.ygoApi.getCardById$(card.id, this.i18n.lang()).pipe(
+          switchMap((full) => {
+            if (!full) {
+              return of({ id: card.id, banlistStatus: card.banlistStatus ?? null });
+            }
+            return this.cardLegality.evaluate$(full, format).pipe(
+              map((result) => ({ id: card.id, banlistStatus: result.banlistStatus })),
+            );
+          }),
+        ),
+      ),
+    ).subscribe((updates) => {
+      const byId = new Map(updates.map((item) => [item.id, item.banlistStatus]));
+      this.replaceDeck({
+        ...deck,
+        updatedAt: new Date().toISOString(),
+        cards: deck.cards.map((card) => ({
+          ...card,
+          banlistStatus: byId.get(card.id) ?? card.banlistStatus ?? null,
+        })),
+      });
+    });
   }
 
   private bootstrapDefaultDecklist(): void {

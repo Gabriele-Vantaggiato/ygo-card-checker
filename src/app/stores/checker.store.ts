@@ -13,7 +13,6 @@ import {
   distinctUntilChanged,
   filter,
   map,
-  shareReplay,
   skip,
   switchMap,
   tap,
@@ -22,10 +21,10 @@ import {
 import { LegalityResult, YgoCard } from '../models/ygo-card.model';
 import { SearchHistoryEntry } from '../models/search-history.model';
 import { YgoFormat } from '../models/ygo-format.model';
-import { FormatConfigService } from '../services/format-config.service';
 import { I18nService } from '../services/i18n.service';
 import { LegalityService } from '../services/legality.service';
 import { YgoApiService } from '../services/ygo-api.service';
+import { FormatStore } from './format.store';
 
 interface SearchIntent {
   query: string;
@@ -51,14 +50,13 @@ const MAX_HISTORY = 10;
 @Injectable()
 export class CheckerStore {
   private readonly destroyRef = inject(DestroyRef);
-  private readonly formatConfig = inject(FormatConfigService);
+  private readonly formatStore = inject(FormatStore);
   private readonly ygoApi = inject(YgoApiService);
   private readonly legalityService = inject(LegalityService);
   private readonly i18n = inject(I18nService);
 
   private readonly searchQuery$ = new BehaviorSubject<string>('');
   private readonly searchIntent$ = new Subject<SearchIntent>();
-  private readonly formatId$ = new BehaviorSubject<string>('hat');
   private readonly cardPick$ = new Subject<YgoCard>();
   private readonly searchStateSubject = new BehaviorSubject<SearchState>(EMPTY_SEARCH);
   private readonly selectedCardSubject = new BehaviorSubject<YgoCard | null>(null);
@@ -68,21 +66,12 @@ export class CheckerStore {
   );
   private readonly cardCache = new Map<number, YgoCard>();
 
-  readonly formats$ = this.formatConfig.loadFormats$().pipe(
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
-
-  readonly formats = toSignal(this.formats$, { initialValue: [] as YgoFormat[] });
-  readonly selectedFormatId = toSignal(this.formatId$, { initialValue: 'hat' });
+  readonly formats = this.formatStore.formats;
+  readonly selectedFormatId = this.formatStore.formatId;
   readonly searchQuery = toSignal(this.searchQuery$, { initialValue: '' });
 
-  readonly selectedFormat$ = combineLatest([this.formats$, this.formatId$]).pipe(
-    map(([formats, id]) => formats.find((f) => f.id === id) ?? null),
-    distinctUntilChanged((a, b) => a?.id === b?.id),
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
-
-  readonly selectedFormat = toSignal(this.selectedFormat$, { initialValue: null as YgoFormat | null });
+  readonly selectedFormat$ = this.formatStore.selectedFormat$;
+  readonly selectedFormat = this.formatStore.selectedFormat;
 
   readonly searchState$ = this.searchStateSubject.asObservable();
   readonly suggestions = toSignal(this.searchState$.pipe(map((s) => s.suggestions)), {
@@ -112,7 +101,6 @@ export class CheckerStore {
   });
 
   constructor() {
-    this.bindFormatBootstrap();
     this.bindSearch();
     this.bindCardSelection();
     this.bindLegality();
@@ -126,10 +114,7 @@ export class CheckerStore {
   }
 
   setFormatId(formatId: string): void {
-    if (!formatId) {
-      return;
-    }
-    this.formatId$.next(formatId);
+    this.formatStore.setFormatId(formatId);
   }
 
   selectCard(card: YgoCard): void {
@@ -157,21 +142,6 @@ export class CheckerStore {
       this.searchQuery$.next('');
       this.legalityStateSubject.next(EMPTY_LEGALITY);
     }
-  }
-
-  private bindFormatBootstrap(): void {
-    this.formats$
-      .pipe(
-        map((formats) => {
-          const current = this.formatId$.value;
-          return formats.some((f) => f.id === current) ? current : (formats[0]?.id ?? '');
-        }),
-        filter((id) => id.length > 0),
-        distinctUntilChanged(),
-        tap((id) => this.formatId$.next(id)),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe();
   }
 
   private bindSearch(): void {
@@ -279,11 +249,11 @@ export class CheckerStore {
   }
 
   private bindHistoryRefresh(): void {
-    this.formatId$
+    this.formatStore.formatId$
       .pipe(
         skip(1),
         distinctUntilChanged(),
-        withLatestFrom(this.formats$),
+        withLatestFrom(this.formatStore.formats$),
         switchMap(([formatId, formats]) => {
           const format = formats.find((f) => f.id === formatId);
           if (!format || this.searchHistorySubject.value.length === 0) {
