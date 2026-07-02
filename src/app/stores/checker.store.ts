@@ -244,11 +244,13 @@ export class CheckerStore {
         skip(1),
         withLatestFrom(this.searchQuery$, this.selectedCardSubject),
         tap(([, query, selected]) => {
-          if (query.trim().length >= 2) {
-            this.searchIntent$.next({ query, fromSelection: false });
-          }
           if (selected) {
+            this.searchStateSubject.next(EMPTY_SEARCH);
             this.cardPick$.next(selected);
+            return;
+          }
+          if (query.trim().length >= 2) {
+            this.searchStateSubject.next(EMPTY_SEARCH);
           }
         }),
         takeUntilDestroyed(this.destroyRef),
