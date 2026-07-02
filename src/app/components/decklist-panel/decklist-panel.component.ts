@@ -5,7 +5,6 @@ import { filter, map } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { DecklistEditorComponent } from '../decklist-editor/decklist-editor.component';
 import { DecklistGridComponent } from '../decklist-grid/decklist-grid.component';
-import { DeckFeedbackBannerComponent } from '../deck-feedback-banner/deck-feedback-banner.component';
 import { I18nService } from '../../services/i18n.service';
 import { DecklistStore } from '../../stores/decklist.store';
 
@@ -14,14 +13,9 @@ type DecklistView = 'grid' | 'editor';
 @Component({
   selector: 'app-decklist-panel',
   standalone: true,
-  imports: [FormsModule, DecklistGridComponent, DecklistEditorComponent, DeckFeedbackBannerComponent],
+  imports: [FormsModule, DecklistGridComponent, DecklistEditorComponent],
   template: `
     <section class="flex flex-col min-h-0 gap-4">
-      <app-deck-feedback-banner
-        [message]="decklistStore.feedback()"
-        (dismiss)="decklistStore.clearFeedback()"
-      />
-
       @if (createOpen()) {
         <dialog class="modal modal-open" open>
           <div class="modal-box duel-modal">

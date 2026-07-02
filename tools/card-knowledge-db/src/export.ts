@@ -2,6 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openDatabase, readMeta, REPO_ROOT } from './database';
 import { seriesNamesForCard } from './effect-parser';
+import { MECHANIC_ENRICHMENT_PAIRS, MECHANIC_TAGS, type MechanicTag } from './mechanic-tags';
+import { MATCHUP_DEFINITIONS } from './matchup-index';
 
 const EXPORT_PATH = join(REPO_ROOT, 'src', 'assets', 'data', 'card-knowledge', 'related.json');
 const MAX_RELATED_PER_CARD = 18;
@@ -74,7 +76,27 @@ interface ExportPayload {
   entries: Record<string, ExportedCardEntry>;
   archetypes: Record<string, ExportedRosterMember[]>;
   seriesIndex: Record<string, ExportedRosterMember[]>;
+  mechanicIndex: Record<string, ExportedRosterMember[]>;
+  mechanicSynergies: Array<{ trigger: string; response: string; relation: string }>;
+  matchupIndex: Record<string, ExportedRosterMember[]>;
+  matchupCatalog: Array<{ key: string; labels: string[] }>;
 }
+
+const MECHANIC_TAG_SET = new Set<string>(MECHANIC_TAGS);
+const RESPONSE_TAGS = new Set<MechanicTag>(MECHANIC_ENRICHMENT_PAIRS.map((pair) => pair.response));
+const MECHANIC_INDEX_DEFAULT_CAP = 160;
+const MECHANIC_INDEX_CAPS: Partial<Record<MechanicTag, number>> = {
+  draw: 240,
+  special_summons: 200,
+  ss_from_hand: 180,
+  ss_from_gy: 180,
+  ss_from_deck: 180,
+  gy_interaction: 180,
+  revives_from_gy: 160,
+  discards: 160,
+  hand_trap: 140,
+  negates: 140,
+};
 
 function pickDiversifiedRelated(rows: RelatedRow[]): ExportedRelated[] {
   const relationMap = new Map<string, RelatedRow[]>();
@@ -156,6 +178,10 @@ async function main(): Promise<void> {
   const tagRows = db
     .prepare('SELECT card_id, tag FROM card_tags WHERE source IN (?, ?)')
     .all('rule', 'format') as Array<{ card_id: number; tag: string }>;
+
+  const ruleTagRows = db
+    .prepare('SELECT card_id, tag FROM card_tags WHERE source = ?')
+    .all('rule') as Array<{ card_id: number; tag: string }>;
 
   const seriesRows = db
     .prepare(
@@ -285,6 +311,80 @@ async function main(): Promise<void> {
     members.sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  const cardsById = new Map(allCards.map((card) => [card.id, card]));
+  const mechanicBuckets = new Map<string, ExportedRosterMember[]>();
+  for (const row of ruleTagRows) {
+    if (!MECHANIC_TAG_SET.has(row.tag) || !RESPONSE_TAGS.has(row.tag as MechanicTag)) {
+      continue;
+    }
+    const card = cardsById.get(row.card_id);
+    if (!card) {
+      continue;
+    }
+    const bucket = mechanicBuckets.get(row.tag) ?? [];
+    bucket.push(toRosterMember(card));
+    mechanicBuckets.set(row.tag, bucket);
+  }
+
+  const mechanicIndex: Record<string, ExportedRosterMember[]> = {};
+  for (const [tag, members] of mechanicBuckets) {
+    const cap = MECHANIC_INDEX_CAPS[tag as MechanicTag] ?? MECHANIC_INDEX_DEFAULT_CAP;
+    mechanicIndex[tag] = [...members]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, cap);
+  }
+
+  const mechanicSynergies = MECHANIC_ENRICHMENT_PAIRS.map((pair) => ({
+    trigger: pair.trigger,
+    response: pair.response,
+    relation: pair.relation,
+  }));
+
+  const tagRowsByTag = new Map<string, number[]>();
+  for (const row of ruleTagRows) {
+    const bucket = tagRowsByTag.get(row.tag) ?? [];
+    bucket.push(row.card_id);
+    tagRowsByTag.set(row.tag, bucket);
+  }
+
+  const matchupIndex: Record<string, ExportedRosterMember[]> = {};
+  for (const def of MATCHUP_DEFINITIONS) {
+    const candidates = new Map<number, ExportedRosterMember>();
+    for (const tag of def.tags) {
+      for (const cardId of tagRowsByTag.get(tag) ?? []) {
+        const card = cardsById.get(cardId);
+        if (!card) {
+          continue;
+        }
+        if (def.archetypeHints.some((hint) => card.archetype === hint)) {
+          continue;
+        }
+        candidates.set(card.id, toRosterMember(card));
+      }
+    }
+    for (const card of allCards) {
+      if (!def.namePatterns.some((pattern) => pattern.test(card.name))) {
+        continue;
+      }
+      if (def.archetypeHints.some((hint) => card.archetype === hint)) {
+        continue;
+      }
+      candidates.set(card.id, toRosterMember(card));
+    }
+    matchupIndex[def.key] = [...candidates.values()]
+      .sort((a, b) => {
+        const stapleA = a.archetype ? 1 : 0;
+        const stapleB = b.archetype ? 1 : 0;
+        return stapleA - stapleB || a.name.localeCompare(b.name);
+      })
+      .slice(0, def.cap);
+  }
+
+  const matchupCatalog = MATCHUP_DEFINITIONS.map((def) => ({
+    key: def.key,
+    labels: def.labels,
+  }));
+
   const rowsBySource = new Map<number, RelatedRow[]>();
   for (const row of rows) {
     const bucket = rowsBySource.get(row.source_id) ?? [];
@@ -312,12 +412,16 @@ async function main(): Promise<void> {
   }
 
   const payload: ExportPayload = {
-    version: 2,
+    version: 4,
     generatedAt: new Date().toISOString(),
     cardCount: meta?.totalCards ?? Object.keys(entries).length,
     entries,
     archetypes,
     seriesIndex,
+    mechanicIndex,
+    mechanicSynergies,
+    matchupIndex,
+    matchupCatalog,
   };
 
   mkdirSync(join(REPO_ROOT, 'src', 'assets', 'data', 'card-knowledge'), { recursive: true });

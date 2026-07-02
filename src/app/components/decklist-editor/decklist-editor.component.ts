@@ -2,7 +2,7 @@ import { Component, DestroyRef, computed, effect, inject, input, output, signal 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, of } from 'rxjs';
+import { Subject, Subscription, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
 import { Decklist, DecklistCard } from '../../models/decklist.model';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
@@ -35,6 +35,8 @@ import { DeckSuggestionsPanelComponent } from '../deck-suggestions-panel/deck-su
 import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.component';
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckCompletionService } from '../../services/deck-completion.service';
+import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy-panel.component';
+import { DeckStrategyStore } from '../../stores/deck-strategy.store';
 import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
 import { DeckCompletionPlan } from '../../models/deck-completion.model';
 
@@ -45,7 +47,7 @@ type InspectTarget =
 @Component({
   selector: 'app-decklist-editor',
   standalone: true,
-  imports: [FormsModule, FormatSelectorComponent, DeckSuggestionsPanelComponent, DeckStatsStripComponent],
+  imports: [FormsModule, FormatSelectorComponent, DeckSuggestionsPanelComponent, DeckStatsStripComponent, DeckStrategyPanelComponent],
   template: `
     @if (deck(); as activeDeck) {
       <section class="flex flex-col min-h-0 gap-4">
@@ -447,6 +449,7 @@ type InspectTarget =
       </section>
 
       @if (activeDeck.cards.length > 0) {
+        <app-deck-strategy-panel class="block" />
         <app-deck-suggestions-panel
           [loading]="deckSuggestionsLoading()"
           [available]="deckSuggestions().available"
@@ -475,6 +478,15 @@ type InspectTarget =
                 (ngModelChange)="onCompleteDeckTargetChange($event)"
               />
             </label>
+            <label class="label cursor-pointer gap-2 pb-2">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-sm checkbox-primary"
+                [ngModel]="completeDeckIncludeSide()"
+                (ngModelChange)="onCompleteDeckIncludeSideChange($event)"
+              />
+              <span class="label-text text-sm">{{ i18n.t('decklist.completion.includeSide') }}</span>
+            </label>
             <p class="text-sm text-base-content/70 pb-2">
               {{
                 i18n.t('decklist.completion.progress', {
@@ -482,25 +494,26 @@ type InspectTarget =
                   target: '' + completeDeckTarget(),
                 })
               }}
-              @if (completeDeckPlan(); as plan) {
+              ·
+              {{
+                i18n.t('decklist.completion.extraProgress', {
+                  current: '' + (completeDeckPlan()?.currentExtra ?? extraDeckCount()),
+                  target: '15',
+                })
+              }}
+              @if (completeDeckIncludeSide()) {
                 ·
                 {{
-                  i18n.t('decklist.completion.extraProgress', {
-                    current: '' + (plan.currentExtra ?? extraDeckCount()),
-                    target: '15',
-                  })
-                }}
-              } @else {
-                ·
-                {{
-                  i18n.t('decklist.completion.extraProgress', {
-                    current: '' + extraDeckCount(),
+                  i18n.t('decklist.completion.sideProgress', {
+                    current: '' + (completeDeckPlan()?.currentSide ?? sideDeckCount()),
                     target: '15',
                   })
                 }}
               }
             </p>
           </div>
+
+          <app-deck-strategy-panel class="block mt-4" />
 
           @if (completeDeckPlanning()) {
             <p class="text-sm text-base-content/60 mt-4">{{ i18n.t('decklist.completion.planning') }}</p>
@@ -543,7 +556,12 @@ type InspectTarget =
                       <li class="flex items-center gap-3 p-2 rounded-lg bg-base-200/60">
                         <img [src]="add.imageUrlSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
                         <div class="flex-1 min-w-0">
-                          <p class="text-sm font-medium truncate">{{ add.name }}</p>
+                          <p class="text-sm font-medium truncate">
+                            {{ add.name }}
+                            <span class="text-[10px] uppercase text-base-content/50 ml-1">
+                              {{ sectionLabel(add.section) }}
+                            </span>
+                          </p>
                           <p class="text-[11px] text-base-content/60 truncate">
                             {{ i18n.t(add.reasonKey, add.reasonParams) }}
                           </p>
@@ -667,6 +685,7 @@ export class DecklistEditorComponent {
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly knowledge = inject(CardKnowledgeService);
   private readonly completion = inject(DeckCompletionService);
+  private readonly strategy = inject(DeckStrategyStore);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly search$ = new Subject<string>();
@@ -713,6 +732,7 @@ export class DecklistEditorComponent {
   });
   readonly completeDeckDialogOpen = signal(false);
   readonly completeDeckTarget = signal(40);
+  readonly completeDeckIncludeSide = signal(true);
   readonly completeDeckPlanning = signal(false);
   readonly completeDeckPlan = signal<DeckCompletionPlan | null>(null);
   readonly mainDeckCount = computed(() =>
@@ -720,6 +740,9 @@ export class DecklistEditorComponent {
   );
   readonly extraDeckCount = computed(() =>
     sectionCardCount(splitDeckSections(this.liveDeck().cards).extra),
+  );
+  readonly sideDeckCount = computed(() =>
+    sectionCardCount(splitDeckSections(this.liveDeck().cards).side),
   );
 
   protected readonly sectionCardCount = sectionCardCount;
@@ -729,6 +752,7 @@ export class DecklistEditorComponent {
 
   private readonly searchLimit = 50;
   private readonly descCache = new Map<number, string>();
+  private completeDeckPlanSub: Subscription | null = null;
 
   constructor() {
     this.search$
@@ -812,6 +836,9 @@ export class DecklistEditorComponent {
       const revision = this.deckRevision();
       const deck = this.liveDeck();
       const format = this.formatStore.selectedFormat();
+      void this.strategy.direction();
+      void this.strategy.prompt();
+      void this.strategy.useOllama();
       void revision;
 
       if (!format || deck.cards.length === 0) {
@@ -829,6 +856,16 @@ export class DecklistEditorComponent {
       const sub = this.knowledge.findRelatedForDeck$(deck, format).subscribe((result) => {
         this.deckSuggestions.set(result);
         this.deckSuggestionsLoading.set(false);
+      });
+      onCleanup(() => sub.unsubscribe());
+    });
+
+    effect((onCleanup) => {
+      if (!this.completeDeckDialogOpen()) {
+        return;
+      }
+      const sub = this.strategy.ragResult$.pipe(debounceTime(600)).subscribe(() => {
+        this.refreshCompleteDeckPlan();
       });
       onCleanup(() => sub.unsubscribe());
     });
@@ -1215,7 +1252,6 @@ export class DecklistEditorComponent {
     }
     try {
       await navigator.clipboard.writeText(url);
-      this.decklistStore.notify({ key: 'decklist.feedback.ydkeCopied', tone: 'success' });
       this.closeYdkeDialog();
     } catch {
       // Clipboard blocked: textarea remains selectable for manual copy.
@@ -1262,22 +1298,12 @@ export class DecklistEditorComponent {
       next: (result) => {
         this.importYdkeImporting.set(false);
         if (result.ok) {
-          this.decklistStore.notify({
-            key: 'decklist.feedback.ydkeImported',
-            params: { total: `${result.total}`, unique: `${result.unique}` },
-            tone: 'success',
-          });
           this.closeImportYdkeDialog();
           return;
         }
-        this.decklistStore.notify({
-          key: result.errorKey ?? 'decklist.feedback.ydkeResolveFailed',
-          tone: 'warning',
-        });
       },
       error: () => {
         this.importYdkeImporting.set(false);
-        this.decklistStore.notify({ key: 'decklist.feedback.ydkeResolveFailed', tone: 'warning' });
       },
     });
   }
@@ -1310,12 +1336,16 @@ export class DecklistEditorComponent {
 
   openCompleteDeckDialog(): void {
     this.completeDeckTarget.set(this.completion.defaultTargetMain());
+    this.completeDeckIncludeSide.set(true);
     this.completeDeckPlan.set(null);
     this.completeDeckDialogOpen.set(true);
+    this.strategy.refreshOllamaStatus();
     this.refreshCompleteDeckPlan();
   }
 
   closeCompleteDeckDialog(): void {
+    this.completeDeckPlanSub?.unsubscribe();
+    this.completeDeckPlanSub = null;
     this.completeDeckDialogOpen.set(false);
     this.completeDeckPlan.set(null);
     this.completeDeckPlanning.set(false);
@@ -1327,23 +1357,47 @@ export class DecklistEditorComponent {
     this.refreshCompleteDeckPlan();
   }
 
+  onCompleteDeckIncludeSideChange(value: boolean): void {
+    this.completeDeckIncludeSide.set(value);
+    this.refreshCompleteDeckPlan();
+  }
+
+  sectionLabel(section: DeckCompletionPlan['adds'][number]['section']): string {
+    switch (section) {
+      case 'extra':
+        return this.i18n.t('decklist.editor.extra');
+      case 'side':
+        return this.i18n.t('decklist.editor.side');
+      default:
+        return this.i18n.t('decklist.editor.main');
+    }
+  }
+
   refreshCompleteDeckPlan(): void {
     const format = this.formatStore.selectedFormat();
     if (!format || this.completeDeckPlanning()) {
       return;
     }
 
+    this.completeDeckPlanSub?.unsubscribe();
     this.completeDeckPlanning.set(true);
-    this.completion.plan$(this.liveDeck(), format, this.completeDeckTarget()).subscribe({
-      next: (plan) => {
-        this.completeDeckPlan.set(plan);
-        this.completeDeckPlanning.set(false);
-      },
-      error: () => {
-        this.completeDeckPlanning.set(false);
-        this.decklistStore.notify({ key: 'decklist.feedback.completionFailed', tone: 'warning' });
-      },
-    });
+    this.completeDeckPlanSub = this.completion
+      .plan$(this.liveDeck(), format, {
+        targetMain: this.completeDeckTarget(),
+        includeSide: this.completeDeckIncludeSide(),
+        targetSide: 15,
+      })
+      .subscribe({
+        next: (plan) => {
+          this.completeDeckPlan.set(plan);
+          this.completeDeckPlanning.set(false);
+          this.completeDeckPlanSub = null;
+        },
+        error: () => {
+          this.completeDeckPlanning.set(false);
+          this.completeDeckPlanSub = null;
+        },
+      });
   }
 
   confirmCompleteDeck(): void {

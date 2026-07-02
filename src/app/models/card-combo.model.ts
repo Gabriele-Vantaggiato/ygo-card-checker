@@ -83,6 +83,8 @@ export interface ComboResult {
   payoffs: ComboPayoff[];
   enablers: ComboPartner[];
   targets: ComboPartner[];
+  /** Mechanic / related / matchup cards not already in parsed combo partners */
+  synergies: ComboPartner[];
   lines: ComboLine[];
   available: boolean;
 }

@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, of } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
+import { DeckStrategyPanelComponent } from '../../components/deck-strategy-panel/deck-strategy-panel.component';
 import { ComboPayoff, ComboRequirement, ComboResult } from '../../models/card-combo.model';
 import { CardKnowledgeEffect } from '../../models/card-knowledge.model';
 import { YgoCard } from '../../models/ygo-card.model';
@@ -21,6 +22,7 @@ const EMPTY_COMBO: ComboResult = {
   payoffs: [],
   enablers: [],
   targets: [],
+  synergies: [],
   lines: [],
   available: false,
 };
@@ -28,7 +30,7 @@ const EMPTY_COMBO: ComboResult = {
 @Component({
   selector: 'app-combo-page',
   standalone: true,
-  imports: [RouterLink, FormatSelectorComponent],
+  imports: [RouterLink, FormatSelectorComponent, DeckStrategyPanelComponent],
   template: `
     <main class="container mx-auto max-w-3xl px-4 py-6 sm:py-8 space-y-4 sm:space-y-6 flex-1">
       <div class="flex flex-wrap items-center justify-between gap-3">
@@ -54,6 +56,7 @@ const EMPTY_COMBO: ComboResult = {
             [selectedId]="formatStore.formatId()"
             (selectedChange)="formatStore.setFormatId($event)"
           />
+          <app-deck-strategy-panel />
         </div>
       </section>
 
@@ -211,7 +214,35 @@ const EMPTY_COMBO: ComboResult = {
             </section>
           }
 
-          @if (combo().enablers.length === 0 && combo().targets.length === 0 && combo().lines.length === 0) {
+          @if (combo().synergies.length > 0) {
+            <section class="card bg-base-100 shadow-xl border border-primary/30">
+              <div class="card-body p-4 sm:p-6 space-y-3">
+                <h3 class="font-semibold">{{ i18n.t('combo.synergiesTitle') }}</h3>
+                <p class="text-xs text-base-content/60">{{ i18n.t('combo.synergiesHint') }}</p>
+                <ul class="space-y-2">
+                  @for (item of combo().synergies; track item.id) {
+                    <li>
+                      <button
+                        type="button"
+                        class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/80 text-left"
+                        (click)="openCard(item.id)"
+                      >
+                        <img [src]="item.imageSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
+                        <div class="min-w-0">
+                          <p class="text-sm font-medium truncate">{{ item.name }}</p>
+                          <p class="text-[11px] text-base-content/60 truncate">
+                            {{ i18n.t(item.reasonKey, item.reasonParams) }}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              </div>
+            </section>
+          }
+
+          @if (combo().enablers.length === 0 && combo().targets.length === 0 && combo().lines.length === 0 && combo().synergies.length === 0) {
             <p class="text-sm text-base-content/60">{{ i18n.t('combo.emptyFormat') }}</p>
           }
         }

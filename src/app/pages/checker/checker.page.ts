@@ -4,6 +4,7 @@ import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/rout
 import { filter, map } from 'rxjs/operators';
 import { CardRelatedPanelComponent } from '../../components/card-related-panel/card-related-panel.component';
 import { CardSearchComponent } from '../../components/card-search/card-search.component';
+import { DeckStrategyPanelComponent } from '../../components/deck-strategy-panel/deck-strategy-panel.component';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { LegalityResultComponent } from '../../components/legality-result/legality-result.component';
 import { SearchHistoryComponent } from '../../components/search-history/search-history.component';
@@ -26,6 +27,7 @@ interface DeckReturnContext {
     LegalityResultComponent,
     SearchHistoryComponent,
     CardRelatedPanelComponent,
+    DeckStrategyPanelComponent,
     RouterLink,
   ],
   providers: [CheckerStore],
@@ -76,6 +78,8 @@ interface DeckReturnContext {
               [selectedId]="store.selectedFormatId()"
               (selectedChange)="store.setFormatId($event)"
             />
+
+            <app-deck-strategy-panel />
 
             <app-card-search
               [query]="store.searchQuery()"

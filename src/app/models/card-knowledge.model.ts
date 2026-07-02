@@ -7,6 +7,7 @@ export interface CardKnowledgeRelated {
   tcgDate: string | null;
   banTcg: string | null;
   imageSmall: string;
+  mechanicTrigger?: string;
 }
 
 export interface CardKnowledgeEffect {
@@ -32,6 +33,17 @@ export interface CardKnowledgeRosterMember {
   imageSmall: string;
 }
 
+export interface MechanicSynergyPair {
+  trigger: string;
+  response: string;
+  relation: string;
+}
+
+export interface MatchupCatalogEntry {
+  key: string;
+  labels: string[];
+}
+
 export interface CardKnowledgeIndex {
   version: number;
   generatedAt: string;
@@ -39,6 +51,10 @@ export interface CardKnowledgeIndex {
   entries: Record<string, CardKnowledgeEntry>;
   archetypes?: Record<string, CardKnowledgeRosterMember[]>;
   seriesIndex?: Record<string, CardKnowledgeRosterMember[]>;
+  mechanicIndex?: Record<string, CardKnowledgeRosterMember[]>;
+  mechanicSynergies?: MechanicSynergyPair[];
+  matchupIndex?: Record<string, CardKnowledgeRosterMember[]>;
+  matchupCatalog?: MatchupCatalogEntry[];
 }
 
 export interface CardRelatedSuggestion {

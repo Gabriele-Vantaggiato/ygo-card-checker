@@ -1,5 +1,15 @@
 import { ComboLine } from './card-combo.model';
 import { AddToDecklistPayload } from './decklist.model';
+import { DeckCompletionDirection } from '../utils/completion-prompt.utils';
+
+export interface DeckCompletionOptions {
+  targetMain: number;
+  includeSide: boolean;
+  targetSide: number;
+  direction: DeckCompletionDirection;
+  prompt: string;
+  useOllama?: boolean;
+}
 
 export interface DeckCompletionAdd {
   cardId: number;
@@ -27,6 +37,14 @@ export interface DeckCompletionPlan {
   gap: number;
   currentExtra?: number;
   extraGap?: number;
+  targetSide?: number;
+  currentSide?: number;
+  sideGap?: number;
+  direction: DeckCompletionDirection;
+  promptSummary?: string | null;
+  ragSources?: string[];
+  ollamaUsed?: boolean;
+  matchupKeys?: string[];
   adds: DeckCompletionAdd[];
   comboLines: ComboLine[];
   payloads: AddToDecklistPayload[];

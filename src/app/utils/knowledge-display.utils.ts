@@ -19,7 +19,17 @@ const TAG_LABEL_KEYS: Record<string, string> = {
   once_per_turn: 'knowledge.tag.oncePerTurn',
   mentions_photon: 'knowledge.tag.photon',
   mentions_galaxy: 'knowledge.tag.galaxy',
+  mills: 'knowledge.tag.mills',
+  draw: 'knowledge.tag.draw',
+  discards: 'knowledge.tag.discards',
+  sends_to_gy: 'knowledge.tag.sendsToGy',
+  self_to_gy: 'knowledge.tag.selfToGy',
+  negates: 'knowledge.tag.negates',
 };
+
+export function tagLabelKey(tag: string): string {
+  return TAG_LABEL_KEYS[tag] ?? 'knowledge.tag.generic';
+}
 
 const TAG_PRIORITY = [
   'ss_from_deck',
@@ -30,6 +40,11 @@ const TAG_PRIORITY = [
   'searches_spell',
   'revives_from_gy',
   'gy_interaction',
+  'mills',
+  'draw',
+  'discards',
+  'sends_to_gy',
+  'self_to_gy',
   'quick_effect',
   'hand_trap',
   'special_summons',

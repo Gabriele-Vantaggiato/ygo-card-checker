@@ -29,6 +29,8 @@ interface EffectRow {
 }
 
 const MAX_TAG_RELATIONS_PER_SOURCE = 24;
+const MAX_ENGINE_RELATIONS_PER_SOURCE = 64;
+const MAX_GY_RELATIONS_PER_SOURCE = 56;
 const MAX_ARCHETYPE_LINKS_PER_CARD = 16;
 const MAX_ARCHETYPE_GROUP_FULL_MESH = 22;
 const MAX_MENTIONS_PER_SOURCE = 12;
@@ -142,13 +144,19 @@ async function main(): Promise<void> {
     for (const pair of SYNERGY_PAIRS) {
       const triggers = byTag.get(pair.trigger) ?? [];
       const responses = byTag.get(pair.response) ?? [];
+      const cap =
+        pair.relation === 'engine'
+          ? MAX_ENGINE_RELATIONS_PER_SOURCE
+          : pair.relation === 'gy_synergy'
+            ? MAX_GY_RELATIONS_PER_SOURCE
+            : MAX_TAG_RELATIONS_PER_SOURCE;
       for (const sourceId of triggers) {
         let linked = 0;
         for (const targetId of responses) {
-          if (sourceId === targetId || linked >= MAX_TAG_RELATIONS_PER_SOURCE) {
+          if (sourceId === targetId || linked >= cap) {
             continue;
           }
-          insertRelation(db, sourceId, targetId, pair.relation, 1.0);
+          insertRelation(db, sourceId, targetId, pair.relation, pair.relation === 'engine' ? 0.92 : 1.0);
           relations += 1;
           linked += 1;
         }

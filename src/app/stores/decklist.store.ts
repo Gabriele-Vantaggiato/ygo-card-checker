@@ -19,12 +19,6 @@ import { YgoFormat } from '../models/ygo-format.model';
 import { YgoCard, LegalityResult } from '../models/ygo-card.model';
 import { DeckCompletionPlan } from '../models/deck-completion.model';
 
-export interface DecklistFeedbackMessage {
-  key: string;
-  params?: Record<string, string>;
-  tone: 'success' | 'warning' | 'info';
-}
-
 @Injectable({ providedIn: 'root' })
 export class DecklistStore {
   private readonly decklistService = inject(DecklistService);
@@ -34,7 +28,6 @@ export class DecklistStore {
   private readonly cardLegality = inject(CardLegalityFacade);
 
   private readonly storage = signal(this.decklistService.load());
-  readonly feedback = signal<DecklistFeedbackMessage | null>(null);
 
   readonly decklists = computed(() => this.storage().decklists);
   readonly activeDecklistId = computed(() => this.storage().activeId);
@@ -59,7 +52,6 @@ export class DecklistStore {
 
   setActiveDecklist(id: string): void {
     this.patchStorage((s) => ({ ...s, activeId: id }));
-    this.feedback.set(null);
   }
 
   createDecklist(name?: string): string {
@@ -70,11 +62,6 @@ export class DecklistStore {
       activeId: deck.id,
       decklists: [deck, ...s.decklists],
     }));
-    this.flashFeedback({
-      key: 'decklist.feedback.created',
-      params: { name: deck.name },
-      tone: 'success',
-    });
     return deck.id;
   }
 
@@ -125,13 +112,11 @@ export class DecklistStore {
       return;
     }
     this.replaceDeck(this.decklistService.sortDecklist(deck));
-    this.flashFeedback({ key: 'decklist.feedback.sorted', tone: 'success' });
   }
 
   addCard(payload: AddToDecklistPayload, quantity = 1): void {
     const deckId = this.activeDecklistId();
     if (!deckId) {
-      this.flashFeedback({ key: 'decklist.feedback.noDecklist', tone: 'info' });
       return;
     }
     this.addCardToDeck(deckId, payload, quantity);
@@ -140,20 +125,17 @@ export class DecklistStore {
   addCardToDeck(deckId: string, payload: AddToDecklistPayload, quantity: number): boolean {
     const deck = this.getDeckById(deckId);
     if (!deck) {
-      this.flashFeedback({ key: 'decklist.feedback.noDecklist', tone: 'info' });
       return false;
     }
 
     const max = maxCopiesForStatus(payload.banlistStatus);
     if (max === 0) {
-      this.flashFeedback({ key: 'decklist.feedback.forbidden', tone: 'warning' });
       return false;
     }
 
     const current = this.quantityInDeck(deckId, payload.id);
     const allowed = max - current;
     if (allowed <= 0) {
-      this.flashFeedback({ key: 'decklist.feedback.maxReached', tone: 'warning' });
       return false;
     }
 
@@ -161,12 +143,6 @@ export class DecklistStore {
     const updated = this.decklistService.addCardToDecklist(deck, payload, addQty);
     this.replaceDeck(this.decklistService.sortDecklist(updated));
     this.patchStorage((s) => ({ ...s, activeId: deckId }));
-
-    this.flashFeedback({
-      key: 'decklist.feedback.addedTo',
-      params: { qty: `${addQty}`, card: payload.name, deck: deck.name },
-      tone: 'success',
-    });
     return true;
   }
 
@@ -189,7 +165,6 @@ export class DecklistStore {
     }
     const max = maxCopiesForStatus(banlistStatus ?? card.banlistStatus);
     if (card.quantity >= max) {
-      this.flashFeedback({ key: 'decklist.feedback.maxReached', tone: 'warning' });
       return;
     }
     this.replaceDeck(
@@ -255,10 +230,6 @@ export class DecklistStore {
     return this.canAddToDeck(activeId, payload.id, payload.banlistStatus);
   }
 
-  clearFeedback(): void {
-    this.feedback.set(null);
-  }
-
   encodeYdke(deckId?: string): string | null {
     const deck = deckId ? this.getDeckById(deckId) : this.activeDecklist();
     if (!deck) {
@@ -268,20 +239,7 @@ export class DecklistStore {
   }
 
   importFromYdke(text: string, deckId: string, replace: boolean, format: YgoFormat): void {
-    this.importFromYdke$(text, deckId, replace, format).subscribe((result) => {
-      if (!result.ok) {
-        this.flashFeedback({ key: result.errorKey ?? 'decklist.feedback.ydkeResolveFailed', tone: 'warning' });
-        return;
-      }
-      this.flashFeedback({
-        key: 'decklist.feedback.ydkeImported',
-        params: {
-          total: `${result.total}`,
-          unique: `${result.unique}`,
-        },
-        tone: 'success',
-      });
-    });
+    this.importFromYdke$(text, deckId, replace, format).subscribe();
   }
 
   importFromYdke$(
@@ -349,10 +307,6 @@ export class DecklistStore {
     );
   }
 
-  notify(message: DecklistFeedbackMessage): void {
-    this.flashFeedback(message);
-  }
-
   applyCompletionPlan(deckId: string, plan: DeckCompletionPlan): boolean {
     if (plan.status !== 'ready' || plan.adds.length === 0) {
       return false;
@@ -360,7 +314,6 @@ export class DecklistStore {
 
     const deck = this.getDeckById(deckId);
     if (!deck) {
-      this.flashFeedback({ key: 'decklist.feedback.noDecklist', tone: 'info' });
       return false;
     }
 
@@ -375,16 +328,6 @@ export class DecklistStore {
 
     this.replaceDeck(this.decklistService.sortDecklist(updated));
     this.patchStorage((s) => ({ ...s, activeId: deckId }));
-
-    const totalAdded = plan.adds.reduce((sum, add) => sum + add.quantity, 0);
-    this.flashFeedback({
-      key: 'decklist.feedback.completionApplied',
-      params: {
-        count: `${totalAdded}`,
-        unique: `${plan.adds.length}`,
-      },
-      tone: 'success',
-    });
     return true;
   }
 
@@ -510,14 +453,5 @@ export class DecklistStore {
 
   private persist(): void {
     this.decklistService.save(this.storage());
-  }
-
-  private flashFeedback(message: DecklistFeedbackMessage): void {
-    this.feedback.set(message);
-    window.setTimeout(() => {
-      if (this.feedback() === message) {
-        this.feedback.set(null);
-      }
-    }, 2800);
   }
 }

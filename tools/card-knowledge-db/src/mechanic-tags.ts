@@ -104,6 +104,18 @@ const TAG_RULES: TagRule[] = [
   { tag: 'mentions_galaxy', patterns: [/"Galaxy"/i, /'Galaxy'/i, /"Galaxy-Eyes"/i] },
 ];
 
+/** Enabler tags used for runtime cross-deck mechanic enrichment (no coarse/generic triggers). */
+export const ENRICHMENT_TRIGGER_TAGS = [
+  'mills',
+  'sends_to_gy',
+  'self_to_gy',
+  'discards',
+  'gy_interaction',
+  'searches_monster',
+  'searches_spell',
+  'searches_trap',
+] as const satisfies readonly MechanicTag[];
+
 /** Tags that benefit when another card has the paired trigger tag. */
 export const SYNERGY_PAIRS: Array<{ trigger: MechanicTag; response: MechanicTag; relation: string }> = [
   { trigger: 'self_to_gy', response: 'revives_from_gy', relation: 'gy_synergy' },
@@ -112,14 +124,24 @@ export const SYNERGY_PAIRS: Array<{ trigger: MechanicTag; response: MechanicTag;
   { trigger: 'sends_to_gy', response: 'ss_from_gy', relation: 'gy_synergy' },
   { trigger: 'mills', response: 'gy_interaction', relation: 'gy_synergy' },
   { trigger: 'mills', response: 'ss_from_gy', relation: 'gy_synergy' },
-  { trigger: 'searches_deck', response: 'special_summons', relation: 'engine' },
+  { trigger: 'mills', response: 'draw', relation: 'engine' },
+  { trigger: 'self_to_gy', response: 'draw', relation: 'engine' },
+  { trigger: 'sends_to_gy', response: 'draw', relation: 'engine' },
+  { trigger: 'discards', response: 'draw', relation: 'engine' },
+  { trigger: 'mills', response: 'discards', relation: 'gy_synergy' },
   { trigger: 'searches_monster', response: 'ss_from_hand', relation: 'engine' },
   { trigger: 'searches_monster', response: 'ss_from_deck', relation: 'engine' },
   { trigger: 'searches_monster', response: 'ss_from_extra', relation: 'engine' },
-  { trigger: 'searches_spell', response: 'special_summons', relation: 'engine' },
   { trigger: 'mentions_photon', response: 'mentions_photon', relation: 'series' },
   { trigger: 'mentions_galaxy', response: 'mentions_galaxy', relation: 'series' },
 ];
+
+/** Subset exported for per-card runtime enrichment (excludes series and generic pairs). */
+export const MECHANIC_ENRICHMENT_PAIRS = SYNERGY_PAIRS.filter(
+  (pair) =>
+    pair.relation !== 'series' &&
+    (ENRICHMENT_TRIGGER_TAGS as readonly string[]).includes(pair.trigger),
+);
 
 const LEGACY_DERIVED: Array<{ fine: MechanicTag; coarse: MechanicTag }> = [
   { fine: 'ss_from_hand', coarse: 'special_summons' },
