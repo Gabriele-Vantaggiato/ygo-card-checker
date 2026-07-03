@@ -17,7 +17,6 @@ import { YgoCard } from '../models/ygo-card.model';
 import { BanlistStatus, YgoFormat } from '../models/ygo-format.model';
 import { scoreForCompletion } from '../utils/completion-prompt.utils';
 import { CardLegalityFacade } from './card-legality.facade';
-import { CardKnowledgeService } from './card-knowledge.service';
 import { SynergyRetrievalService } from './synergy-retrieval.service';
 import { DeckStrategyStore } from '../features/decklist/stores/deck-strategy.store';
 import { toDisplayTags } from '../utils/knowledge-display.utils';
@@ -39,12 +38,11 @@ const PARTNER_REASON_KEYS: Record<ComboPartnerRecord['role'], string> = {
 export class CardComboService {
   private readonly indexService = inject(CardKnowledgeIndexService);
   private readonly cardLegality = inject(CardLegalityFacade);
-  private readonly knowledge = inject(CardKnowledgeService);
   private readonly synergyRetrieval = inject(SynergyRetrievalService);
   private readonly strategy = inject(DeckStrategyStore);
 
   findCombos$(card: YgoCard, format: YgoFormat): Observable<ComboResult> {
-    return combineLatest([this.indexService.combos$, this.strategy.ragResult$, this.knowledge.knowledgeIndex$()]).pipe(
+    return combineLatest([this.indexService.combos$, this.strategy.ragResult$, this.indexService.related$]).pipe(
       switchMap(([index, rag, knowledgeIndex]) => {
         if (!index && !knowledgeIndex) {
           return of(this.emptyResult());

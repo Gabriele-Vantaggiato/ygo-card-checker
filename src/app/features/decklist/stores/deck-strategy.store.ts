@@ -55,7 +55,9 @@ export class DeckStrategyStore {
     shareReplay({ bufferSize: 1, refCount: true }),
   );
 
-  readonly ragResult = toSignal(this.ragResult$, { requireSync: true });
+  readonly ragResult = toSignal(this.ragResult$, {
+    initialValue: this.buildFallbackRagResult(),
+  });
 
   constructor() {
     this.checkOllamaStatus();
@@ -107,5 +109,15 @@ export class DeckStrategyStore {
   private readUseOllama(): boolean {
     const stored = localStorage.getItem(STORAGE_USE_OLLAMA);
     return stored !== '0';
+  }
+
+  private buildFallbackRagResult(): CompletionRagResult {
+    const profile = buildCompletionProfile(this.direction(), this.prompt());
+    return {
+      profile,
+      summary: profileSummary(profile),
+      sources: ['rules'],
+      ollamaUsed: false,
+    };
   }
 }
