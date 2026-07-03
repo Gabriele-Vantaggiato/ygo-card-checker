@@ -85,9 +85,9 @@ import { VerdictBadgeComponent } from '../../shared/ui/verdict-badge/verdict-bad
                   <p class="text-sm text-base-content/70">{{ card()!.type }}</p>
                 </div>
 
-                <div class="rounded-xl border border-base-300 bg-base-200/40 p-3 space-y-2 w-full sm:max-w-sm flex flex-col items-center gap-2">
-                  <app-verdict-badge mode="verdict" [verdict]="res.verdict" size="lg" />
-                  <app-verdict-badge mode="quantity" [banlistStatus]="res.banlistStatus" size="sm" />
+                <div class="rounded-xl border border-base-300 bg-base-200/40 p-3 w-full sm:max-w-sm flex flex-col gap-2">
+                  <app-verdict-badge mode="verdict" [verdict]="res.verdict" size="lg" [fullWidth]="true" />
+                  <app-verdict-badge mode="quantity" [banlistStatus]="res.banlistStatus" size="sm" [fullWidth]="true" />
                 </div>
 
                 <app-add-to-decklist-btn
