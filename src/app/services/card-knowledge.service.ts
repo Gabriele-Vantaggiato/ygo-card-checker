@@ -32,6 +32,7 @@ const EMPTY_DECK_RESULT: DeckRelatedResult = {
   groups: [],
   sourceCount: 0,
   available: false,
+  formatId: null,
 };
 
 const MAX_DECK_SUGGESTIONS = 24;
@@ -132,17 +133,18 @@ export class CardKnowledgeService {
     return combineLatest([this.index$, this.rankDeckSuggestions$(deck, format, MAX_DECK_SUGGESTIONS)]).pipe(
       map(([index, suggestions]) => {
         if (!index) {
-          return EMPTY_DECK_RESULT;
+          return { ...EMPTY_DECK_RESULT, formatId: format.id };
         }
         const uniqueCards = [...new Map(deck.cards.map((card) => [card.id, card])).values()];
         if (uniqueCards.length === 0) {
-          return { ...EMPTY_DECK_RESULT, available: true };
+          return { ...EMPTY_DECK_RESULT, available: true, formatId: format.id };
         }
         if (suggestions.length === 0) {
           return {
             ...EMPTY_DECK_RESULT,
             available: true,
             sourceCount: uniqueCards.length,
+            formatId: format.id,
           };
         }
 
@@ -152,6 +154,7 @@ export class CardKnowledgeService {
           groups: this.groupSuggestions(diversified),
           sourceCount: uniqueCards.length,
           available: true,
+          formatId: format.id,
         };
       }),
     );
@@ -189,7 +192,11 @@ export class CardKnowledgeService {
           this.toDeckSuggestion(related),
         ).pipe(
           map((suggestions) => {
-            const matchup = this.completionRag.toMatchupSuggestions(index, rag.profile, deckCardIds);
+            const matchup = this.applyFormatToSuggestions(
+              this.completionRag.toMatchupSuggestions(index, rag.profile, deckCardIds),
+              format,
+              formatIndex,
+            );
             const merged = this.mergeSuggestionPools(suggestions, matchup);
             const withQty = this.applySuggestedQuantities(
               this.applyStrategyToSuggestions(merged, index.entries, rag.profile, 'main'),
@@ -444,6 +451,22 @@ export class CardKnowledgeService {
       banTcg: partner.banTcg ?? null,
       imageSmall: partner.imageSmall,
     };
+  }
+
+  private applyFormatToSuggestions(
+    suggestions: CardRelatedSuggestion[],
+    format: YgoFormat,
+    formatIndex: FormatLegalityIndex | null,
+  ): CardRelatedSuggestion[] {
+    if (!formatIndex) {
+      return suggestions;
+    }
+    return suggestions
+      .filter((item) => isPlayableInFormat(formatIndex, item.cardId, format.id))
+      .map((item) => ({
+        ...item,
+        maxCopies: maxCopiesInFormat(formatIndex, item.cardId, format.id) ?? item.maxCopies,
+      }));
   }
 
   private filterSuggestions$(

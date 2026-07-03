@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, of } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
+import { DeckStrategyPanelComponent } from '../../components/deck-strategy-panel/deck-strategy-panel.component';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { ComboPayoff, ComboRequirement, ComboResult } from '../../models/card-combo.model';
 import { CardKnowledgeEffect } from '../../models/card-knowledge.model';
@@ -29,10 +30,10 @@ const EMPTY_COMBO: ComboResult = {
 @Component({
   selector: 'app-combo-page',
   standalone: true,
-  imports: [RouterLink, FormatSelectorComponent],
+  imports: [RouterLink, FormatSelectorComponent, DeckStrategyPanelComponent],
   template: `
-    <main class="container mx-auto max-w-3xl px-4 py-6 sm:py-8 space-y-4 sm:space-y-6 flex-1">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <main class="page-main page-stack max-w-3xl lg:max-w-4xl">
+      <div class="flex flex-wrap items-center gap-2">
         <a
           routerLink="/"
           [queryParams]="card() ? { cardId: card()!.id } : null"
@@ -44,12 +45,12 @@ const EMPTY_COMBO: ComboResult = {
       </div>
 
       <header class="space-y-1">
-        <h1 class="text-2xl font-bold">{{ i18n.t('combo.title') }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">{{ i18n.t('combo.title') }}</h1>
         <p class="text-sm text-base-content/60">{{ i18n.t('combo.subtitle') }}</p>
       </header>
 
-      <section class="card bg-base-100 shadow-xl border border-base-300">
-        <div class="card-body p-4 sm:p-6">
+      <div class="deck-context-strip">
+        <div class="deck-context-format">
           <app-format-selector
             [compact]="true"
             [formats]="formatStore.formats()"
@@ -57,7 +58,8 @@ const EMPTY_COMBO: ComboResult = {
             (selectedChange)="formatStore.setFormatId($event)"
           />
         </div>
-      </section>
+        <app-deck-strategy-panel class="min-w-0" />
+      </div>
 
       @if (loading()) {
         <p class="text-sm text-base-content/60">{{ i18n.t('combo.loading') }}</p>
@@ -66,8 +68,8 @@ const EMPTY_COMBO: ComboResult = {
           <span>{{ i18n.t('combo.noCard') }}</span>
         </div>
       } @else {
-        <section class="card bg-base-100 shadow-xl border border-base-300">
-          <div class="card-body p-4 sm:p-6">
+        <section class="duel-panel">
+          <div class="p-4 sm:p-6">
             <div class="flex gap-4 items-start">
               @if (card()!.card_images[0].image_url_small; as img) {
                 <img [src]="img" [alt]="" class="w-16 sm:w-20 rounded shrink-0" />
@@ -131,8 +133,8 @@ const EMPTY_COMBO: ComboResult = {
             <section class="space-y-3">
               <h3 class="font-semibold text-lg">{{ i18n.t('combo.linesTitle') }}</h3>
               @for (line of combo().lines; track line.id) {
-                <article class="card bg-base-100 shadow border border-base-300">
-                  <div class="card-body p-4 space-y-3">
+                <article class="duel-panel">
+                  <div class="p-4 space-y-3">
                     <ol class="space-y-2">
                       @for (step of line.steps; track step.cardId + step.role; let idx = $index) {
                         <li class="flex items-center gap-3">

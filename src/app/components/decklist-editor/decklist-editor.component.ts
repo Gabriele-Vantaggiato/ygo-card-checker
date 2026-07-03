@@ -36,7 +36,6 @@ import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.co
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckCompletionService } from '../../services/deck-completion.service';
 import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy-panel.component';
-import { CardSearchResultRowComponent } from '../card-search-result-row/card-search-result-row.component';
 import { DecklistSearchSidebarComponent } from '../decklist-search-sidebar/decklist-search-sidebar.component';
 import { DeckStrategyStore } from '../../stores/deck-strategy.store';
 import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
@@ -124,17 +123,55 @@ type InspectTarget =
 
         <app-deck-stats-strip [cards]="liveDeck().cards" [mainTarget]="completeDeckTarget()" />
 
-        <div class="duel-panel px-3 py-2 sm:px-4 sm:py-3">
-          <app-format-selector
-            [compact]="true"
-            [formats]="formatStore.formats()"
-            [selectedId]="formatStore.formatId()"
-            (selectedChange)="formatStore.setFormatId($event)"
-          />
+        <div class="deck-context-strip">
+          <div class="deck-context-format">
+            <app-format-selector
+              [compact]="true"
+              [formats]="formatStore.formats()"
+              [selectedId]="formatStore.formatId()"
+              (selectedChange)="formatStore.setFormatId($event)"
+            />
+          </div>
+          <app-deck-strategy-panel class="min-w-0" />
         </div>
 
-        <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_minmax(0,18rem)] gap-4 min-h-0">
-          <aside class="hidden xl:flex flex-col duel-panel overflow-hidden min-h-[28rem] max-h-[calc(100vh-12rem)]">
+        <div role="tablist" class="workspace-tabs lg:hidden" [attr.aria-label]="i18n.t('decklist.editor.workspace')">
+          <button
+            type="button"
+            role="tab"
+            class="workspace-tab"
+            [class.tab-active]="mobileWorkspaceTab() === 'deck'"
+            [attr.aria-selected]="mobileWorkspaceTab() === 'deck'"
+            (click)="mobileWorkspaceTab.set('deck')"
+          >
+            {{ i18n.t('decklist.editor.tab.deck') }}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="workspace-tab"
+            [class.tab-active]="mobileWorkspaceTab() === 'search'"
+            [attr.aria-selected]="mobileWorkspaceTab() === 'search'"
+            (click)="mobileWorkspaceTab.set('search')"
+          >
+            {{ i18n.t('decklist.editor.tab.search') }}
+          </button>
+          @if (activeDeck.cards.length > 0) {
+            <button
+              type="button"
+              role="tab"
+              class="workspace-tab"
+              [class.tab-active]="mobileWorkspaceTab() === 'assist'"
+              [attr.aria-selected]="mobileWorkspaceTab() === 'assist'"
+              (click)="mobileWorkspaceTab.set('assist')"
+            >
+              {{ i18n.t('decklist.editor.tab.assist') }}
+            </button>
+          }
+        </div>
+
+        <div class="deck-workspace">
+          <aside class="hidden lg:flex flex-col duel-panel overflow-hidden min-h-[24rem] max-h-[calc(100vh-11rem)]">
             <div class="duel-panel-header shrink-0">
               {{ i18n.t('decklist.editor.preview') }}
             </div>
@@ -223,7 +260,10 @@ type InspectTarget =
             </div>
           </aside>
 
-          <div class="duel-panel overflow-hidden flex flex-col min-h-[24rem]">
+          <div
+            class="duel-panel overflow-hidden flex flex-col min-h-[24rem]"
+            [class.max-lg:hidden]="mobileWorkspaceTab() !== 'deck'"
+          >
             <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-4 max-h-[min(70vh,48rem)]">
               @for (section of sections(activeDeck); track section.key) {
                 <div>
@@ -234,10 +274,25 @@ type InspectTarget =
                     <span class="text-xs text-base-content/60 tabular-nums">
                       {{ sectionCardCount(section.cards) }}
                     </span>
-                    <div class="flex gap-2 ml-auto text-[11px] font-medium">
-                      <span class="text-warning">{{ typeStats(section.cards).monsters }} M</span>
-                      <span class="text-success">{{ typeStats(section.cards).spells }} S</span>
-                      <span class="text-secondary">{{ typeStats(section.cards).traps }} T</span>
+                    <div class="flex gap-1.5 ml-auto text-[11px] font-medium">
+                      <span
+                        class="duel-section-chip bg-warning/15 text-warning"
+                        [title]="i18n.t('decklist.editor.type.monsters')"
+                      >
+                        {{ typeStats(section.cards).monsters }}M
+                      </span>
+                      <span
+                        class="duel-section-chip bg-success/15 text-success"
+                        [title]="i18n.t('decklist.editor.type.spells')"
+                      >
+                        {{ typeStats(section.cards).spells }}S
+                      </span>
+                      <span
+                        class="duel-section-chip bg-secondary/15 text-secondary"
+                        [title]="i18n.t('decklist.editor.type.traps')"
+                      >
+                        {{ typeStats(section.cards).traps }}T
+                      </span>
                     </div>
                   </div>
 
@@ -266,12 +321,14 @@ type InspectTarget =
                               <span class="block w-full h-full bg-base-300"></span>
                             }
                             @if (card.legalityVerdict; as verdict) {
-                              <span
-                                class="absolute bottom-0 inset-x-0 z-10 text-[8px] sm:text-[9px] font-bold text-center py-0.5 leading-tight truncate px-0.5"
-                                [class]="verdictBannerClass(verdict)"
-                              >
-                                {{ verdictShort(verdict) }}
-                              </span>
+                              @if (verdict !== 'legal') {
+                                <span
+                                  class="absolute bottom-0 inset-x-0 z-10 text-[8px] sm:text-[9px] font-bold text-center py-0.5 leading-tight truncate px-0.5"
+                                  [class]="verdictBannerClass(verdict)"
+                                >
+                                  {{ verdictShort(verdict) }}
+                                </span>
+                              }
                             }
                           </button>
                           <button
@@ -291,16 +348,33 @@ type InspectTarget =
             </div>
           </div>
 
-          <app-decklist-search-sidebar
-            [deckCards]="liveDeck().cards"
-            [inspectedCardId]="inspectedSearchCardId()"
-            (cardInspect)="inspectSearchCard($event)"
-            (quickAdd)="addSearchCard($event)"
-          />
+          <div class="deck-rail" [class.max-lg:hidden]="mobileWorkspaceTab() !== 'search'">
+            <app-decklist-search-sidebar
+              class="shrink-0 min-w-0"
+              [deckCards]="liveDeck().cards"
+              [inspectedCardId]="inspectedSearchCardId()"
+              (cardInspect)="inspectSearchCard($event)"
+              (quickAdd)="addSearchCard($event)"
+            />
+
+            @if (activeDeck.cards.length > 0) {
+              <div class="hidden lg:block min-h-0 flex-1">
+                <app-deck-suggestions-panel
+                  [compact]="true"
+                  [loading]="deckSuggestionsLoading()"
+                  [available]="deckSuggestions().available"
+                  [sourceCount]="deckSuggestions().sourceCount"
+                  [groups]="deckSuggestions().groups"
+                  [formatLabel]="deckSuggestionFormatLabel()"
+                  (cardSelected)="addSuggestion($event)"
+                />
+              </div>
+            }
+          </div>
         </div>
 
         @if (inspectCard(); as target) {
-          <div class="xl:hidden rounded-xl border border-base-300 bg-base-100 p-3 flex flex-col gap-3">
+          <div class="lg:hidden rounded-xl border border-base-300 bg-base-100 p-3 flex flex-col gap-3">
             <div class="flex gap-3 items-start">
               @if (inspectImage(); as src) {
                 <img [src]="src" [alt]="" class="w-14 h-20 object-cover rounded-lg shrink-0" />
@@ -355,14 +429,16 @@ type InspectTarget =
       </section>
 
       @if (activeDeck.cards.length > 0) {
-        <app-deck-strategy-panel class="block" />
-        <app-deck-suggestions-panel
-          [loading]="deckSuggestionsLoading()"
-          [available]="deckSuggestions().available"
-          [sourceCount]="deckSuggestions().sourceCount"
-          [groups]="deckSuggestions().groups"
-          (cardSelected)="addSuggestion($event)"
-        />
+        <div class="lg:hidden" [class.hidden]="mobileWorkspaceTab() !== 'assist'">
+          <app-deck-suggestions-panel
+            [loading]="deckSuggestionsLoading()"
+            [available]="deckSuggestions().available"
+            [sourceCount]="deckSuggestions().sourceCount"
+            [groups]="deckSuggestions().groups"
+            [formatLabel]="deckSuggestionFormatLabel()"
+            (cardSelected)="addSuggestion($event)"
+          />
+        </div>
       }
     }
 
@@ -599,6 +675,7 @@ export class DecklistEditorComponent {
 
   readonly renaming = signal(false);
   readonly renameDraft = signal('');
+  readonly mobileWorkspaceTab = signal<'deck' | 'search' | 'assist'>('deck');
   readonly inspectCard = signal<InspectTarget | null>(null);
   readonly inspectDesc = signal<string | null>(null);
   readonly inspectDescLoading = signal(false);
@@ -626,6 +703,15 @@ export class DecklistEditorComponent {
     groups: [],
     sourceCount: 0,
     available: false,
+    formatId: null,
+  });
+  readonly deckSuggestionFormatLabel = computed(() => {
+    const format = this.formatStore.selectedFormat();
+    if (!format) {
+      return null;
+    }
+    const lang = this.i18n.lang();
+    return format.name[lang] ?? format.name.en;
   });
   readonly completeDeckDialogOpen = signal(false);
   readonly completeDeckTarget = signal(40);
@@ -701,10 +787,12 @@ export class DecklistEditorComponent {
       const revision = this.deckRevision();
       const deck = this.liveDeck();
       const format = this.formatStore.selectedFormat();
+      const formatId = this.formatStore.formatId();
       void this.strategy.direction();
       void this.strategy.prompt();
       void this.strategy.useOllama();
       void revision;
+      void formatId;
 
       if (!format || deck.cards.length === 0) {
         this.deckSuggestions.set({
@@ -712,6 +800,7 @@ export class DecklistEditorComponent {
           groups: [],
           sourceCount: 0,
           available: !!format,
+          formatId: format?.id ?? null,
         });
         this.deckSuggestionsLoading.set(false);
         return;

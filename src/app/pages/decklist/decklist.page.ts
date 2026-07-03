@@ -7,10 +7,10 @@ import { I18nService } from '../../services/i18n.service';
   standalone: true,
   imports: [DecklistPanelComponent],
   template: `
-    <main class="container mx-auto max-w-[90rem] px-4 py-6 sm:py-8 flex-1">
-      <header class="mb-6 space-y-1">
-        <h1 class="text-2xl sm:text-3xl font-bold">{{ i18n.t('decklist.pageTitle') }}</h1>
-        <p class="text-base-content/70 text-sm sm:text-base max-w-3xl">
+    <main class="page-main page-stack">
+      <header class="space-y-1">
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">{{ i18n.t('decklist.pageTitle') }}</h1>
+        <p class="text-base-content/70 text-sm sm:text-base max-w-2xl">
           {{ i18n.t('decklist.pageSubtitle') }}
         </p>
       </header>

@@ -25,7 +25,7 @@ import { CardSearchResultRowComponent } from '../card-search-result-row/card-sea
   standalone: true,
   imports: [FormsModule, CardSearchResultRowComponent],
   template: `
-    <aside class="duel-panel flex flex-col xl:self-start overflow-hidden">
+    <aside class="duel-panel flex flex-col overflow-hidden min-w-0 w-full">
       <div class="duel-panel-header shrink-0 space-y-2">
         <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">
           {{ i18n.t('decklist.editor.search') }}
@@ -50,7 +50,7 @@ import { CardSearchResultRowComponent } from '../card-search-result-row/card-sea
         <p class="text-[10px] text-base-content/45 mt-1 px-0.5">{{ i18n.t('decklist.editor.searchRowHint') }}</p>
       </div>
 
-      <div class="overflow-y-auto overscroll-y-contain p-2 max-h-[min(45vh,20rem)] sm:max-h-[min(50vh,22rem)] xl:max-h-[min(60vh,28rem)]">
+      <div class="overflow-y-auto overscroll-y-contain p-2 min-h-[10rem] max-h-[min(45vh,20rem)] lg:max-h-[min(28vh,14rem)]">
         @if (searchLoading() || legalityLoading()) {
           <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.loading') }}</p>
         } @else {

@@ -9,10 +9,12 @@ import { I18nService } from '../../services/i18n.service';
   imports: [FormsModule],
   template: `
     @if (compact()) {
-      <label class="flex flex-wrap items-center gap-2 sm:gap-3 w-full min-w-0">
-        <span class="text-sm font-medium shrink-0">{{ i18n.t('format.label') }}</span>
+      <label class="form-control w-full min-w-0">
+        <span class="label py-0 pb-1.5">
+          <span class="label-text text-xs font-semibold text-base-content/70">{{ i18n.t('format.label') }}</span>
+        </span>
         <select
-          class="select select-bordered select-sm flex-1 min-w-[10rem] max-w-md"
+          class="select select-bordered select-sm w-full"
           [ngModel]="selectedId()"
           (ngModelChange)="onSelect($event)"
         >

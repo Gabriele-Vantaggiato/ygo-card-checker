@@ -59,4 +59,60 @@
   .duel-modal {
     @apply modal-box border border-base-300/80 bg-base-100 shadow-xl;
   }
+
+  .page-main {
+    @apply container mx-auto w-full max-w-7xl px-4 py-5 sm:py-7 flex-1;
+  }
+
+  .page-stack {
+    @apply flex flex-col gap-4 sm:gap-5;
+  }
+
+  .deck-context-strip {
+    @apply flex flex-col gap-3 md:grid md:grid-cols-2 md:items-stretch md:gap-4;
+  }
+
+  .deck-context-format {
+    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm px-3 py-2.5 sm:px-4 sm:py-3 flex items-center min-h-[3.25rem] w-full min-w-0;
+  }
+
+  .deck-workspace {
+    @apply grid grid-cols-1 gap-4 min-h-0 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,20rem)] lg:items-start;
+  }
+
+  .deck-rail {
+    @apply flex flex-col gap-4 min-h-0 lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:overscroll-y-contain;
+  }
+
+  .context-panel {
+    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm divide-y divide-base-300/60 overflow-hidden;
+  }
+
+  .context-panel-section {
+    @apply p-3 sm:p-4 space-y-3;
+  }
+
+  .workspace-tabs {
+    @apply tabs tabs-box tabs-sm w-full bg-base-200/80 p-0.5 rounded-lg;
+  }
+
+  .workspace-tab {
+    @apply tab flex-1 text-xs sm:text-sm min-h-9;
+  }
+
+  .empty-state {
+    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm flex flex-col items-center justify-center text-center px-6 py-12 sm:py-16;
+  }
+
+  .empty-state-icon {
+    @apply text-4xl sm:text-5xl opacity-30 mb-3 select-none;
+  }
+
+  .empty-state-title {
+    @apply text-base sm:text-lg font-semibold text-base-content/80;
+  }
+
+  .empty-state-hint {
+    @apply text-sm text-base-content/55 mt-1 max-w-md;
+  }
 }

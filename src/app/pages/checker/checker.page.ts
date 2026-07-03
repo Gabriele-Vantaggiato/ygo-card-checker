@@ -5,6 +5,7 @@ import { filter, map } from 'rxjs/operators';
 import { CardRelatedPanelComponent } from '../../components/card-related-panel/card-related-panel.component';
 import { CardSearchComponent } from '../../components/card-search/card-search.component';
 import { CardDetailTabsComponent } from '../../components/card-detail-tabs/card-detail-tabs.component';
+import { DeckStrategyPanelComponent } from '../../components/deck-strategy-panel/deck-strategy-panel.component';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { SearchHistoryComponent } from '../../components/search-history/search-history.component';
 import { I18nService } from '../../services/i18n.service';
@@ -22,16 +23,17 @@ interface DeckReturnContext {
   standalone: true,
   imports: [
     FormatSelectorComponent,
+    DeckStrategyPanelComponent,
     CardSearchComponent,
     CardDetailTabsComponent,
     SearchHistoryComponent,
   ],
   providers: [CheckerStore],
   template: `
-    <main class="container mx-auto max-w-2xl px-4 py-6 sm:py-8 space-y-4 sm:space-y-6 lg:max-w-7xl flex-1">
+    <main class="page-main page-stack lg:max-w-7xl">
       @if (deckReturn(); as ctx) {
         <div
-          class="sticky top-16 z-20 flex flex-wrap items-center justify-between gap-2 sm:gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 sm:px-4 backdrop-blur-sm shadow-sm"
+          class="sticky top-14 z-20 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 sm:px-4 backdrop-blur-sm"
           role="navigation"
           [attr.aria-label]="i18n.t('search.backToDeck')"
         >
@@ -49,33 +51,27 @@ interface DeckReturnContext {
         </div>
       }
 
-      <header class="space-y-1">
-        <h1 class="text-2xl font-bold sr-only">{{ i18n.t('nav.search') }}</h1>
-        <p class="text-base-content/70 text-center lg:text-left text-sm sm:text-base">
-          {{ i18n.t('app.subtitle') }}
-        </p>
-      </header>
-
       @if (store.error()) {
         <div class="alert alert-error">
           <span>{{ store.error() }}</span>
         </div>
       }
 
-      <div
-        class="flex flex-col gap-4 sm:gap-6 lg:grid lg:grid-cols-[minmax(320px,420px)_1fr] xl:grid-cols-[minmax(340px,440px)_1fr] lg:gap-6 xl:gap-8 lg:items-start"
-      >
-        <aside
-          class="card bg-base-100 shadow-xl border border-base-300 lg:sticky lg:top-16 lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto lg:overscroll-y-contain lg:flex lg:flex-col"
-        >
-          <div class="card-body space-y-4 lg:flex lg:flex-col lg:min-h-0 lg:flex-1 p-4 sm:p-6">
-            <app-format-selector
-              [compact]="true"
-              [formats]="store.formats()"
-              [selectedId]="store.selectedFormatId()"
-              (selectedChange)="store.setFormatId($event)"
-            />
+      <div class="deck-context-strip">
+        <div class="deck-context-format">
+          <app-format-selector
+            [compact]="true"
+            [formats]="store.formats()"
+            [selectedId]="store.selectedFormatId()"
+            (selectedChange)="store.setFormatId($event)"
+          />
+        </div>
+        <app-deck-strategy-panel class="min-w-0" />
+      </div>
 
+      <div class="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
+        <aside class="context-panel lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto lg:overscroll-y-contain">
+          <div class="context-panel-section">
             <app-card-search
               [query]="store.searchQuery()"
               [suggestions]="store.suggestions()"
@@ -88,23 +84,23 @@ interface DeckReturnContext {
               (queryChange)="store.setSearchQuery($event)"
               (cardSelected)="store.selectCard($event)"
             />
+          </div>
 
-            <div class="border-t border-base-300 pt-4 lg:mt-auto lg:shrink-0 min-w-0 overflow-hidden">
-              <app-search-history
-                [pinned]="true"
-                [entries]="store.searchHistory()"
-                [selectedCardId]="store.selectedCard()?.id ?? null"
-                [formatId]="store.selectedFormatId()"
-                (cardSelected)="store.selectFromHistory($event)"
-                (remove)="store.removeSearchHistoryEntry($event)"
-                (clear)="store.clearSearchHistory()"
-              />
-            </div>
+          <div class="context-panel-section">
+            <app-search-history
+              [pinned]="true"
+              [entries]="store.searchHistory()"
+              [selectedCardId]="store.selectedCard()?.id ?? null"
+              [formatId]="store.selectedFormatId()"
+              (cardSelected)="store.selectFromHistory($event)"
+              (remove)="store.removeSearchHistoryEntry($event)"
+              (clear)="store.clearSearchHistory()"
+            />
           </div>
         </aside>
 
         <section
-          class="min-w-0 w-full lg:sticky lg:top-16 lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto lg:overscroll-y-contain"
+          class="min-w-0 space-y-4 lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto lg:overscroll-y-contain"
         >
           <app-card-detail-tabs
             [card]="store.selectedCard()"

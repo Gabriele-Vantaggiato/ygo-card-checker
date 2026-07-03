@@ -105,4 +105,5 @@ export interface DeckRelatedResult {
   groups: CardRelatedGroup[];
   sourceCount: number;
   available: boolean;
+  formatId: string | null;
 }

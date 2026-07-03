@@ -10,28 +10,31 @@ import { I18nService } from '../services/i18n.service';
   imports: [RouterOutlet, RouterLink, RouterLinkActive, LanguageToggleComponent, DialogHostComponent],
   template: `
     <div class="min-h-screen bg-base-200 flex flex-col">
-      <header class="navbar bg-base-100/95 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-30 shadow-sm">
-        <div class="flex-1 min-w-0 gap-2">
-          <span class="text-base sm:text-lg font-bold truncate tracking-tight text-primary">
-            {{ i18n.t('app.title') }}
+      <header
+        class="navbar bg-base-100/95 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-30 shadow-sm min-h-14"
+      >
+        <div class="flex-1 min-w-0">
+          <span class="font-bold tracking-tight text-primary text-sm sm:text-base md:text-lg whitespace-nowrap">
+            <span class="md:hidden">{{ i18n.t('app.titleShort') }}</span>
+            <span class="hidden md:inline">{{ i18n.t('app.title') }}</span>
           </span>
         </div>
 
-        <nav class="flex-none">
-          <div role="tablist" class="tabs tabs-box tabs-sm sm:tabs-md bg-base-200/80 p-0.5">
+        <nav class="hidden md:flex flex-none">
+          <div role="tablist" class="tabs tabs-box tabs-sm bg-base-200/80 p-0.5 rounded-lg">
             <a
               role="tab"
               routerLink="/"
               routerLinkActive="tab-active"
               [routerLinkActiveOptions]="{ exact: true }"
-              class="tab text-xs sm:text-sm"
+              class="tab text-sm px-4"
             >
               {{ i18n.t('nav.search') }}
             </a>
-            <a role="tab" routerLink="/combo" routerLinkActive="tab-active" class="tab text-xs sm:text-sm">
+            <a role="tab" routerLink="/combo" routerLinkActive="tab-active" class="tab text-sm px-4">
               {{ i18n.t('nav.combo') }}
             </a>
-            <a role="tab" routerLink="/decklist" routerLinkActive="tab-active" class="tab text-xs sm:text-sm">
+            <a role="tab" routerLink="/decklist" routerLinkActive="tab-active" class="tab text-sm px-4">
               {{ i18n.t('nav.decklist') }}
             </a>
           </div>
@@ -42,7 +45,33 @@ import { I18nService } from '../services/i18n.service';
         </div>
       </header>
 
-      <router-outlet />
+      <div class="flex-1 pb-[4.25rem] md:pb-0">
+        <router-outlet />
+      </div>
+
+      <nav
+        class="btm-nav md:hidden bg-base-100/95 backdrop-blur-md border-t border-base-300/70 z-40"
+        [attr.aria-label]="i18n.t('nav.main')"
+      >
+        <a
+          routerLink="/"
+          routerLinkActive="active text-primary"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="[&.active]:text-primary"
+        >
+          <span class="text-lg leading-none" aria-hidden="true">⌕</span>
+          <span class="btm-nav-label text-[10px]">{{ i18n.t('nav.search') }}</span>
+        </a>
+        <a routerLink="/combo" routerLinkActive="active" class="[&.active]:text-primary">
+          <span class="text-lg leading-none" aria-hidden="true">⚡</span>
+          <span class="btm-nav-label text-[10px]">{{ i18n.t('nav.combo') }}</span>
+        </a>
+        <a routerLink="/decklist" routerLinkActive="active" class="[&.active]:text-primary">
+          <span class="text-lg leading-none" aria-hidden="true">▤</span>
+          <span class="btm-nav-label text-[10px]">{{ i18n.t('nav.decklist') }}</span>
+        </a>
+      </nav>
+
       <app-dialog-host />
     </div>
   `,
