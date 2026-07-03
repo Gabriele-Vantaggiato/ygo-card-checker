@@ -1,8 +1,9 @@
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, input, output, signal, viewChild, afterNextRender } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BanlistStatus } from '../../models/ygo-format.model';
 import { AddToDecklistPayload } from '../../models/decklist.model';
 import { I18nService } from '../../services/i18n.service';
+import { ToastService } from '../../services/toast.service';
 import { DecklistStore } from '../../stores/decklist.store';
 
 @Component({
@@ -10,7 +11,7 @@ import { DecklistStore } from '../../stores/decklist.store';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <dialog class="modal modal-open" open>
+    <dialog #dialogEl class="modal modal-open w-full max-w-md p-0 border-0 bg-transparent shadow-none">
       <div class="modal-box max-w-md p-0 overflow-hidden duel-modal" (click)="$event.stopPropagation()">
         <div class="bg-gradient-to-br from-primary/10 to-base-200 px-4 py-4 border-b border-base-300">
           <h3 class="font-bold text-lg">{{ i18n.t('decklist.dialog.title') }}</h3>
@@ -184,6 +185,8 @@ export class AddToDecklistDialogComponent {
 
   protected readonly decklistStore = inject(DecklistStore);
   protected readonly i18n = inject(I18nService);
+  private readonly toast = inject(ToastService);
+  private readonly dialogEl = viewChild<ElementRef<HTMLDialogElement>>('dialogEl');
 
   readonly selectedDeckId = signal('');
   readonly quantity = signal(1);
@@ -205,8 +208,26 @@ export class AddToDecklistDialogComponent {
   );
 
   constructor() {
-    const activeId = this.decklistStore.activeDecklistId() ?? this.decklistStore.decklists()[0]?.id ?? '';
-    this.selectDeck(activeId);
+    afterNextRender(() => {
+      if (this.decklistStore.decklists().length === 0) {
+        this.showNewDeck.set(true);
+      } else {
+        const activeId =
+          this.decklistStore.activeDecklistId() ?? this.decklistStore.decklists()[0]?.id ?? '';
+        if (activeId) {
+          this.selectDeck(activeId);
+        }
+      }
+
+      const dialog = this.dialogEl()?.nativeElement;
+      if (dialog && !dialog.open) {
+        try {
+          dialog.showModal();
+        } catch {
+          dialog.setAttribute('open', '');
+        }
+      }
+    });
 
     effect(() => {
       const deck = this.decklistStore.getDeckById(this.selectedDeckId());
@@ -250,6 +271,10 @@ export class AddToDecklistDialogComponent {
   }
 
   close(): void {
+    const dialog = this.dialogEl()?.nativeElement;
+    if (dialog?.open) {
+      dialog.close();
+    }
     this.closed.emit();
   }
 
@@ -264,29 +289,55 @@ export class AddToDecklistDialogComponent {
   createAndSelectDeck(): void {
     const name = this.newDeckName().trim();
     if (!name) {
+      this.toast.error(this.i18n.t('decklist.dialog.newDeckPlaceholder'));
       return;
     }
     const id = this.decklistStore.createDecklist(name);
     this.selectDeck(id);
     this.showNewDeck.set(false);
     this.newDeckName.set('');
+    this.toast.success(this.i18n.t('decklist.feedback.created', { name }));
   }
 
   confirmAdd(): void {
     const deckId = this.selectedDeckId();
+    if (!deckId) {
+      this.toast.error(this.i18n.t('decklist.feedback.noDecklist'));
+      return;
+    }
+
     const renamed = this.renameDraft().trim();
     const deck = this.decklistStore.getDeckById(deckId);
     if (renamed && deck && renamed !== deck.name) {
       this.decklistStore.renameDecklist(deckId, renamed);
     }
 
+    const qty = this.quantity();
     const ok = this.decklistStore.addCardToDeck(
       deckId,
       { ...this.payload(), banlistStatus: this.banlistStatus() },
-      this.quantity(),
+      qty,
     );
+
     if (ok) {
+      const deckName = this.decklistStore.getDeckById(deckId)?.name ?? '';
+      this.toast.success(
+        this.i18n.t('decklist.feedback.addedTo', {
+          qty: `${qty}`,
+          card: this.payload().name,
+          deck: deckName,
+        }),
+      );
       this.close();
+      return;
+    }
+
+    if (this.isForbidden()) {
+      this.toast.error(this.i18n.t('decklist.feedback.forbidden'));
+    } else if (this.remaining() <= 0) {
+      this.toast.error(this.i18n.t('decklist.feedback.maxReached'));
+    } else {
+      this.toast.error(this.i18n.t('decklist.feedback.addFailed'));
     }
   }
 }

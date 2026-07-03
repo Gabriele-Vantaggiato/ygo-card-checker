@@ -1,3 +1,4 @@
+import { NgClass } from '@angular/common';
 import { Component, input, output } from '@angular/core';
 import { SearchHistoryEntry } from '../../models/search-history.model';
 import { I18nService } from '../../services/i18n.service';
@@ -9,7 +10,7 @@ import {
 @Component({
   selector: 'app-search-history',
   standalone: true,
-  imports: [],
+  imports: [NgClass],
   template: `
   <section class="flex flex-col min-h-0 min-w-0 w-full overflow-hidden" [class.mt-auto]="pinned()">
     <div class="flex items-center justify-between gap-2 mb-2">
@@ -64,8 +65,8 @@ import {
                   @if (hasLegality(entry)) {
                     <span class="w-full">
                       <span
-                        class="badge badge-xs sm:badge-sm"
-                        [class]="verdictBadgeClass(entry.verdict!)"
+                        class="badge badge-xs sm:badge-sm duel-verdict-badge"
+                        [ngClass]="verdictBadgeClass(entry.verdict!)"
                         [title]="i18n.t('history.playability')"
                       >
                         {{ i18n.t(verdictLabelKey(entry.verdict!)) }}

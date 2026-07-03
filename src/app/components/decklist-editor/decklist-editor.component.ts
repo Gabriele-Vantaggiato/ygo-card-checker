@@ -333,7 +333,7 @@ type InspectTarget =
                           </button>
                           <button
                             type="button"
-                            class="absolute -top-1 -right-1 z-20 btn btn-error btn-xs btn-circle opacity-0 group-hover:opacity-100 shadow-md transition-opacity"
+                            class="absolute -top-0.5 -right-0.5 z-20 btn btn-error btn-circle shadow-md transition-opacity h-4 w-4 min-h-4 min-w-4 text-[9px] p-0 opacity-90 lg:-top-1 lg:-right-1 lg:btn-xs lg:h-auto lg:w-auto lg:min-h-0 lg:min-w-0 lg:opacity-0 lg:group-hover:opacity-100"
                             [attr.aria-label]="i18n.t('decklist.editor.removeCopy')"
                             (click)="removeOneCopy(card.id, $event)"
                           >

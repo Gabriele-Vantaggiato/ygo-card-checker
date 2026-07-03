@@ -4,23 +4,23 @@ import { BanlistStatus } from '../models/ygo-format.model';
 export function verdictBadgeClass(verdict: LegalityVerdict): string {
   switch (verdict) {
     case 'legal':
-      return 'badge-success';
+      return 'badge-success duel-verdict-badge';
     case 'restricted':
-      return 'badge-warning';
+      return 'badge-warning duel-verdict-badge';
     default:
-      return 'badge-error';
+      return 'badge-error duel-verdict-badge';
   }
 }
 
 export function quantityBadgeClass(status: BanlistStatus): string {
   switch (status) {
     case 'Forbidden':
-      return 'badge-error';
+      return 'badge-error duel-verdict-badge';
     case 'Limited':
     case 'Semi-Limited':
-      return 'badge-warning';
+      return 'badge-warning duel-verdict-badge';
     default:
-      return 'badge-success';
+      return 'badge-success duel-verdict-badge';
   }
 }
 

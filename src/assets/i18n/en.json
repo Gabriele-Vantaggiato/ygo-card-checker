@@ -160,6 +160,7 @@
   "decklist.feedback.created": "Decklist \"{name}\" created",
   "decklist.feedback.sorted": "Deck sorted",
   "decklist.feedback.maxReached": "Copy limit reached for this card",
+  "decklist.feedback.addFailed": "Could not add the card to the decklist",
   "decklist.feedback.forbidden": "Forbidden card — cannot add",
   "decklist.feedback.noDecklist": "No active decklist",
   "result.selectCard": "Select a card to see the result",

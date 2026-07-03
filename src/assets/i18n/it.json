@@ -160,6 +160,7 @@
   "decklist.feedback.created": "Decklist \"{name}\" creata",
   "decklist.feedback.sorted": "Mazzo ordinato",
   "decklist.feedback.maxReached": "Limite copie raggiunto per questa carta",
+  "decklist.feedback.addFailed": "Impossibile aggiungere la carta alla decklist",
   "decklist.feedback.forbidden": "Carta bandita — non aggiungibile",
   "decklist.feedback.noDecklist": "Nessuna decklist attiva",
   "result.selectCard": "Seleziona una carta per vedere il risultato",

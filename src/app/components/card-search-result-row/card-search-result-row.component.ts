@@ -1,4 +1,5 @@
 import { Component, inject, input, output } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { AddToDecklistPayload } from '../../models/decklist.model';
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
@@ -11,7 +12,7 @@ import {
 @Component({
   selector: 'app-card-search-result-row',
   standalone: true,
-  imports: [AddToDecklistButtonComponent],
+  imports: [AddToDecklistButtonComponent, NgClass],
   template: `
     <div
       class="flex items-stretch gap-1.5 rounded-xl transition-colors w-full min-h-[4.75rem]"
@@ -51,8 +52,8 @@ import {
           @if (legality(); as result) {
             <span class="mt-2 inline-flex">
               <span
-                class="badge badge-sm"
-                [class]="verdictBadgeClass(result.verdict)"
+                class="badge badge-sm duel-verdict-badge"
+                [ngClass]="verdictBadgeClass(result.verdict)"
                 [title]="i18n.t('history.playability')"
               >
                 {{ i18n.t(verdictLabelKey(result.verdict)) }}
