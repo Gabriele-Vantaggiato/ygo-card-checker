@@ -1,13 +1,13 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { CardTilt3dComponent } from '../card-tilt-3d/card-tilt-3d.component';
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { AddToDecklistPayload } from '../../models/decklist.model';
+import { SearchHistoryEntry } from '../../models/search-history.model';
 import { YgoFormat } from '../../models/ygo-format.model';
 import { I18nService } from '../../services/i18n.service';
 import {
   banlistStatusLabelKey,
-  quantityBadgeClass,
   verdictBadgeClass,
   verdictLabelKey,
 } from '../../utils/legality-display.utils';
@@ -21,12 +21,45 @@ import {
       <div
         class="card bg-base-100 shadow-xl border border-base-300 border-dashed min-h-64 lg:min-h-[calc(100vh-12rem)]"
       >
-        <div class="card-body items-center justify-center text-center text-base-content/60">
-          <span>{{ i18n.t('result.selectCard') }}</span>
+        <div class="card-body items-center justify-center text-center p-6 sm:p-8 space-y-5">
+          <div class="text-4xl opacity-40" aria-hidden="true">🃏</div>
+          <div class="space-y-2 max-w-sm">
+            <h2 class="text-lg font-semibold text-base-content/80">{{ i18n.t('result.emptyTitle') }}</h2>
+            <p class="text-sm text-base-content/60">{{ i18n.t('result.selectCard') }}</p>
+          </div>
+          <ol class="text-sm text-left text-base-content/70 space-y-2 max-w-xs w-full">
+            <li class="flex gap-2">
+              <span class="badge badge-neutral badge-sm shrink-0">1</span>
+              <span>{{ i18n.t('result.emptyStep1') }}</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="badge badge-neutral badge-sm shrink-0">2</span>
+              <span>{{ i18n.t('result.emptyStep2') }}</span>
+            </li>
+          </ol>
+          @if (quickPickEntry(); as entry) {
+            <button
+              type="button"
+              class="btn btn-outline btn-sm gap-2 mt-2"
+              (click)="historyPick.emit(entry)"
+            >
+              @if (entry.imageUrlSmall; as src) {
+                <img [src]="src" [alt]="" class="w-6 h-8 object-cover rounded" />
+              }
+              {{ entry.name }}
+            </button>
+          }
         </div>
       </div>
     } @else if (result(); as res) {
-      <div class="card bg-base-100 shadow-xl border border-base-300 overflow-visible">
+      <div
+        class="overflow-visible"
+        [class.card]="!embedded()"
+        [class.bg-base-100]="!embedded()"
+        [class.shadow-xl]="!embedded()"
+        [class.border]="!embedded()"
+        [class.border-base-300]="!embedded()"
+      >
         <div class="card-body !items-start !justify-start p-4 sm:p-6">
           <div
             class="grid w-full grid-cols-1 content-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:items-start"
@@ -37,25 +70,27 @@ import {
               </div>
             }
 
-            <div class="min-w-0 self-start space-y-4">
-              <header class="space-y-2">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
-                    <h2 class="text-xl sm:text-2xl font-bold leading-tight">{{ card()!.name }}</h2>
-                    <span class="badge badge-lg" [class]="verdictBadgeClass(res.verdict)">
-                      {{ i18n.t(verdictLabelKey(res.verdict)) }}
-                    </span>
-                    <span class="badge badge-lg badge-outline" [class]="quantityBadgeClass(res.banlistStatus)">
-                      {{ i18n.t(banlistStatusLabelKey(res.banlistStatus)) }}
-                    </span>
-                  </div>
-                  <app-add-to-decklist-btn
-                    class="shrink-0"
-                    [payload]="deckPayload()"
-                    [banlistStatus]="res.banlistStatus"
-                  />
+            <div class="min-w-0 self-start space-y-4 w-full">
+              <header class="space-y-3">
+                <div class="space-y-1">
+                  <h2 class="text-xl sm:text-2xl font-bold leading-tight">{{ card()!.name }}</h2>
+                  <p class="text-sm text-base-content/70">{{ card()!.type }}</p>
                 </div>
-                <p class="text-sm text-base-content/70">{{ card()!.type }}</p>
+
+                <div class="rounded-xl border border-base-300 bg-base-200/40 p-3 space-y-2 w-full sm:max-w-sm">
+                  <span class="badge badge-lg w-full justify-center py-3" [class]="verdictBadgeClass(res.verdict)">
+                    {{ i18n.t(verdictLabelKey(res.verdict)) }}
+                  </span>
+                  <p class="text-center text-sm text-base-content/70">
+                    {{ i18n.t(banlistStatusLabelKey(res.banlistStatus)) }}
+                  </p>
+                </div>
+
+                <app-add-to-decklist-btn
+                  variant="labeled"
+                  [payload]="deckPayload()"
+                  [banlistStatus]="res.banlistStatus"
+                />
               </header>
 
               @if (card()!.desc) {
@@ -63,51 +98,53 @@ import {
                   <h3 class="font-semibold mb-2 text-sm uppercase tracking-wide text-base-content/80">
                     {{ i18n.t('result.effect') }}
                   </h3>
-                  <p class="text-sm leading-relaxed whitespace-pre-line text-base-content/90">
+                  <p class="text-sm leading-relaxed whitespace-pre-line text-base-content/90 max-h-48 overflow-y-auto">
                     {{ card()!.desc }}
                   </p>
                 </section>
               }
 
-              <section class="space-y-3 pt-2 border-t border-base-300">
-                <h3 class="font-semibold text-sm uppercase tracking-wide text-base-content/80">
-                  {{ i18n.t('result.legality') }}
-                </h3>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  @if (res.tcgDate) {
-                    <div>
-                      <span class="font-medium">{{ i18n.t('result.tcgDate') }}:</span>
-                      {{ res.tcgDate }}
-                    </div>
-                  }
-                  <div>
-                    <span class="font-medium">{{ i18n.t('result.banlistStatus') }}:</span>
-                    {{ i18n.t(banlistStatusLabelKey(res.banlistStatus)) }}
-                  </div>
-                  @if (format()?.banlistEffectiveDate) {
-                    <div>
-                      <span class="font-medium">{{ i18n.t('result.banlistDate') }}:</span>
-                      {{ format()!.banlistEffectiveDate }}
-                    </div>
-                  }
-                  @if (format()?.cardPoolEndDate) {
-                    <div>
-                      <span class="font-medium">{{ i18n.t('result.cardPool') }}:</span>
-                      {{ format()!.cardPoolEndDate }}
-                    </div>
-                  }
-                </div>
-
-                <div>
-                  <h4 class="font-medium mb-1 text-sm">{{ i18n.t('result.reasons') }}</h4>
-                  <ul class="list-disc list-inside text-sm space-y-1 text-base-content/80">
-                    @for (reason of res.reasons; track $index) {
-                      <li>{{ i18n.t(reason.key, reason.params) }}</li>
+              <details class="rounded-lg border border-base-300/80 bg-base-200/20 group">
+                <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-base-content/80 list-none flex items-center justify-between">
+                  <span>{{ i18n.t('result.detailsLegality') }}</span>
+                  <span class="text-base-content/40 group-open:rotate-180 transition-transform" aria-hidden="true">▾</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-3 border-t border-base-300/60 pt-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    @if (res.tcgDate) {
+                      <div>
+                        <span class="font-medium">{{ i18n.t('result.tcgDate') }}:</span>
+                        {{ res.tcgDate }}
+                      </div>
                     }
-                  </ul>
+                    <div>
+                      <span class="font-medium">{{ i18n.t('result.banlistStatus') }}:</span>
+                      {{ i18n.t(banlistStatusLabelKey(res.banlistStatus)) }}
+                    </div>
+                    @if (format()?.banlistEffectiveDate) {
+                      <div>
+                        <span class="font-medium">{{ i18n.t('result.banlistDate') }}:</span>
+                        {{ format()!.banlistEffectiveDate }}
+                      </div>
+                    }
+                    @if (format()?.cardPoolEndDate) {
+                      <div>
+                        <span class="font-medium">{{ i18n.t('result.cardPool') }}:</span>
+                        {{ format()!.cardPoolEndDate }}
+                      </div>
+                    }
+                  </div>
+
+                  <div>
+                    <h4 class="font-medium mb-1 text-sm">{{ i18n.t('result.reasons') }}</h4>
+                    <ul class="list-disc list-inside text-sm space-y-1 text-base-content/80">
+                      @for (reason of res.reasons; track $index) {
+                        <li>{{ i18n.t(reason.key, reason.params) }}</li>
+                      }
+                    </ul>
+                  </div>
                 </div>
-              </section>
+              </details>
             </div>
           </div>
         </div>
@@ -119,8 +156,16 @@ export class LegalityResultComponent {
   readonly card = input<YgoCard | null>(null);
   readonly result = input<LegalityResult | null>(null);
   readonly format = input<YgoFormat | null>(null);
+  readonly embedded = input(false);
+  readonly historyEntries = input<SearchHistoryEntry[]>([]);
+
+  readonly historyPick = output<SearchHistoryEntry>();
 
   constructor(protected readonly i18n: I18nService) {}
+
+  quickPickEntry(): SearchHistoryEntry | null {
+    return this.historyEntries()[0] ?? null;
+  }
 
   cardImageLarge(): string | null {
     return (
@@ -142,6 +187,5 @@ export class LegalityResultComponent {
 
   protected readonly verdictBadgeClass = verdictBadgeClass;
   protected readonly verdictLabelKey = verdictLabelKey;
-  protected readonly quantityBadgeClass = quantityBadgeClass;
   protected readonly banlistStatusLabelKey = banlistStatusLabelKey;
 }

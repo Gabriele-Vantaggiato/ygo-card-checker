@@ -4,7 +4,6 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, of } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
-import { DeckStrategyPanelComponent } from '../../components/deck-strategy-panel/deck-strategy-panel.component';
 import { ComboPayoff, ComboRequirement, ComboResult } from '../../models/card-combo.model';
 import { CardKnowledgeEffect } from '../../models/card-knowledge.model';
 import { YgoCard } from '../../models/ygo-card.model';
@@ -30,7 +29,7 @@ const EMPTY_COMBO: ComboResult = {
 @Component({
   selector: 'app-combo-page',
   standalone: true,
-  imports: [RouterLink, FormatSelectorComponent, DeckStrategyPanelComponent],
+  imports: [RouterLink, FormatSelectorComponent],
   template: `
     <main class="container mx-auto max-w-3xl px-4 py-6 sm:py-8 space-y-4 sm:space-y-6 flex-1">
       <div class="flex flex-wrap items-center justify-between gap-3">
@@ -50,13 +49,13 @@ const EMPTY_COMBO: ComboResult = {
       </header>
 
       <section class="card bg-base-100 shadow-xl border border-base-300">
-        <div class="card-body p-4 sm:p-6 space-y-4">
+        <div class="card-body p-4 sm:p-6">
           <app-format-selector
+            [compact]="true"
             [formats]="formatStore.formats()"
             [selectedId]="formatStore.formatId()"
             (selectedChange)="formatStore.setFormatId($event)"
           />
-          <app-deck-strategy-panel />
         </div>
       </section>
 

@@ -12,8 +12,16 @@ import { I18nService } from '../../services/i18n.service';
   selector: 'app-card-related-panel',
   standalone: true,
   template: `
-    <section class="card bg-base-100 shadow-xl border border-base-300 mt-4 sm:mt-6">
-      <div class="card-body p-4 sm:p-6 space-y-4">
+    <section
+      [class.card]="!embedded()"
+      [class.bg-base-100]="!embedded()"
+      [class.shadow-xl]="!embedded()"
+      [class.border]="!embedded()"
+      [class.border-base-300]="!embedded()"
+      [class.mt-4]="!embedded()"
+      [class.sm:mt-6]="!embedded()"
+    >
+      <div class="card-body p-4 sm:p-6 space-y-4" [class.p-0]="embedded()">
         <header class="space-y-1">
           <h3 class="font-bold text-lg">{{ i18n.t('knowledge.title') }}</h3>
           <p class="text-sm text-base-content/60">{{ i18n.t('knowledge.subtitle') }}</p>
@@ -123,6 +131,7 @@ export class CardRelatedPanelComponent {
   readonly displayTags = input<CardKnowledgeDisplayTag[]>([]);
   readonly groups = input<CardRelatedGroup[]>([]);
   readonly suggestions = input<CardRelatedSuggestion[]>([]);
+  readonly embedded = input(false);
 
   readonly cardSelected = output<number>();
 

@@ -65,7 +65,7 @@ const EMPTY_RELATED: CardRelatedResult = {
   available: false,
 };
 const HISTORY_STORAGE_KEY = 'ygo-checker-search-history';
-const MAX_HISTORY = 10;
+const MAX_HISTORY = 8;
 
 @Injectable()
 export class CheckerStore {

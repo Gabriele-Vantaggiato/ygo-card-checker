@@ -5,8 +5,6 @@ import { BanlistStatus } from '../../models/ygo-format.model';
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { I18nService } from '../../services/i18n.service';
 import {
-  quantityBadgeClass,
-  quantityLabelKey,
   verdictBadgeClass,
   verdictLabelKey,
 } from '../../utils/legality-display.utils';
@@ -16,7 +14,7 @@ import {
   standalone: true,
   imports: [AddToDecklistButtonComponent],
   template: `
-  <section class="flex flex-col min-h-0" [class.mt-auto]="pinned()">
+  <section class="flex flex-col min-h-0 min-w-0 w-full overflow-hidden" [class.mt-auto]="pinned()">
     <div class="flex items-center justify-between gap-2 mb-2">
       <h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/80">
         {{ i18n.t('history.title') }}
@@ -36,25 +34,24 @@ import {
       <p class="text-xs text-base-content/50 py-2">{{ i18n.t('history.empty') }}</p>
     } @else {
       <ul
-        class="menu menu-sm bg-base-200/60 rounded-box border border-base-300 p-1 gap-0.5 overflow-y-auto"
-        [class.max-h-52]="pinned()"
-        [class.max-h-72]="!pinned()"
+        class="flex flex-col gap-0.5 w-full min-w-0 bg-base-200/60 rounded-box border border-base-300 p-1 overflow-y-auto overflow-x-hidden overscroll-y-contain"
+        [style.max-height]="listMaxHeight()"
       >
         @for (entry of entries(); track entry.id) {
-          <li>
+          <li class="w-full min-w-0 shrink-0">
             <div
-              class="flex w-full items-stretch gap-0.5 rounded-lg"
+              class="flex w-full min-w-0 items-stretch gap-0.5 rounded-lg overflow-hidden"
               [class.bg-base-300]="entry.id === selectedCardId()"
             >
               <app-add-to-decklist-btn
-                class="self-center ml-1"
+                class="self-center ml-1 shrink-0"
                 [payload]="toPayload(entry)"
                 [banlistStatus]="entryBanlistStatus(entry)"
               />
 
               <button
                 type="button"
-                class="!flex !flex-1 !items-start gap-2 py-2 px-2 h-auto min-h-0 min-w-0 whitespace-normal rounded-lg"
+                class="flex flex-1 items-start gap-2 py-2 px-2 h-auto min-h-0 min-w-0 overflow-hidden whitespace-normal rounded-lg text-left"
                 (click)="cardSelected.emit(entry)"
               >
                 @if (entry.imageUrlSmall; as src) {
@@ -74,20 +71,13 @@ import {
                   </span>
 
                   @if (hasLegality(entry)) {
-                    <span class="flex flex-wrap items-center gap-1 w-full">
+                    <span class="w-full">
                       <span
                         class="badge badge-xs sm:badge-sm"
                         [class]="verdictBadgeClass(entry.verdict!)"
                         [title]="i18n.t('history.playability')"
                       >
                         {{ i18n.t(verdictLabelKey(entry.verdict!)) }}
-                      </span>
-                      <span
-                        class="badge badge-xs sm:badge-sm badge-outline"
-                        [class]="quantityBadgeClass(entry.banlistStatus!)"
-                        [title]="i18n.t('history.quantity')"
-                      >
-                        {{ i18n.t(quantityLabelKey(entry.banlistStatus!)) }}
                       </span>
                     </span>
                   } @else if (entry.formatId !== formatId()) {
@@ -114,6 +104,10 @@ import {
   `,
 })
 export class SearchHistoryComponent {
+  /** Row height estimate for capping visible list at 8 items. */
+  private static readonly ROW_HEIGHT_PX = 56;
+  private static readonly MAX_VISIBLE = 8;
+
   readonly entries = input.required<SearchHistoryEntry[]>();
   readonly selectedCardId = input<number | null>(null);
   readonly formatId = input.required<string>();
@@ -124,6 +118,11 @@ export class SearchHistoryComponent {
   readonly clear = output<void>();
 
   constructor(protected readonly i18n: I18nService) {}
+
+  listMaxHeight(): string {
+    const visible = Math.min(this.entries().length, SearchHistoryComponent.MAX_VISIBLE);
+    return `${visible * SearchHistoryComponent.ROW_HEIGHT_PX}px`;
+  }
 
   onRemove(event: Event, cardId: number): void {
     event.stopPropagation();
@@ -155,6 +154,4 @@ export class SearchHistoryComponent {
 
   protected readonly verdictBadgeClass = verdictBadgeClass;
   protected readonly verdictLabelKey = verdictLabelKey;
-  protected readonly quantityBadgeClass = quantityBadgeClass;
-  protected readonly quantityLabelKey = quantityLabelKey;
 }

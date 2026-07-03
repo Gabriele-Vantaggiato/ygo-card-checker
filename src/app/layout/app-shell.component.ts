@@ -1,12 +1,13 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LanguageToggleComponent } from '../components/language-toggle/language-toggle.component';
+import { DialogHostComponent } from '../components/dialog-host/dialog-host.component';
 import { I18nService } from '../services/i18n.service';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, LanguageToggleComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, LanguageToggleComponent, DialogHostComponent],
   template: `
     <div class="min-h-screen bg-base-200 flex flex-col">
       <header class="navbar bg-base-100/95 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-30 shadow-sm">
@@ -42,6 +43,7 @@ import { I18nService } from '../services/i18n.service';
       </header>
 
       <router-outlet />
+      <app-dialog-host />
     </div>
   `,
 })

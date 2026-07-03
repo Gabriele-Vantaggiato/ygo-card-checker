@@ -1,12 +1,11 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
 import { CardRelatedPanelComponent } from '../../components/card-related-panel/card-related-panel.component';
 import { CardSearchComponent } from '../../components/card-search/card-search.component';
-import { DeckStrategyPanelComponent } from '../../components/deck-strategy-panel/deck-strategy-panel.component';
+import { CardDetailTabsComponent } from '../../components/card-detail-tabs/card-detail-tabs.component';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
-import { LegalityResultComponent } from '../../components/legality-result/legality-result.component';
 import { SearchHistoryComponent } from '../../components/search-history/search-history.component';
 import { I18nService } from '../../services/i18n.service';
 import { CheckerStore } from '../../stores/checker.store';
@@ -24,11 +23,8 @@ interface DeckReturnContext {
   imports: [
     FormatSelectorComponent,
     CardSearchComponent,
-    LegalityResultComponent,
+    CardDetailTabsComponent,
     SearchHistoryComponent,
-    CardRelatedPanelComponent,
-    DeckStrategyPanelComponent,
-    RouterLink,
   ],
   providers: [CheckerStore],
   template: `
@@ -74,12 +70,11 @@ interface DeckReturnContext {
         >
           <div class="card-body space-y-4 lg:flex lg:flex-col lg:min-h-0 lg:flex-1 p-4 sm:p-6">
             <app-format-selector
+              [compact]="true"
               [formats]="store.formats()"
               [selectedId]="store.selectedFormatId()"
               (selectedChange)="store.setFormatId($event)"
             />
-
-            <app-deck-strategy-panel />
 
             <app-card-search
               [query]="store.searchQuery()"
@@ -94,7 +89,7 @@ interface DeckReturnContext {
               (cardSelected)="store.selectCard($event)"
             />
 
-            <div class="border-t border-base-300 pt-4 lg:mt-auto lg:shrink-0">
+            <div class="border-t border-base-300 pt-4 lg:mt-auto lg:shrink-0 min-w-0 overflow-hidden">
               <app-search-history
                 [pinned]="true"
                 [entries]="store.searchHistory()"
@@ -111,36 +106,22 @@ interface DeckReturnContext {
         <section
           class="min-w-0 w-full lg:sticky lg:top-16 lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto lg:overscroll-y-contain"
         >
-          <app-legality-result
+          <app-card-detail-tabs
             [card]="store.selectedCard()"
             [result]="store.legalityResult()"
             [format]="store.selectedFormat()"
+            [historyEntries]="store.searchHistory()"
+            [relatedLoading]="store.relatedLoading()"
+            [relatedAvailable]="store.relatedAvailable()"
+            [relatedSeries]="store.relatedSeries()"
+            [relatedMentions]="store.relatedMentions()"
+            [relatedEffects]="store.relatedEffects()"
+            [relatedTags]="store.relatedTags()"
+            [relatedGroups]="store.relatedGroups()"
+            [relatedSuggestions]="store.relatedSuggestions()"
+            (historyPick)="store.selectFromHistory($event)"
+            (relatedCardSelect)="store.openRelatedCard($event)"
           />
-
-          @if (store.selectedCard()) {
-            <app-card-related-panel
-              [loading]="store.relatedLoading()"
-              [available]="store.relatedAvailable()"
-              [series]="store.relatedSeries()"
-              [mentions]="store.relatedMentions()"
-              [effects]="store.relatedEffects()"
-              [displayTags]="store.relatedTags()"
-              [groups]="store.relatedGroups()"
-              [suggestions]="store.relatedSuggestions()"
-              (cardSelected)="store.openRelatedCard($event)"
-            />
-
-            <div class="mt-4 flex justify-end">
-              <a
-                routerLink="/combo"
-                [queryParams]="{ cardId: store.selectedCard()!.id }"
-                class="btn btn-outline btn-primary btn-sm gap-2"
-              >
-                {{ i18n.t('combo.openPage') }}
-                <span aria-hidden="true">→</span>
-              </a>
-            </div>
-          }
         </section>
       </div>
     </main>

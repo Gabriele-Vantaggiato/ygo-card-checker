@@ -4,8 +4,6 @@ import { AddToDecklistPayload } from '../../models/decklist.model';
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { I18nService } from '../../services/i18n.service';
 import {
-  quantityBadgeClass,
-  quantityLabelKey,
   verdictBadgeClass,
   verdictLabelKey,
 } from '../../utils/legality-display.utils';
@@ -51,20 +49,13 @@ import {
           <p class="text-sm sm:text-base font-semibold leading-snug line-clamp-2">{{ card().name }}</p>
           <p class="text-xs sm:text-sm text-base-content/60 truncate mt-0.5">{{ card().type }}</p>
           @if (legality(); as result) {
-            <span class="flex flex-wrap items-center gap-1.5 mt-2">
+            <span class="mt-2 inline-flex">
               <span
                 class="badge badge-sm"
                 [class]="verdictBadgeClass(result.verdict)"
                 [title]="i18n.t('history.playability')"
               >
                 {{ i18n.t(verdictLabelKey(result.verdict)) }}
-              </span>
-              <span
-                class="badge badge-sm badge-outline"
-                [class]="quantityBadgeClass(result.banlistStatus)"
-                [title]="i18n.t('history.quantity')"
-              >
-                {{ i18n.t(quantityLabelKey(result.banlistStatus)) }}
               </span>
             </span>
           } @else if (legalityLoading()) {
@@ -91,9 +82,7 @@ export class CardSearchResultRowComponent {
 
   protected readonly i18n = inject(I18nService);
   protected readonly verdictBadgeClass = verdictBadgeClass;
-  protected readonly quantityBadgeClass = quantityBadgeClass;
   protected readonly verdictLabelKey = verdictLabelKey;
-  protected readonly quantityLabelKey = quantityLabelKey;
 
   addPayload(): AddToDecklistPayload {
     const card = this.card();
