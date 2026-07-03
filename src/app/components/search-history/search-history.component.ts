@@ -1,8 +1,5 @@
 import { Component, input, output } from '@angular/core';
 import { SearchHistoryEntry } from '../../models/search-history.model';
-import { AddToDecklistPayload } from '../../models/decklist.model';
-import { BanlistStatus } from '../../models/ygo-format.model';
-import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { I18nService } from '../../services/i18n.service';
 import {
   verdictBadgeClass,
@@ -12,7 +9,7 @@ import {
 @Component({
   selector: 'app-search-history',
   standalone: true,
-  imports: [AddToDecklistButtonComponent],
+  imports: [],
   template: `
   <section class="flex flex-col min-h-0 min-w-0 w-full overflow-hidden" [class.mt-auto]="pinned()">
     <div class="flex items-center justify-between gap-2 mb-2">
@@ -43,12 +40,6 @@ import {
               class="flex w-full min-w-0 items-stretch gap-0.5 rounded-lg overflow-hidden"
               [class.bg-base-300]="entry.id === selectedCardId()"
             >
-              <app-add-to-decklist-btn
-                class="self-center ml-1 shrink-0"
-                [payload]="toPayload(entry)"
-                [banlistStatus]="entryBanlistStatus(entry)"
-              />
-
               <button
                 type="button"
                 class="flex flex-1 items-start gap-2 py-2 px-2 h-auto min-h-0 min-w-0 overflow-hidden whitespace-normal rounded-lg text-left"
@@ -127,21 +118,6 @@ export class SearchHistoryComponent {
   onRemove(event: Event, cardId: number): void {
     event.stopPropagation();
     this.remove.emit(cardId);
-  }
-
-  toPayload(entry: SearchHistoryEntry): AddToDecklistPayload {
-    return {
-      id: entry.id,
-      name: entry.name,
-      type: entry.type,
-      imageUrlSmall: entry.imageUrlSmall,
-      banlistStatus: this.hasLegality(entry) ? entry.banlistStatus : null,
-      legalityVerdict: this.hasLegality(entry) ? entry.verdict : null,
-    };
-  }
-
-  entryBanlistStatus(entry: SearchHistoryEntry): BanlistStatus | null {
-    return this.hasLegality(entry) ? entry.banlistStatus : null;
   }
 
   hasLegality(entry: SearchHistoryEntry): boolean {

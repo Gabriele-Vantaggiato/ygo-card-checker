@@ -1,11 +1,9 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
-import { CardRelatedPanelComponent } from '../../components/card-related-panel/card-related-panel.component';
 import { CardSearchComponent } from '../../components/card-search/card-search.component';
 import { CardDetailTabsComponent } from '../../components/card-detail-tabs/card-detail-tabs.component';
-import { DeckStrategyPanelComponent } from '../../components/deck-strategy-panel/deck-strategy-panel.component';
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { SearchHistoryComponent } from '../../components/search-history/search-history.component';
 import { I18nService } from '../../services/i18n.service';
@@ -23,7 +21,6 @@ interface DeckReturnContext {
   standalone: true,
   imports: [
     FormatSelectorComponent,
-    DeckStrategyPanelComponent,
     CardSearchComponent,
     CardDetailTabsComponent,
     SearchHistoryComponent,
@@ -66,7 +63,6 @@ interface DeckReturnContext {
             (selectedChange)="store.setFormatId($event)"
           />
         </div>
-        <app-deck-strategy-panel class="min-w-0" />
       </div>
 
       <div class="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
@@ -78,7 +74,6 @@ interface DeckReturnContext {
               [suggestionLegality]="store.suggestionLegality()"
               [loading]="store.searchLoading()"
               [legalityLoading]="store.suggestionLegalityLoading()"
-              [deckQuantities]="deckQuantities()"
               [selectedCardId]="store.selectedCard()?.id ?? null"
               [selectedCard]="store.selectedCard()"
               (queryChange)="store.setSearchQuery($event)"
@@ -132,14 +127,6 @@ export class CheckerPage {
   private readonly decklistStore = inject(DecklistStore);
 
   readonly deckReturn = signal<DeckReturnContext | null>(null);
-
-  readonly deckQuantities = computed(() => {
-    const deck = this.decklistStore.activeDecklist();
-    if (!deck) {
-      return new Map<number, number>();
-    }
-    return new Map(deck.cards.map((card) => [card.id, card.quantity]));
-  });
 
   constructor() {
     this.route.queryParamMap

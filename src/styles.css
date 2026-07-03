@@ -69,11 +69,31 @@
   }
 
   .deck-context-strip {
-    @apply flex flex-col gap-3 md:grid md:grid-cols-2 md:items-stretch md:gap-4;
+    @apply flex flex-col gap-3 w-full md:grid md:grid-cols-2 md:items-stretch md:gap-4;
   }
 
   .deck-context-format {
-    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm px-3 py-2.5 sm:px-4 sm:py-3 flex items-center min-h-[3.25rem] w-full min-w-0;
+    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm px-3 py-2.5 sm:px-4 sm:py-3 w-full min-w-0;
+  }
+
+  .mobile-tab-bar {
+    @apply fixed bottom-0 inset-x-0 z-40 flex items-stretch gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-base-100 border-t border-base-300 shadow-[0_-4px_24px_oklch(0%_0_0/0.35)];
+  }
+
+  .mobile-tab {
+    @apply flex flex-1 flex-col items-center justify-center gap-0.5 min-h-14 rounded-xl px-1 py-1.5 text-base-content/55 transition-colors;
+  }
+
+  .mobile-tab-active {
+    @apply bg-primary/15 text-primary font-semibold;
+  }
+
+  .mobile-tab-icon {
+    @apply text-xl leading-none;
+  }
+
+  .mobile-tab-label {
+    @apply text-[11px] leading-tight font-medium;
   }
 
   .deck-workspace {

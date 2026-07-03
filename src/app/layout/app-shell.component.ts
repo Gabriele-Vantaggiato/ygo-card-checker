@@ -45,30 +45,30 @@ import { I18nService } from '../services/i18n.service';
         </div>
       </header>
 
-      <div class="flex-1 pb-[4.25rem] md:pb-0">
+      <div class="flex-1 pb-[4.75rem] md:pb-0">
         <router-outlet />
       </div>
 
       <nav
-        class="btm-nav md:hidden bg-base-100/95 backdrop-blur-md border-t border-base-300/70 z-40"
+        class="mobile-tab-bar md:hidden"
         [attr.aria-label]="i18n.t('nav.main')"
       >
         <a
           routerLink="/"
-          routerLinkActive="active text-primary"
+          routerLinkActive="mobile-tab-active"
           [routerLinkActiveOptions]="{ exact: true }"
-          class="[&.active]:text-primary"
+          class="mobile-tab"
         >
-          <span class="text-lg leading-none" aria-hidden="true">⌕</span>
-          <span class="btm-nav-label text-[10px]">{{ i18n.t('nav.search') }}</span>
+          <span class="mobile-tab-icon" aria-hidden="true">⌕</span>
+          <span class="mobile-tab-label">{{ i18n.t('nav.search') }}</span>
         </a>
-        <a routerLink="/combo" routerLinkActive="active" class="[&.active]:text-primary">
-          <span class="text-lg leading-none" aria-hidden="true">⚡</span>
-          <span class="btm-nav-label text-[10px]">{{ i18n.t('nav.combo') }}</span>
+        <a routerLink="/combo" routerLinkActive="mobile-tab-active" class="mobile-tab">
+          <span class="mobile-tab-icon" aria-hidden="true">⚡</span>
+          <span class="mobile-tab-label">{{ i18n.t('nav.combo') }}</span>
         </a>
-        <a routerLink="/decklist" routerLinkActive="active" class="[&.active]:text-primary">
-          <span class="text-lg leading-none" aria-hidden="true">▤</span>
-          <span class="btm-nav-label text-[10px]">{{ i18n.t('nav.decklist') }}</span>
+        <a routerLink="/decklist" routerLinkActive="mobile-tab-active" class="mobile-tab">
+          <span class="mobile-tab-icon" aria-hidden="true">▤</span>
+          <span class="mobile-tab-label">{{ i18n.t('nav.decklist') }}</span>
         </a>
       </nav>
 
