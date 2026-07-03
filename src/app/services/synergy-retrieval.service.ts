@@ -1,38 +1,20 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, of } from 'rxjs';
-import { catchError, shareReplay } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { CardKnowledgeIndex, CardKnowledgeRelated } from '../models/card-knowledge.model';
 import { CompletionScoringProfile } from '../utils/completion-prompt.utils';
 import {
   DatasetSynergyOptions,
-  buildCardRosterMap,
-  buildTagDocumentFrequency,
-  buildTagToCardIdsIndex,
   retrieveDatasetSynergies,
 } from '../utils/synergy-retrieval.utils';
 import { mergeRelatedById } from '../utils/mechanic-synergy.utils';
+import { CardKnowledgeIndexService } from './card-knowledge-index.service';
 import { CompletionRagService } from './completion-rag.service';
-
-const INDEX_URL = 'assets/data/card-knowledge/related.json';
 
 @Injectable({ providedIn: 'root' })
 export class SynergyRetrievalService {
-  private readonly http = inject(HttpClient);
+  private readonly indexService = inject(CardKnowledgeIndexService);
   private readonly completionRag = inject(CompletionRagService);
-
-  private readonly index$ = this.http.get<CardKnowledgeIndex>(INDEX_URL).pipe(
-    catchError(() => of(null)),
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
-
-  private rosterCache: Map<number, import('../models/card-knowledge.model').CardKnowledgeRosterMember> | null =
-    null;
-  private rosterIndexRef: CardKnowledgeIndex | null = null;
-  private tagDfCache: Map<string, number> | null = null;
-  private tagDfIndexRef: CardKnowledgeIndex | null = null;
-  private tagIndexCache: Map<string, number[]> | null = null;
-  private tagIndexRef: CardKnowledgeIndex | null = null;
 
   retrieve$(
     sourceId: number,
@@ -40,7 +22,7 @@ export class SynergyRetrievalService {
     excludeIds: ReadonlySet<number>,
     options?: DatasetSynergyOptions,
   ): Observable<CardKnowledgeRelated[]> {
-    return this.index$.pipe(
+    return this.indexService.related$.pipe(
       map((index) => {
         if (!index) {
           return [];
@@ -50,9 +32,9 @@ export class SynergyRetrievalService {
           return [];
         }
 
-        const roster = this.rosterFor(index);
-        const tagDf = this.tagDfFor(index);
-        const tagIndex = this.tagIndexFor(index);
+        const roster = this.indexService.rosterFor(index);
+        const tagDf = this.indexService.tagDfFor(index);
+        const tagIndex = this.indexService.tagIndexFor(index);
         const dataset = retrieveDatasetSynergies(
           sourceId,
           sourceEntry,
@@ -87,32 +69,5 @@ export class SynergyRetrievalService {
       }),
       catchError(() => of([])),
     );
-  }
-
-  private rosterFor(index: CardKnowledgeIndex) {
-    if (this.rosterCache && this.rosterIndexRef === index) {
-      return this.rosterCache;
-    }
-    this.rosterIndexRef = index;
-    this.rosterCache = buildCardRosterMap(index);
-    return this.rosterCache;
-  }
-
-  private tagDfFor(index: CardKnowledgeIndex): Map<string, number> {
-    if (this.tagDfCache && this.tagDfIndexRef === index) {
-      return this.tagDfCache;
-    }
-    this.tagDfIndexRef = index;
-    this.tagDfCache = buildTagDocumentFrequency(index);
-    return this.tagDfCache;
-  }
-
-  private tagIndexFor(index: CardKnowledgeIndex): Map<string, number[]> {
-    if (this.tagIndexCache && this.tagIndexRef === index) {
-      return this.tagIndexCache;
-    }
-    this.tagIndexRef = index;
-    this.tagIndexCache = buildTagToCardIdsIndex(index);
-    return this.tagIndexCache;
   }
 }

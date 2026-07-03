@@ -1,13 +1,6 @@
-import { DestroyRef, Injectable, inject } from '@angular/core';
-import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import {
-  BehaviorSubject,
-  Subject,
-  combineLatest,
-  defaultIfEmpty,
-  forkJoin,
-  of,
-} from 'rxjs';
+import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { combineLatest, defaultIfEmpty, forkJoin, of, Subject } from 'rxjs';
 import {
   debounceTime,
   distinctUntilChanged,
@@ -25,7 +18,6 @@ import { YgoFormat } from '../models/ygo-format.model';
 import { CardRelatedResult } from '../models/card-knowledge.model';
 import { I18nService } from '../services/i18n.service';
 import { CardKnowledgeService } from '../services/card-knowledge.service';
-import { LegalityService } from '../services/legality.service';
 import { CardLegalityFacade } from '../services/card-legality.facade';
 import { YgoApiService } from '../services/ygo-api.service';
 import { FormatStore } from './format.store';
@@ -80,93 +72,51 @@ export class CheckerStore {
   private readonly destroyRef = inject(DestroyRef);
   private readonly formatStore = inject(FormatStore);
   private readonly ygoApi = inject(YgoApiService);
-  private readonly legalityService = inject(LegalityService);
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly knowledgeService = inject(CardKnowledgeService);
   private readonly i18n = inject(I18nService);
 
-  private readonly searchQuery$ = new BehaviorSubject<string>('');
   private readonly searchIntent$ = new Subject<SearchIntent>();
   private readonly cardPick$ = new Subject<YgoCard>();
-  private readonly searchStateSubject = new BehaviorSubject<SearchState>(EMPTY_SEARCH);
-  private readonly selectedCardSubject = new BehaviorSubject<YgoCard | null>(null);
-  private readonly legalityStateSubject = new BehaviorSubject<LegalityState>(EMPTY_LEGALITY);
-  private readonly relatedStateSubject = new BehaviorSubject<RelatedState>({
+  private readonly cardCache = new Map<number, YgoCard>();
+
+  private readonly searchState = signal<SearchState>(EMPTY_SEARCH);
+  private readonly legalityState = signal<LegalityState>(EMPTY_LEGALITY);
+  private readonly relatedState = signal<RelatedState>({
     result: EMPTY_RELATED,
     loading: false,
   });
-  private readonly searchHistorySubject = new BehaviorSubject<SearchHistoryEntry[]>(
-    this.loadSearchHistory(),
-  );
-  private readonly cardCache = new Map<number, YgoCard>();
 
   readonly formats = this.formatStore.formats;
   readonly selectedFormatId = this.formatStore.formatId;
-  readonly searchQuery = toSignal(this.searchQuery$, { initialValue: '' });
-
+  readonly searchQuery = signal('');
   readonly selectedFormat$ = this.formatStore.selectedFormat$;
   readonly selectedFormat = this.formatStore.selectedFormat;
 
-  readonly searchState$ = this.searchStateSubject.asObservable();
-  readonly suggestions = toSignal(this.searchState$.pipe(map((s) => s.suggestions)), {
-    initialValue: [] as YgoCard[],
-  });
-  readonly searchLoading = toSignal(this.searchState$.pipe(map((s) => s.loading)), {
-    initialValue: false,
-  });
-  readonly suggestionLegalityLoading = toSignal(
-    this.searchState$.pipe(map((s) => s.legalityLoading)),
-    { initialValue: false },
-  );
-  readonly suggestionLegality = toSignal(
-    this.searchState$.pipe(map((s) => s.suggestionLegality)),
-    { initialValue: new Map<number, LegalityResult>() },
-  );
+  readonly suggestions = computed(() => this.searchState().suggestions);
+  readonly searchLoading = computed(() => this.searchState().loading);
+  readonly suggestionLegalityLoading = computed(() => this.searchState().legalityLoading);
+  readonly suggestionLegality = computed(() => this.searchState().suggestionLegality);
 
-  readonly selectedCard$ = this.selectedCardSubject.asObservable();
-  readonly selectedCard = toSignal(this.selectedCard$, { initialValue: null as YgoCard | null });
+  readonly selectedCard = signal<YgoCard | null>(null);
+  private readonly selectedCard$ = toObservable(this.selectedCard);
 
-  readonly legalityState$ = this.legalityStateSubject.asObservable();
-  readonly legalityResult = toSignal(this.legalityState$.pipe(map((s) => s.result)), {
-    initialValue: null as LegalityResult | null,
-  });
+  readonly legalityResult = computed(() => this.legalityState().result);
 
-  readonly relatedState$ = this.relatedStateSubject.asObservable();
-  readonly relatedLoading = toSignal(this.relatedState$.pipe(map((s) => s.loading)), {
-    initialValue: false,
-  });
-  readonly relatedAvailable = toSignal(this.relatedState$.pipe(map((s) => s.result.available)), {
-    initialValue: false,
-  });
-  readonly relatedSeries = toSignal(this.relatedState$.pipe(map((s) => s.result.series)), {
-    initialValue: EMPTY_RELATED.series,
-  });
-  readonly relatedTags = toSignal(this.relatedState$.pipe(map((s) => s.result.displayTags)), {
-    initialValue: EMPTY_RELATED.displayTags,
-  });
-  readonly relatedMentions = toSignal(this.relatedState$.pipe(map((s) => s.result.mentions)), {
-    initialValue: EMPTY_RELATED.mentions,
-  });
-  readonly relatedEffects = toSignal(this.relatedState$.pipe(map((s) => s.result.effects)), {
-    initialValue: EMPTY_RELATED.effects,
-  });
-  readonly relatedSuggestions = toSignal(this.relatedState$.pipe(map((s) => s.result.suggestions)), {
-    initialValue: EMPTY_RELATED.suggestions,
-  });
-  readonly relatedGroups = toSignal(this.relatedState$.pipe(map((s) => s.result.groups)), {
-    initialValue: EMPTY_RELATED.groups,
-  });
+  readonly relatedLoading = computed(() => this.relatedState().loading);
+  readonly relatedAvailable = computed(() => this.relatedState().result.available);
+  readonly relatedSeries = computed(() => this.relatedState().result.series);
+  readonly relatedTags = computed(() => this.relatedState().result.displayTags);
+  readonly relatedMentions = computed(() => this.relatedState().result.mentions);
+  readonly relatedEffects = computed(() => this.relatedState().result.effects);
+  readonly relatedSuggestions = computed(() => this.relatedState().result.suggestions);
+  readonly relatedGroups = computed(() => this.relatedState().result.groups);
 
-  readonly error = toSignal(
-    combineLatest([this.searchState$, this.legalityState$]).pipe(
-      map(([search, legality]) => legality.error ?? search.error),
-    ),
-    { initialValue: null as string | null },
+  readonly error = computed(
+    () => this.legalityState().error ?? this.searchState().error,
   );
 
-  readonly searchHistory = toSignal(this.searchHistorySubject, {
-    initialValue: [] as SearchHistoryEntry[],
-  });
+  readonly searchHistory = signal<SearchHistoryEntry[]>(this.loadSearchHistory());
 
   constructor() {
     this.bindSearch();
@@ -179,7 +129,7 @@ export class CheckerStore {
   }
 
   setSearchQuery(query: string): void {
-    this.searchQuery$.next(query);
+    this.searchQuery.set(query);
     this.searchIntent$.next({ query, fromSelection: false });
   }
 
@@ -188,7 +138,7 @@ export class CheckerStore {
   }
 
   selectCard(card: YgoCard): void {
-    this.searchQuery$.next(card.name);
+    this.searchQuery.set(card.name);
     this.searchIntent$.next({ query: card.name, fromSelection: true });
     this.cardPick$.next(card);
   }
@@ -200,7 +150,7 @@ export class CheckerStore {
   openCardById(cardId: number): void {
     this.ygoApi
       .getCardById$(cardId, this.i18n.lang())
-      .pipe(defaultIfEmpty(null), take(1))
+      .pipe(defaultIfEmpty(null), take(1), takeUntilDestroyed(this.destroyRef))
       .subscribe((card) => {
         if (card) {
           this.selectCard(card);
@@ -213,20 +163,20 @@ export class CheckerStore {
   }
 
   clearSearchHistory(): void {
-    this.searchHistorySubject.next([]);
+    this.searchHistory.set([]);
     this.persistSearchHistory([]);
   }
 
   removeSearchHistoryEntry(cardId: number): void {
-    const next = this.searchHistorySubject.value.filter((item) => item.id !== cardId);
-    this.searchHistorySubject.next(next);
+    const next = this.searchHistory().filter((item) => item.id !== cardId);
+    this.searchHistory.set(next);
     this.persistSearchHistory(next);
 
-    if (this.selectedCardSubject.value?.id === cardId) {
-      this.selectedCardSubject.next(null);
-      this.searchQuery$.next('');
-      this.legalityStateSubject.next(EMPTY_LEGALITY);
-      this.relatedStateSubject.next({ result: EMPTY_RELATED, loading: false });
+    if (this.selectedCard()?.id === cardId) {
+      this.selectedCard.set(null);
+      this.searchQuery.set('');
+      this.legalityState.set(EMPTY_LEGALITY);
+      this.relatedState.set({ result: EMPTY_RELATED, loading: false });
     }
   }
 
@@ -236,12 +186,12 @@ export class CheckerStore {
         debounceTime(300),
         tap((intent) => {
           if (intent.fromSelection || intent.query.trim().length < 2) {
-            this.searchStateSubject.next(EMPTY_SEARCH);
+            this.searchState.set(EMPTY_SEARCH);
           }
         }),
         filter((intent) => !intent.fromSelection && intent.query.trim().length >= 2),
         tap(() => {
-          this.searchStateSubject.next({
+          this.searchState.set({
             ...EMPTY_SEARCH,
             loading: true,
           });
@@ -261,9 +211,8 @@ export class CheckerStore {
             });
           }
 
-          const current = this.searchStateSubject.value;
-          this.searchStateSubject.next({
-            ...current,
+          this.searchState.set({
+            ...this.searchState(),
             suggestions,
             loading: false,
             legalityLoading: true,
@@ -276,7 +225,7 @@ export class CheckerStore {
         }),
         tap({
           next: ({ suggestions, suggestionLegality, error }) => {
-            this.searchStateSubject.next({
+            this.searchState.set({
               suggestions,
               suggestionLegality,
               loading: false,
@@ -285,7 +234,7 @@ export class CheckerStore {
             });
           },
           error: () => {
-            this.searchStateSubject.next({
+            this.searchState.set({
               ...EMPTY_SEARCH,
               error: this.i18n.t('error.api'),
             });
@@ -301,19 +250,18 @@ export class CheckerStore {
       .pipe(
         skip(1),
         distinctUntilChanged(),
-        withLatestFrom(this.searchStateSubject),
+        withLatestFrom(toObservable(this.searchState)),
         filter(([, state]) => state.suggestions.length > 0),
-        tap(() => {
-          const current = this.searchStateSubject.value;
-          this.searchStateSubject.next({
-            ...current,
+        tap(([, state]) => {
+          this.searchState.set({
+            ...state,
             legalityLoading: true,
           });
         }),
         switchMap(([, state]) => this.evaluateSuggestions$(state.suggestions)),
         tap(({ suggestions, suggestionLegality }) => {
-          this.searchStateSubject.next({
-            ...this.searchStateSubject.value,
+          this.searchState.set({
+            ...this.searchState(),
             suggestions,
             suggestionLegality,
             legalityLoading: false,
@@ -356,8 +304,8 @@ export class CheckerStore {
         ),
         tap((card) => {
           this.cardCache.set(card.id, card);
-          this.selectedCardSubject.next(card);
-          this.searchQuery$.next(card.name);
+          this.selectedCard.set(card);
+          this.searchQuery.set(card.name);
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -369,36 +317,22 @@ export class CheckerStore {
       .pipe(
         tap(([card, format]) => {
           if (!card || !format) {
-            this.legalityStateSubject.next(EMPTY_LEGALITY);
-            return;
-          }
-
-          if (!this.legalityService.needsLocalBanlist(format)) {
-            const result = this.legalityService.evaluate(
-              card,
-              format,
-              this.legalityService.readBanlistFromCard(card, format),
-            );
-            this.legalityStateSubject.next({ result, error: null });
-            this.upsertHistoryEntry(card, format, result);
+            this.legalityState.set(EMPTY_LEGALITY);
           }
         }),
-        filter(
-          ([card, format]) =>
-            !!card && !!format && this.legalityService.needsLocalBanlist(format),
-        ),
+        filter(([card, format]) => !!card && !!format),
         switchMap(([card, format]) =>
-          this.legalityService.evaluateWithLocalBanlist$(card!, format!).pipe(
+          this.cardLegality.evaluate$(card!, format!).pipe(
             map((result) => ({ card: card!, format: format!, result })),
           ),
         ),
         tap({
           next: ({ card, format, result }) => {
-            this.legalityStateSubject.next({ result, error: null });
+            this.legalityState.set({ result, error: null });
             this.upsertHistoryEntry(card, format, result);
           },
           error: () => {
-            this.legalityStateSubject.next({
+            this.legalityState.set({
               result: null,
               error: this.i18n.t('error.generic'),
             });
@@ -414,12 +348,12 @@ export class CheckerStore {
       .pipe(
         tap(([card, format]) => {
           if (!card || !format) {
-            this.relatedStateSubject.next({ result: EMPTY_RELATED, loading: false });
+            this.relatedState.set({ result: EMPTY_RELATED, loading: false });
           }
         }),
         filter(([card, format]) => !!card && !!format),
         tap(() => {
-          this.relatedStateSubject.next({ result: EMPTY_RELATED, loading: true });
+          this.relatedState.set({ result: EMPTY_RELATED, loading: true });
         }),
         switchMap(([card, format]) =>
           this.knowledgeService.findRelated$(card!, format!).pipe(
@@ -427,9 +361,9 @@ export class CheckerStore {
           ),
         ),
         tap({
-          next: (state) => this.relatedStateSubject.next(state),
+          next: (state) => this.relatedState.set(state),
           error: () =>
-            this.relatedStateSubject.next({ result: EMPTY_RELATED, loading: false }),
+            this.relatedState.set({ result: EMPTY_RELATED, loading: false }),
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -444,13 +378,13 @@ export class CheckerStore {
         withLatestFrom(this.formatStore.formats$),
         switchMap(([formatId, formats]) => {
           const format = formats.find((f) => f.id === formatId);
-          if (!format || this.searchHistorySubject.value.length === 0) {
-            return of(this.searchHistorySubject.value);
+          if (!format || this.searchHistory().length === 0) {
+            return of(this.searchHistory());
           }
           return this.recomputeHistory$(format);
         }),
         tap((entries) => {
-          this.searchHistorySubject.next(entries);
+          this.searchHistory.set(entries);
           this.persistSearchHistory(entries);
         }),
         takeUntilDestroyed(this.destroyRef),
@@ -462,15 +396,15 @@ export class CheckerStore {
     this.i18n.lang$
       .pipe(
         skip(1),
-        withLatestFrom(this.searchQuery$, this.selectedCardSubject),
+        withLatestFrom(toObservable(this.searchQuery), toObservable(this.selectedCard)),
         tap(([, query, selected]) => {
           if (selected) {
-            this.searchStateSubject.next(EMPTY_SEARCH);
+            this.searchState.set(EMPTY_SEARCH);
             this.cardPick$.next(selected);
             return;
           }
           if (query.trim().length >= 2) {
-            this.searchStateSubject.next(EMPTY_SEARCH);
+            this.searchState.set(EMPTY_SEARCH);
           }
         }),
         takeUntilDestroyed(this.destroyRef),
@@ -482,14 +416,14 @@ export class CheckerStore {
     const entry = this.toHistoryEntry(card, format.id, result);
     const next = [
       entry,
-      ...this.searchHistorySubject.value.filter((item) => item.id !== entry.id),
+      ...this.searchHistory().filter((item) => item.id !== entry.id),
     ].slice(0, MAX_HISTORY);
-    this.searchHistorySubject.next(next);
+    this.searchHistory.set(next);
     this.persistSearchHistory(next);
   }
 
   private recomputeHistory$(format: YgoFormat) {
-    const entries = this.searchHistorySubject.value;
+    const entries = this.searchHistory();
     if (entries.length === 0) {
       return of([] as SearchHistoryEntry[]);
     }
@@ -501,18 +435,9 @@ export class CheckerStore {
           return of({ ...entry, formatId: format.id, verdict: null, banlistStatus: null });
         }
 
-        if (this.legalityService.needsLocalBanlist(format)) {
-          return this.legalityService.evaluateWithLocalBanlist$(card, format).pipe(
-            map((result) => this.toHistoryEntry(card, format.id, result)),
-          );
-        }
-
-        const result = this.legalityService.evaluate(
-          card,
-          format,
-          this.legalityService.readBanlistFromCard(card, format),
+        return this.cardLegality.evaluate$(card, format).pipe(
+          map((result) => this.toHistoryEntry(card, format.id, result)),
         );
-        return of(this.toHistoryEntry(card, format.id, result));
       }),
     );
   }

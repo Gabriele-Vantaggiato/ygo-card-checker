@@ -42,7 +42,7 @@ export const DATASET_SYNERGY_PAIRS: ReadonlyArray<{
   { trigger: 'mentions_galaxy', response: 'mentions_galaxy', relation: 'series' },
 ];
 
-const SIDE_TAGS = new Set(['hand_trap', 'negates', 'destroys', 'banishes', 'bounce_to_hand']);
+import { SIDE_STAPLE_TAG_SET } from './knowledge-constants';
 
 /** Tags too common to imply synergy without same-series context. */
 const UBIQUITOUS_TAGS = new Set([
@@ -311,7 +311,7 @@ function applyDirectionBias(
     score *= 1.35;
   }
   if (profile.preferGenericStaples || profile.matchupKeys.length > 0) {
-    const sideHits = [...candidateTags].filter((t) => SIDE_TAGS.has(t)).length;
+    const sideHits = [...candidateTags].filter((t) => SIDE_STAPLE_TAG_SET.has(t)).length;
     if (sideHits > 0) {
       score *= 1 + sideHits * 0.12;
     }

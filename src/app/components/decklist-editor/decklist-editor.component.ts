@@ -1,9 +1,9 @@
-import { Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, Subscription, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
+import { Subscription, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
 import { Decklist, DecklistCard } from '../../models/decklist.model';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { BanlistStatus } from '../../models/ygo-format.model';
@@ -21,7 +21,7 @@ import {
   sortDeckCards,
   splitDeckSections,
 } from '../../utils/deck-card.utils';
-import { sortYgoCardsByPlayability } from '../../utils/card-sort.utils';
+import { DECK_SECTION_I18N_KEYS, DeckSectionKey } from '../../utils/deck-section.utils';
 import {
   quantityBadgeClass,
   quantityLabelKey,
@@ -36,6 +36,8 @@ import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.co
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckCompletionService } from '../../services/deck-completion.service';
 import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy-panel.component';
+import { CardSearchResultRowComponent } from '../card-search-result-row/card-search-result-row.component';
+import { DecklistSearchSidebarComponent } from '../decklist-search-sidebar/decklist-search-sidebar.component';
 import { DeckStrategyStore } from '../../stores/deck-strategy.store';
 import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
 import { DeckCompletionPlan } from '../../models/deck-completion.model';
@@ -47,7 +49,7 @@ type InspectTarget =
 @Component({
   selector: 'app-decklist-editor',
   standalone: true,
-  imports: [FormsModule, FormatSelectorComponent, DeckSuggestionsPanelComponent, DeckStatsStripComponent, DeckStrategyPanelComponent],
+  imports: [FormsModule, FormatSelectorComponent, DeckSuggestionsPanelComponent, DeckStatsStripComponent, DeckStrategyPanelComponent, DecklistSearchSidebarComponent],
   template: `
     @if (deck(); as activeDeck) {
       <section class="flex flex-col min-h-0 gap-4">
@@ -289,108 +291,12 @@ type InspectTarget =
             </div>
           </div>
 
-          <aside class="duel-panel flex flex-col xl:self-start overflow-hidden">
-            <div class="duel-panel-header shrink-0 space-y-2">
-              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">
-                {{ i18n.t('decklist.editor.search') }}
-              </p>
-              <div class="flex gap-2">
-                <input
-                  type="text"
-                  class="input input-bordered input-sm flex-1 min-w-0"
-                  [placeholder]="i18n.t('search.placeholder')"
-                  [ngModel]="searchQuery()"
-                  (ngModelChange)="onSearchInput($event)"
-                />
-                <button type="button" class="btn btn-primary btn-sm" (click)="triggerSearch()">
-                  {{ i18n.t('decklist.editor.searchBtn') }}
-                </button>
-              </div>
-              @if (searchTotalRows() > 0) {
-                <p class="text-[11px] text-base-content/50 mt-2 px-0.5">
-                  {{ searchResultsLabel() }}
-                </p>
-              }
-              <p class="text-[10px] text-base-content/45 mt-1 px-0.5">{{ i18n.t('decklist.editor.searchRowHint') }}</p>
-            </div>
-
-            <div class="overflow-y-auto overscroll-y-contain p-2 max-h-[min(45vh,20rem)] sm:max-h-[min(50vh,22rem)] xl:max-h-[min(60vh,28rem)]">
-              @if (searchLoading() || legalityLoading()) {
-                <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.loading') }}</p>
-              } @else {
-                @for (card of sortedSearchResults(); track card.id) {
-                  <div
-                    class="flex items-center gap-1 rounded-lg transition-colors"
-                    [class.bg-primary/10]="isSearchInspected(card.id)"
-                    [class.ring-1]="isSearchInspected(card.id)"
-                    [class.ring-primary/30]="isSearchInspected(card.id)"
-                  >
-                    <button
-                      type="button"
-                      class="flex-1 min-w-0 flex items-center gap-2 p-2 rounded-lg hover:bg-base-200/80 text-left transition-colors"
-                      [class.opacity-50]="isSearchForbidden(card.id)"
-                      (click)="inspectSearchCard(card)"
-                    >
-                      @if (card.card_images[0]?.image_url_small; as src) {
-                        <img [src]="src" [alt]="" class="w-8 h-11 object-cover rounded shrink-0" loading="lazy" />
-                      } @else {
-                        <span class="w-8 h-11 rounded bg-base-300 shrink-0"></span>
-                      }
-                      <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium truncate">{{ card.name }}</p>
-                        <p class="text-[11px] text-base-content/60 truncate">{{ card.type }}</p>
-                        @if (legalityFor(card.id); as legality) {
-                          <span class="flex flex-wrap gap-1 mt-1">
-                            <span
-                              class="badge badge-xs"
-                              [class]="verdictBadgeClass(legality.verdict)"
-                              [title]="i18n.t('history.playability')"
-                            >
-                              {{ verdictLabel(legality.verdict) }}
-                            </span>
-                            <span
-                              class="badge badge-xs badge-outline"
-                              [class]="quantityBadgeClass(legality.banlistStatus)"
-                              [title]="i18n.t('history.quantity')"
-                            >
-                              {{ quantityLabel(legality.banlistStatus) }}
-                            </span>
-                          </span>
-                        }
-                      </div>
-                      @if (qtyInDeck(card.id) > 0) {
-                        <span class="badge badge-xs badge-primary shrink-0">×{{ qtyInDeck(card.id) }}</span>
-                      }
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-primary btn-xs btn-square shrink-0 mr-1"
-                      [class.btn-disabled]="isSearchForbidden(card.id) || !canAddSearchCard(card.id)"
-                      [attr.aria-label]="i18n.t('decklist.editor.quickAdd')"
-                      (click)="quickAddSearchCard(card, $event)"
-                    >
-                      +
-                    </button>
-                  </div>
-                } @empty {
-                  @if (searchQuery().trim().length >= 2) {
-                    <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.noResults') }}</p>
-                  } @else {
-                    <p class="text-xs text-base-content/50 px-2 py-4">{{ i18n.t('decklist.editor.searchHint') }}</p>
-                  }
-                }
-              }
-              @if (searchHasMore() && !searchLoading() && !legalityLoading()) {
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm w-full mt-2"
-                  (click)="loadMoreSearch()"
-                >
-                  {{ i18n.t('decklist.editor.loadMore') }}
-                </button>
-              }
-            </div>
-          </aside>
+          <app-decklist-search-sidebar
+            [deckCards]="liveDeck().cards"
+            [inspectedCardId]="inspectedSearchCardId()"
+            (cardInspect)="inspectSearchCard($event)"
+            (quickAdd)="addSearchCard($event)"
+          />
         </div>
 
         @if (inspectCard(); as target) {
@@ -688,23 +594,14 @@ export class DecklistEditorComponent {
   private readonly strategy = inject(DeckStrategyStore);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly search$ = new Subject<string>();
+
+  private readonly searchSidebar = viewChild(DecklistSearchSidebarComponent);
 
   readonly renaming = signal(false);
   readonly renameDraft = signal('');
   readonly inspectCard = signal<InspectTarget | null>(null);
   readonly inspectDesc = signal<string | null>(null);
   readonly inspectDescLoading = signal(false);
-  readonly searchQuery = signal('');
-  readonly searchResults = signal<YgoCard[]>([]);
-  readonly searchTotalRows = signal(0);
-  readonly searchHasMore = signal(false);
-  readonly searchLoading = signal(false);
-  readonly legalityLoading = signal(false);
-  readonly searchLegality = signal<Map<number, LegalityResult>>(new Map());
-  readonly sortedSearchResults = computed(() =>
-    sortYgoCardsByPlayability(this.searchResults(), this.searchLegality()),
-  );
   readonly ydkeDialogOpen = signal(false);
   readonly ydkeUrl = signal('');
   readonly ydkeHint = signal('');
@@ -750,53 +647,21 @@ export class DecklistEditorComponent {
   protected readonly verdictBadgeClass = verdictBadgeClass;
   protected readonly verdictBannerClass = verdictBannerClass;
 
-  private readonly searchLimit = 50;
   private readonly descCache = new Map<number, string>();
   private completeDeckPlanSub: Subscription | null = null;
 
-  constructor() {
-    this.search$
-      .pipe(
-        debounceTime(280),
-        distinctUntilChanged(),
-        switchMap((query) => {
-          const trimmed = query.trim();
-          if (trimmed.length < 2) {
-            this.searchLoading.set(false);
-            this.searchLegality.set(new Map());
-            this.searchTotalRows.set(0);
-            this.searchHasMore.set(false);
-            return of({ cards: [] as YgoCard[], totalRows: 0, hasMore: false });
-          }
-          this.searchLoading.set(true);
-          return this.ygoApi.searchCardsPage$(trimmed, this.i18n.lang(), this.searchLimit, 0);
-        }),
-        tap(() => this.searchLoading.set(false)),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((page) => {
-        this.searchResults.set(page.cards);
-        this.searchTotalRows.set(page.totalRows);
-        this.searchHasMore.set(page.hasMore);
-        const format = this.formatStore.selectedFormat();
-        if (format && page.cards.length > 0) {
-          this.evaluateSearchLegality(page.cards, format);
-        } else {
-          this.searchLegality.set(new Map());
-        }
-      });
+  readonly inspectedSearchCardId = computed(() => {
+    const inspect = this.inspectCard();
+    return inspect?.kind === 'search' ? inspect.card.id : null;
+  });
 
+  constructor() {
     this.formatStore.formatId$
       .pipe(distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         const format = this.formatStore.selectedFormat();
-        if (!format) {
-          return;
-        }
-        this.decklistStore.refreshActiveDeckLegality(format);
-        const cards = this.searchResults();
-        if (cards.length > 0) {
-          this.evaluateSearchLegality(cards, format);
+        if (format) {
+          this.decklistStore.refreshActiveDeckLegality(format);
         }
       });
 
@@ -871,54 +736,16 @@ export class DecklistEditorComponent {
     });
   }
 
-  private evaluateSearchLegality(
-    cards: YgoCard[],
-    format: NonNullable<ReturnType<FormatStore['selectedFormat']>>,
-    append = false,
-  ): void {
-    this.legalityLoading.set(true);
-    this.cardLegality.evaluateMany$(cards, format).subscribe({
-      next: (map) => {
-        if (append) {
-          this.searchLegality.update((prev) => new Map([...prev, ...map]));
-        } else {
-          this.searchLegality.set(map);
-        }
-        this.legalityLoading.set(false);
-      },
-      error: () => {
-        if (!append) {
-          this.searchLegality.set(new Map());
-        }
-        this.legalityLoading.set(false);
-      },
-    });
-  }
-
   sections(deck: Decklist) {
     return deckSections(sortDeckCards(deck.cards));
   }
 
-  sectionTitle(key: 'main' | 'extra' | 'side'): string {
-    switch (key) {
-      case 'main':
-        return this.i18n.t('decklist.editor.main');
-      case 'extra':
-        return this.i18n.t('decklist.editor.extra');
-      default:
-        return this.i18n.t('decklist.editor.side');
-    }
+  sectionTitle(key: DeckSectionKey): string {
+    return this.i18n.t(DECK_SECTION_I18N_KEYS[key].title);
   }
 
-  sectionEmpty(key: 'main' | 'extra' | 'side'): string {
-    switch (key) {
-      case 'main':
-        return this.i18n.t('decklist.editor.emptyMain');
-      case 'extra':
-        return this.i18n.t('decklist.editor.emptyExtra');
-      default:
-        return this.i18n.t('decklist.editor.emptySide');
-    }
+  sectionEmpty(key: DeckSectionKey): string {
+    return this.i18n.t(DECK_SECTION_I18N_KEYS[key].empty);
   }
 
   typeStats(cards: DecklistCard[]) {
@@ -971,8 +798,11 @@ export class DecklistEditorComponent {
   }
 
   isSearchInspected(cardId: number): boolean {
-    const inspect = this.inspectCard();
-    return inspect?.kind === 'search' && inspect.card.id === cardId;
+    return this.inspectedSearchCardId() === cardId;
+  }
+
+  private searchLegalityMap(): Map<number, LegalityResult> {
+    return this.searchSidebar()?.searchLegality() ?? new Map();
   }
 
   inspectName(): string {
@@ -1004,7 +834,7 @@ export class DecklistEditorComponent {
       return null;
     }
     if (inspect.kind === 'search') {
-      return this.searchLegality().get(inspect.card.id) ?? null;
+      return this.searchLegalityMap().get(inspect.card.id) ?? null;
     }
     const card = inspect.card;
     if (card.legalityVerdict && card.banlistStatus) {
@@ -1042,7 +872,7 @@ export class DecklistEditorComponent {
     const banlistStatus =
       inspect.kind === 'deck'
         ? inspect.card.banlistStatus ?? null
-        : this.searchLegality().get(cardId)?.banlistStatus ?? null;
+        : this.searchLegalityMap().get(cardId)?.banlistStatus ?? null;
     return this.decklistStore.canAddToDeck(this.deck().id, cardId, banlistStatus);
   }
 
@@ -1050,7 +880,7 @@ export class DecklistEditorComponent {
     if (this.isSearchForbidden(cardId)) {
       return false;
     }
-    const legality = this.searchLegality().get(cardId);
+    const legality = this.searchLegalityMap().get(cardId);
     return this.decklistStore.canAddToDeck(this.deck().id, cardId, legality?.banlistStatus ?? null);
   }
 
@@ -1075,7 +905,7 @@ export class DecklistEditorComponent {
     const banlistStatus =
       inspect?.kind === 'deck'
         ? inspect.card.banlistStatus ?? null
-        : this.searchLegality().get(id)?.banlistStatus ?? null;
+        : this.searchLegalityMap().get(id)?.banlistStatus ?? null;
     this.decklistStore.decrementCard(id, banlistStatus);
   }
 
@@ -1088,14 +918,17 @@ export class DecklistEditorComponent {
     }
     this.inspectDescLoading.set(true);
     this.inspectDesc.set(null);
-    this.ygoApi.getCardById$(cardId, this.i18n.lang()).subscribe((card) => {
-      const desc = card?.desc ?? null;
-      if (desc) {
-        this.descCache.set(cardId, desc);
-      }
-      this.inspectDesc.set(desc);
-      this.inspectDescLoading.set(false);
-    });
+    this.ygoApi
+      .getCardById$(cardId, this.i18n.lang())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((card) => {
+        const desc = card?.desc ?? null;
+        if (desc) {
+          this.descCache.set(cardId, desc);
+        }
+        this.inspectDesc.set(desc);
+        this.inspectDescLoading.set(false);
+      });
   }
 
   openInspectedInSearch(): void {
@@ -1110,15 +943,6 @@ export class DecklistEditorComponent {
         deckId: this.deck().id,
       },
     });
-  }
-
-  quickAddSearchCard(card: YgoCard, event: Event): void {
-    event.stopPropagation();
-    event.preventDefault();
-    this.inspectSearchCard(card);
-    if (this.canAddSearchCard(card.id)) {
-      this.addSearchCard(card);
-    }
   }
 
   removeOneCopy(cardId: number, event?: Event): void {
@@ -1137,50 +961,12 @@ export class DecklistEditorComponent {
     }
   }
 
-  onSearchInput(value: string): void {
-    this.searchQuery.set(value);
-    this.search$.next(value);
-  }
-
-  triggerSearch(): void {
-    this.search$.next(this.searchQuery());
-  }
-
-  loadMoreSearch(): void {
-    const query = this.searchQuery().trim();
-    if (query.length < 2 || !this.searchHasMore()) {
-      return;
-    }
-    const offset = this.searchResults().length;
-    const format = this.formatStore.selectedFormat();
-    this.searchLoading.set(true);
-    this.ygoApi.searchCardsPage$(query, this.i18n.lang(), this.searchLimit, offset).subscribe({
-      next: (page) => {
-        this.searchResults.update((prev) => [...prev, ...page.cards]);
-        this.searchTotalRows.set(page.totalRows);
-        this.searchHasMore.set(page.hasMore);
-        this.searchLoading.set(false);
-        if (format && page.cards.length > 0) {
-          this.evaluateSearchLegality(page.cards, format, true);
-        }
-      },
-      error: () => this.searchLoading.set(false),
-    });
-  }
-
-  searchResultsLabel(): string {
-    return this.i18n.t('decklist.editor.resultsCount', {
-      shown: `${this.searchResults().length}`,
-      total: `${this.searchTotalRows()}`,
-    });
-  }
-
   qtyInDeck(cardId: number): number {
     return this.decklistStore.quantityInActive(cardId);
   }
 
   addSearchCard(card: YgoCard): void {
-    const legality = this.searchLegality().get(card.id);
+    const legality = this.searchLegalityMap().get(card.id);
     if (legality?.banlistStatus === 'Forbidden') {
       return;
     }
@@ -1195,12 +981,8 @@ export class DecklistEditorComponent {
     });
   }
 
-  legalityFor(cardId: number): LegalityResult | null {
-    return this.searchLegality().get(cardId) ?? null;
-  }
-
   isSearchForbidden(cardId: number): boolean {
-    return this.searchLegality().get(cardId)?.banlistStatus === 'Forbidden';
+    return this.searchLegalityMap().get(cardId)?.banlistStatus === 'Forbidden';
   }
 
   verdictLabel(verdict: LegalityResult['verdict']): string {
@@ -1294,18 +1076,20 @@ export class DecklistEditorComponent {
     }
 
     this.importYdkeImporting.set(true);
-    this.decklistStore.importFromYdke$(draft, deck.id, this.importYdkeReplace(), format).subscribe({
-      next: (result) => {
-        this.importYdkeImporting.set(false);
-        if (result.ok) {
-          this.closeImportYdkeDialog();
-          return;
-        }
-      },
-      error: () => {
-        this.importYdkeImporting.set(false);
-      },
-    });
+    this.decklistStore
+      .importFromYdke$(draft, deck.id, this.importYdkeReplace(), format)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.importYdkeImporting.set(false);
+          if (result.ok) {
+            this.closeImportYdkeDialog();
+          }
+        },
+        error: () => {
+          this.importYdkeImporting.set(false);
+        },
+      });
   }
 
   addSuggestion(suggestion: CardRelatedSuggestion): void {
@@ -1314,11 +1098,24 @@ export class DecklistEditorComponent {
     if (!format || qty <= 0) {
       return;
     }
-    this.ygoApi.getCardById$(suggestion.cardId, this.i18n.lang()).subscribe((card) => {
-      if (!card) {
-        return;
-      }
-      this.cardLegality.evaluate$(card, format).subscribe((result) => {
+    this.ygoApi
+      .getCardById$(suggestion.cardId, this.i18n.lang())
+      .pipe(
+        switchMap((card) => {
+          if (!card) {
+            return of(null);
+          }
+          return this.cardLegality.evaluate$(card, format).pipe(
+            map((result) => ({ card, result })),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((payload) => {
+        if (!payload) {
+          return;
+        }
+        const { card, result } = payload;
         this.decklistStore.addCard(
           {
             id: card.id,
@@ -1331,7 +1128,6 @@ export class DecklistEditorComponent {
           qty,
         );
       });
-    });
   }
 
   openCompleteDeckDialog(): void {
@@ -1362,15 +1158,8 @@ export class DecklistEditorComponent {
     this.refreshCompleteDeckPlan();
   }
 
-  sectionLabel(section: DeckCompletionPlan['adds'][number]['section']): string {
-    switch (section) {
-      case 'extra':
-        return this.i18n.t('decklist.editor.extra');
-      case 'side':
-        return this.i18n.t('decklist.editor.side');
-      default:
-        return this.i18n.t('decklist.editor.main');
-    }
+  sectionLabel(section: DeckSectionKey | undefined): string {
+    return this.i18n.t(DECK_SECTION_I18N_KEYS[section ?? 'main'].title);
   }
 
   refreshCompleteDeckPlan(): void {

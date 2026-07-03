@@ -1,10 +1,15 @@
 import { Component, input, output } from '@angular/core';
-import { LegalityVerdict } from '../../models/ygo-card.model';
-import { BanlistStatus } from '../../models/ygo-format.model';
-import { AddToDecklistPayload } from '../../models/decklist.model';
 import { SearchHistoryEntry } from '../../models/search-history.model';
+import { AddToDecklistPayload } from '../../models/decklist.model';
+import { BanlistStatus } from '../../models/ygo-format.model';
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { I18nService } from '../../services/i18n.service';
+import {
+  quantityBadgeClass,
+  quantityLabelKey,
+  verdictBadgeClass,
+  verdictLabelKey,
+} from '../../utils/legality-display.utils';
 
 @Component({
   selector: 'app-search-history',
@@ -75,14 +80,14 @@ import { I18nService } from '../../services/i18n.service';
                         [class]="verdictBadgeClass(entry.verdict!)"
                         [title]="i18n.t('history.playability')"
                       >
-                        {{ verdictLabel(entry.verdict!) }}
+                        {{ i18n.t(verdictLabelKey(entry.verdict!)) }}
                       </span>
                       <span
                         class="badge badge-xs sm:badge-sm badge-outline"
                         [class]="quantityBadgeClass(entry.banlistStatus!)"
                         [title]="i18n.t('history.quantity')"
                       >
-                        {{ quantityLabel(entry.banlistStatus!) }}
+                        {{ i18n.t(quantityLabelKey(entry.banlistStatus!)) }}
                       </span>
                     </span>
                   } @else if (entry.formatId !== formatId()) {
@@ -148,50 +153,8 @@ export class SearchHistoryComponent {
     );
   }
 
-  verdictLabel(verdict: LegalityVerdict): string {
-    switch (verdict) {
-      case 'legal':
-        return this.i18n.t('result.legal');
-      case 'restricted':
-        return this.i18n.t('result.restricted');
-      default:
-        return this.i18n.t('result.notLegal');
-    }
-  }
-
-  quantityLabel(status: BanlistStatus): string {
-    switch (status) {
-      case 'Forbidden':
-        return this.i18n.t('history.quantity.forbidden');
-      case 'Limited':
-        return this.i18n.t('history.quantity.limited');
-      case 'Semi-Limited':
-        return this.i18n.t('history.quantity.semiLimited');
-      default:
-        return this.i18n.t('history.quantity.unlimited');
-    }
-  }
-
-  verdictBadgeClass(verdict: LegalityVerdict): string {
-    switch (verdict) {
-      case 'legal':
-        return 'badge-success';
-      case 'restricted':
-        return 'badge-warning';
-      default:
-        return 'badge-error';
-    }
-  }
-
-  quantityBadgeClass(status: BanlistStatus): string {
-    switch (status) {
-      case 'Forbidden':
-        return 'badge-error';
-      case 'Limited':
-      case 'Semi-Limited':
-        return 'badge-warning';
-      default:
-        return 'badge-success';
-    }
-  }
+  protected readonly verdictBadgeClass = verdictBadgeClass;
+  protected readonly verdictLabelKey = verdictLabelKey;
+  protected readonly quantityBadgeClass = quantityBadgeClass;
+  protected readonly quantityLabelKey = quantityLabelKey;
 }

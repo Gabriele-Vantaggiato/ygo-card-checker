@@ -3,8 +3,14 @@ import { CardTilt3dComponent } from '../card-tilt-3d/card-tilt-3d.component';
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { AddToDecklistPayload } from '../../models/decklist.model';
-import { BanlistStatus, YgoFormat } from '../../models/ygo-format.model';
+import { YgoFormat } from '../../models/ygo-format.model';
 import { I18nService } from '../../services/i18n.service';
+import {
+  banlistStatusLabelKey,
+  quantityBadgeClass,
+  verdictBadgeClass,
+  verdictLabelKey,
+} from '../../utils/legality-display.utils';
 
 @Component({
   selector: 'app-legality-result',
@@ -36,11 +42,11 @@ import { I18nService } from '../../services/i18n.service';
                 <div class="flex items-start justify-between gap-3">
                   <div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
                     <h2 class="text-xl sm:text-2xl font-bold leading-tight">{{ card()!.name }}</h2>
-                    <span class="badge badge-lg" [class]="badgeClass(res.verdict)">
-                      {{ verdictLabel(res.verdict) }}
+                    <span class="badge badge-lg" [class]="verdictBadgeClass(res.verdict)">
+                      {{ i18n.t(verdictLabelKey(res.verdict)) }}
                     </span>
-                    <span class="badge badge-lg badge-outline" [class]="banlistBadgeClass(res.banlistStatus)">
-                      {{ banlistStatusLabel(res.banlistStatus) }}
+                    <span class="badge badge-lg badge-outline" [class]="quantityBadgeClass(res.banlistStatus)">
+                      {{ i18n.t(banlistStatusLabelKey(res.banlistStatus)) }}
                     </span>
                   </div>
                   <app-add-to-decklist-btn
@@ -77,7 +83,7 @@ import { I18nService } from '../../services/i18n.service';
                   }
                   <div>
                     <span class="font-medium">{{ i18n.t('result.banlistStatus') }}:</span>
-                    {{ banlistStatusLabel(res.banlistStatus) }}
+                    {{ i18n.t(banlistStatusLabelKey(res.banlistStatus)) }}
                   </div>
                   @if (format()?.banlistEffectiveDate) {
                     <div>
@@ -134,50 +140,8 @@ export class LegalityResultComponent {
     };
   }
 
-  badgeClass(verdict: LegalityResult['verdict']): string {
-    switch (verdict) {
-      case 'legal':
-        return 'badge-success';
-      case 'restricted':
-        return 'badge-warning';
-      default:
-        return 'badge-error';
-    }
-  }
-
-  verdictLabel(verdict: LegalityResult['verdict']): string {
-    switch (verdict) {
-      case 'legal':
-        return this.i18n.t('result.legal');
-      case 'restricted':
-        return this.i18n.t('result.restricted');
-      default:
-        return this.i18n.t('result.notLegal');
-    }
-  }
-
-  banlistStatusLabel(status: BanlistStatus): string {
-    switch (status) {
-      case 'Forbidden':
-        return this.i18n.t('banlist.forbidden');
-      case 'Limited':
-        return this.i18n.t('banlist.limited');
-      case 'Semi-Limited':
-        return this.i18n.t('banlist.semiLimited');
-      default:
-        return this.i18n.t('banlist.unlimited');
-    }
-  }
-
-  banlistBadgeClass(status: BanlistStatus): string {
-    switch (status) {
-      case 'Forbidden':
-        return 'badge-error';
-      case 'Limited':
-      case 'Semi-Limited':
-        return 'badge-warning';
-      default:
-        return 'badge-success';
-    }
-  }
+  protected readonly verdictBadgeClass = verdictBadgeClass;
+  protected readonly verdictLabelKey = verdictLabelKey;
+  protected readonly quantityBadgeClass = quantityBadgeClass;
+  protected readonly banlistStatusLabelKey = banlistStatusLabelKey;
 }

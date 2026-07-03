@@ -1,7 +1,6 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { catchError, map, shareReplay, switchMap } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 import { CardKnowledgeIndex, CardKnowledgeRosterMember, CardRelatedSuggestion } from '../models/card-knowledge.model';
 import {
   CompletionRagResult,
@@ -12,26 +11,20 @@ import {
   profileSummary,
 } from '../utils/completion-prompt.utils';
 import { detectMatchupKeys } from '../utils/matchup.utils';
+import { CardKnowledgeIndexService } from './card-knowledge-index.service';
 import { OllamaCompletionIntent, OllamaService } from './ollama.service';
-
-const INDEX_URL = 'assets/data/card-knowledge/related.json';
 
 @Injectable({ providedIn: 'root' })
 export class CompletionRagService {
-  private readonly http = inject(HttpClient);
+  private readonly indexService = inject(CardKnowledgeIndexService);
   private readonly ollama = inject(OllamaService);
-
-  private readonly index$ = this.http.get<CardKnowledgeIndex>(INDEX_URL).pipe(
-    catchError(() => of(null)),
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
 
   buildProfile$(
     direction: DeckCompletionDirection,
     prompt: string,
     useOllama: boolean,
   ): Observable<CompletionRagResult> {
-    return this.index$.pipe(
+    return this.indexService.related$.pipe(
       switchMap((index) => {
         const base = buildCompletionProfile(direction, prompt);
         const catalog = index?.matchupCatalog ?? [];

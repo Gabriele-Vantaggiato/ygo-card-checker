@@ -1,7 +1,6 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, combineLatest, of } from 'rxjs';
-import { catchError, map, shareReplay, switchMap } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 import { CardKnowledgeEffect, CardKnowledgeEntry, CardKnowledgeIndex, CardKnowledgeRelated, CardKnowledgeRosterMember, CardRelatedGroup, CardRelatedResult, CardRelatedSuggestion, DeckRelatedResult, FormatLegalityIndex } from '../models/card-knowledge.model';
 import { YgoCard } from '../models/ygo-card.model';
 import { BanlistStatus, YgoFormat } from '../models/ygo-format.model';
@@ -14,6 +13,7 @@ import {
 } from '../utils/mechanic-synergy.utils';
 import { CompletionScoringProfile, scoreForCompletion } from '../utils/completion-prompt.utils';
 import { CardLegalityFacade } from './card-legality.facade';
+import { CardKnowledgeIndexService } from './card-knowledge-index.service';
 import { CompletionRagService } from './completion-rag.service';
 import { SynergyRetrievalService } from './synergy-retrieval.service';
 import { Decklist } from '../models/decklist.model';
@@ -21,30 +21,11 @@ import { ComboIndex, ComboPartnerRecord } from '../models/card-combo.model';
 import { I18nService } from './i18n.service';
 import { isExtraDeckType } from './ydke.service';
 import { DeckStrategyStore } from '../stores/deck-strategy.store';
-
-const INDEX_URL = 'assets/data/card-knowledge/related.json';
-const COMBO_INDEX_URL = 'assets/data/card-knowledge/combos.json';
-const FORMAT_INDEX_URL = 'assets/data/card-knowledge/format-legality.json';
-
-const RELATION_LABEL_KEYS: Record<string, string> = {
-  gy_synergy: 'knowledge.reason.gySynergy',
-  engine: 'knowledge.reason.engine',
-  series: 'knowledge.reason.series',
-  archetype: 'knowledge.reason.archetype',
-  mentions_card: 'knowledge.reason.mentionsCard',
-  shared_mention: 'knowledge.reason.sharedMention',
-  search_target: 'knowledge.reason.searchTarget',
-};
-
-const RELATION_GROUP_KEYS: Record<string, string> = {
-  engine: 'knowledge.group.engine',
-  gy_synergy: 'knowledge.group.gySynergy',
-  search_target: 'knowledge.group.searchTarget',
-  mentions_card: 'knowledge.group.mentionsCard',
-  shared_mention: 'knowledge.group.sharedMention',
-  archetype: 'knowledge.group.archetype',
-  series: 'knowledge.group.series',
-};
+import {
+  RELATION_GROUP_KEYS,
+  RELATION_LABEL_KEYS,
+  SIDE_STAPLE_TAGS,
+} from '../utils/knowledge-constants';
 
 const EMPTY_DECK_RESULT: DeckRelatedResult = {
   suggestions: [],
@@ -68,7 +49,6 @@ export interface DeckSuggestionOptions {
 }
 
 const MAX_CARD_RELATED_SUGGESTIONS = 120;
-const SIDE_STAPLE_TAGS = ['hand_trap', 'negates', 'destroys', 'banishes', 'bounce_to_hand'] as const;
 const SIDE_STAPLE_POOL = 160;
 
 const EMPTY_RESULT: CardRelatedResult = {
@@ -84,27 +64,16 @@ const EMPTY_RESULT: CardRelatedResult = {
 
 @Injectable({ providedIn: 'root' })
 export class CardKnowledgeService {
-  private readonly http = inject(HttpClient);
+  private readonly indexService = inject(CardKnowledgeIndexService);
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly i18n = inject(I18nService);
   private readonly strategy = inject(DeckStrategyStore);
   private readonly completionRag = inject(CompletionRagService);
   private readonly synergyRetrieval = inject(SynergyRetrievalService);
 
-  private readonly index$ = this.http.get<CardKnowledgeIndex>(INDEX_URL).pipe(
-    catchError(() => of(null)),
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
-
-  private readonly formatLegality$ = this.http.get<FormatLegalityIndex>(FORMAT_INDEX_URL).pipe(
-    catchError(() => of(null)),
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
-
-  private readonly comboIndex$ = this.http.get<ComboIndex>(COMBO_INDEX_URL).pipe(
-    catchError(() => of(null)),
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
+  private readonly index$ = this.indexService.related$;
+  private readonly formatLegality$ = this.indexService.formatLegality$;
+  private readonly comboIndex$ = this.indexService.combos$;
 
   findRelated$(card: YgoCard, format: YgoFormat): Observable<CardRelatedResult> {
     return combineLatest([this.index$, this.formatLegality$, this.strategy.ragResult$]).pipe(

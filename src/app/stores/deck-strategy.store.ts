@@ -1,5 +1,5 @@
-import { Injectable, inject, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { Observable, combineLatest, debounceTime, shareReplay, switchMap, catchError, of as rxOf } from 'rxjs';
 import {
   DeckCompletionDirection,
@@ -16,6 +16,7 @@ const STORAGE_USE_OLLAMA = 'ygo-strategy-use-ollama';
 
 @Injectable({ providedIn: 'root' })
 export class DeckStrategyStore {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly rag = inject(CompletionRagService);
   private readonly ollama = inject(OllamaService);
 
@@ -49,7 +50,7 @@ export class DeckStrategyStore {
       shareReplay({ bufferSize: 1, refCount: true }),
     );
 
-    this.ollama.isAvailable$().subscribe((online) => this.ollamaAvailable.set(online));
+    this.checkOllamaStatus();
   }
 
   setDirection(direction: DeckCompletionDirection): void {
@@ -68,7 +69,14 @@ export class DeckStrategyStore {
   }
 
   refreshOllamaStatus(): void {
-    this.ollama.isAvailable$().subscribe((online) => this.ollamaAvailable.set(online));
+    this.checkOllamaStatus();
+  }
+
+  private checkOllamaStatus(): void {
+    this.ollama
+      .isAvailable$()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((online) => this.ollamaAvailable.set(online));
   }
 
   private readDirection(): DeckCompletionDirection {

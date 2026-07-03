@@ -1,7 +1,6 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, combineLatest, of } from 'rxjs';
-import { catchError, map, shareReplay, switchMap, take } from 'rxjs/operators';
+import { map, switchMap, take } from 'rxjs/operators';
 import { ComboIndex, ComboLine } from '../models/card-combo.model';
 import { CardKnowledgeEntry, CardRelatedSuggestion } from '../models/card-knowledge.model';
 import {
@@ -24,6 +23,7 @@ import { CardKnowledgeService } from './card-knowledge.service';
 import { CardLegalityFacade } from './card-legality.facade';
 import { YgoApiService } from './ygo-api.service';
 import { CompletionRagService } from './completion-rag.service';
+import { CardKnowledgeIndexService } from './card-knowledge-index.service';
 import { DeckStrategyStore } from '../stores/deck-strategy.store';
 
 const DEFAULT_TARGET_MAIN = 40;
@@ -33,7 +33,6 @@ const TARGET_EXTRA = 15;
 const DEFAULT_TARGET_SIDE = 15;
 const SUGGESTION_POOL = 96;
 const MAX_COMPLETION_API_CARDS = 80;
-const COMBO_INDEX_URL = 'assets/data/card-knowledge/combos.json';
 
 @Injectable({ providedIn: 'root' })
 export class DeckCompletionService {
@@ -42,12 +41,9 @@ export class DeckCompletionService {
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly completionRag = inject(CompletionRagService);
   private readonly strategy = inject(DeckStrategyStore);
-  private readonly http = inject(HttpClient);
+  private readonly indexService = inject(CardKnowledgeIndexService);
 
-  private readonly comboIndex$ = this.http.get<ComboIndex>(COMBO_INDEX_URL).pipe(
-    catchError(() => of(null)),
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
+  private readonly comboIndex$ = this.indexService.combos$;
 
   defaultOptions(): DeckCompletionOptions {
     return {

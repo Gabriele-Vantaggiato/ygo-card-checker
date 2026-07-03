@@ -6,7 +6,7 @@ import {
   DecklistStorage,
   maxCopiesForStatus,
 } from '../models/decklist.model';
-import { verdictPlayabilityRank } from '../utils/legality-display.utils';
+import { sortDeckCards } from '../utils/deck-card.utils';
 
 const STORAGE_KEY = 'ygo-checker-decklists';
 
@@ -127,35 +127,7 @@ export class DecklistService {
   }
 
   sortCards(cards: DecklistCard[]): DecklistCard[] {
-    const TYPE_RANK = (type: string): number => {
-      if (/Fusion|Synchro|Synchron|Xyz|XYZ|Link/i.test(type)) {
-        return 0;
-      }
-      if (/Monster/i.test(type)) {
-        return 1;
-      }
-      if (/Spell/i.test(type)) {
-        return 2;
-      }
-      if (/Trap/i.test(type)) {
-        return 3;
-      }
-      return 4;
-    };
-
-    return [...cards].sort((a, b) => {
-      const playability =
-        verdictPlayabilityRank(a.legalityVerdict) - verdictPlayabilityRank(b.legalityVerdict);
-      if (playability !== 0) {
-        return playability;
-      }
-
-      const rank = TYPE_RANK(a.type) - TYPE_RANK(b.type);
-      if (rank !== 0) {
-        return rank;
-      }
-      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-    });
+    return sortDeckCards(cards);
   }
 
   sortDecklist(decklist: Decklist): Decklist {

@@ -24,6 +24,19 @@ export function quantityBadgeClass(status: BanlistStatus): string {
   }
 }
 
+export function banlistStatusLabelKey(status: BanlistStatus): string {
+  switch (status) {
+    case 'Forbidden':
+      return 'banlist.forbidden';
+    case 'Limited':
+      return 'banlist.limited';
+    case 'Semi-Limited':
+      return 'banlist.semiLimited';
+    default:
+      return 'banlist.unlimited';
+  }
+}
+
 export function quantityLabelKey(status: BanlistStatus): string {
   switch (status) {
     case 'Forbidden':

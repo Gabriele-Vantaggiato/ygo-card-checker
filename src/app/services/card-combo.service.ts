@@ -1,7 +1,6 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, combineLatest, of } from 'rxjs';
-import { catchError, map, shareReplay, switchMap } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 import {
   ComboEntry,
   ComboIndex,
@@ -22,21 +21,10 @@ import { CardKnowledgeService } from './card-knowledge.service';
 import { SynergyRetrievalService } from './synergy-retrieval.service';
 import { DeckStrategyStore } from '../stores/deck-strategy.store';
 import { toDisplayTags } from '../utils/knowledge-display.utils';
+import { SYNERGY_REASON_KEYS } from '../utils/knowledge-constants';
+import { CardKnowledgeIndexService } from './card-knowledge-index.service';
 
-const INDEX_URL = 'assets/data/card-knowledge/combos.json';
 const MAX_STRATEGY_SYNERGIES = 48;
-
-const SYNERGY_REASON_KEYS: Record<string, string> = {
-  engine: 'knowledge.reason.engine',
-  gy_synergy: 'knowledge.reason.gySynergy',
-  archetype: 'knowledge.reason.archetype',
-  series: 'knowledge.reason.series',
-  mentions_card: 'knowledge.reason.mentionsCard',
-  shared_mention: 'knowledge.reason.sharedMention',
-  search_target: 'knowledge.reason.searchTarget',
-  mechanic_synergy: 'knowledge.reason.mechanicSynergy',
-  matchup: 'decklist.completion.reason.matchup',
-};
 
 const PARTNER_REASON_KEYS: Record<ComboPartnerRecord['role'], string> = {
   satisfies_requirement: 'combo.reason.satisfiesRequirement',
@@ -49,19 +37,14 @@ const PARTNER_REASON_KEYS: Record<ComboPartnerRecord['role'], string> = {
 
 @Injectable({ providedIn: 'root' })
 export class CardComboService {
-  private readonly http = inject(HttpClient);
+  private readonly indexService = inject(CardKnowledgeIndexService);
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly knowledge = inject(CardKnowledgeService);
   private readonly synergyRetrieval = inject(SynergyRetrievalService);
   private readonly strategy = inject(DeckStrategyStore);
 
-  private readonly index$ = this.http.get<ComboIndex>(INDEX_URL).pipe(
-    catchError(() => of(null)),
-    shareReplay({ bufferSize: 1, refCount: true }),
-  );
-
   findCombos$(card: YgoCard, format: YgoFormat): Observable<ComboResult> {
-    return combineLatest([this.index$, this.strategy.ragResult$, this.knowledge.knowledgeIndex$()]).pipe(
+    return combineLatest([this.indexService.combos$, this.strategy.ragResult$, this.knowledge.knowledgeIndex$()]).pipe(
       switchMap(([index, rag, knowledgeIndex]) => {
         if (!index && !knowledgeIndex) {
           return of(this.emptyResult());

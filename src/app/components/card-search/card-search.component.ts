@@ -43,7 +43,6 @@ import { I18nService } from '../../services/i18n.service';
                 [legalityLoading]="legalityLoading()"
                 [active]="card.id === selectedCardId()"
                 [qtyInDeck]="qtyInDeck(card.id)"
-                [showAddButton]="true"
                 (cardSelect)="selectCard($event)"
               />
             </li>
@@ -65,7 +64,6 @@ import { I18nService } from '../../services/i18n.service';
               [legalityLoading]="legalityLoading()"
               [active]="card.id === selectedCardId()"
               [qtyInDeck]="qtyInDeck(card.id)"
-              [showAddButton]="true"
               (cardSelect)="selectCard($event)"
             />
           } @empty {

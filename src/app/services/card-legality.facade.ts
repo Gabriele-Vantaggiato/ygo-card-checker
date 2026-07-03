@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { forkJoin, Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { LegalityResult, YgoCard } from '../models/ygo-card.model';
-import { BanlistStatus, YgoFormat } from '../models/ygo-format.model';
+import { YgoFormat } from '../models/ygo-format.model';
 import { LegalityService } from './legality.service';
 
 @Injectable({ providedIn: 'root' })
@@ -33,9 +33,5 @@ export class CardLegalityFacade {
         this.evaluate$(card, format).pipe(map((result) => ({ card, result }))),
       ),
     ).pipe(map((entries) => new Map(entries.map(({ card, result }) => [card.id, result]))));
-  }
-
-  banlistStatusFromResult(result: LegalityResult): BanlistStatus {
-    return result.banlistStatus;
   }
 }
