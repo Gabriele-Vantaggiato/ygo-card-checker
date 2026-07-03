@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { DecklistCard } from '../../models/decklist.model';
 import { I18nService } from '../../services/i18n.service';
 import { sectionCardCount, splitDeckSections } from '../../utils/deck-card.utils';
@@ -11,15 +11,18 @@ export interface DeckSectionStat {
   progress: number | null;
 }
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-deck-stats-strip',
   standalone: true,
+  imports: [TranslatePipe],
   template: `
     <div class="duel-panel px-3 py-2.5 sm:px-4 flex flex-wrap items-center gap-3 sm:gap-4">
       @for (stat of stats(); track stat.key) {
         <div class="flex items-center gap-2">
           <span class="duel-section-chip bg-base-200/80 text-base-content/80">
-            {{ i18n.t(stat.labelKey) }}
+            {{ (stat.labelKey) | translate }}
             <span class="text-primary">{{ stat.count }}</span>
             @if (stat.max !== null) {
               <span class="text-base-content/40">/{{ stat.max }}</span>
@@ -35,7 +38,7 @@ export interface DeckSectionStat {
         </div>
       }
       <div class="ml-auto text-xs text-base-content/50 tabular-nums font-medium">
-        {{ i18n.t('decklist.stats.total', { count: '' + totalCards() }) }}
+        {{ 'decklist.stats.total' | translate: { count: '' + totalCards() } }}
       </div>
     </div>
   `,

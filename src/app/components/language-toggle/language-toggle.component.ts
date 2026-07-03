@@ -1,9 +1,12 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { I18nService, Lang } from '../../services/i18n.service';
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-language-toggle',
   standalone: true,
+  imports: [TranslatePipe],
   template: `
     <div class="join">
       @for (option of options; track option) {
@@ -14,7 +17,7 @@ import { I18nService, Lang } from '../../services/i18n.service';
           [class.btn-ghost]="i18n.lang() !== option"
           (click)="setLang(option)"
         >
-          {{ i18n.t('lang.' + option) }}
+          {{ 'lang.' + option | translate }}
         </button>
       }
     </div>

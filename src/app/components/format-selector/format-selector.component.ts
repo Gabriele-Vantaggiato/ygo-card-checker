@@ -1,17 +1,20 @@
-import { Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { YgoFormat } from '../../models/ygo-format.model';
 import { I18nService } from '../../services/i18n.service';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-format-selector',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule,
+    TranslatePipe],
   template: `
     @if (compact()) {
       <label class="form-control w-full min-w-0">
         <span class="label py-0 pb-1.5">
-          <span class="label-text text-xs font-semibold text-base-content/70">{{ i18n.t('format.label') }}</span>
+          <span class="label-text text-xs font-semibold text-base-content/70">{{ 'format.label' | translate }}</span>
         </span>
         <select
           class="select select-bordered select-sm w-full"
@@ -26,7 +29,7 @@ import { I18nService } from '../../services/i18n.service';
     } @else {
       <label class="form-control w-full">
         <div class="label">
-          <span class="label-text font-medium">{{ i18n.t('format.label') }}</span>
+          <span class="label-text font-medium">{{ 'format.label' | translate }}</span>
         </div>
         @if (formats().length > 0) {
           <select
@@ -56,11 +59,11 @@ export class FormatSelectorComponent {
   readonly compact = input(false);
   readonly selectedChange = output<string>();
 
-  constructor(protected readonly i18n: I18nService) {}
+  readonly selectedFormat = computed(() =>
+    this.formats().find((f) => f.id === this.selectedId()),
+  );
 
-  selectedFormat(): YgoFormat | undefined {
-    return this.formats().find((f) => f.id === this.selectedId());
-  }
+  constructor(protected readonly i18n: I18nService) {}
 
   onSelect(value: string): void {
     this.selectedChange.emit(value);

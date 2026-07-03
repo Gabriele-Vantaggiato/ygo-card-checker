@@ -1,13 +1,16 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { BanlistStatus } from '../../models/ygo-format.model';
 import { AddToDecklistPayload } from '../../models/decklist.model';
 import { DialogService } from '../../services/dialog.service';
 import { I18nService } from '../../services/i18n.service';
-import { DecklistStore } from '../../stores/decklist.store';
+import { DecklistStore } from '../../features/decklist/stores/decklist.store';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-add-to-decklist-btn',
   standalone: true,
+  imports: [TranslatePipe],
   template: `
     @if (variant() === 'labeled') {
       <button
@@ -15,12 +18,12 @@ import { DecklistStore } from '../../stores/decklist.store';
         class="btn btn-primary btn-sm shrink-0 gap-1.5"
         [class.btn-disabled]="isForbidden()"
         [disabled]="isForbidden()"
-        [attr.aria-label]="i18n.t('decklist.add')"
+        [attr.aria-label]="'decklist.add' | translate"
         [title]="buttonTitle()"
         (click)="openDialog($event)"
       >
         <span aria-hidden="true">+</span>
-        {{ i18n.t('decklist.add') }}
+        {{ 'decklist.add' | translate }}
       </button>
     } @else {
       <button
@@ -31,7 +34,7 @@ import { DecklistStore } from '../../stores/decklist.store';
         [class.btn-square]="true"
         [class.btn-disabled]="isForbidden()"
         [disabled]="isForbidden()"
-        [attr.aria-label]="i18n.t('decklist.add')"
+        [attr.aria-label]="'decklist.add' | translate"
         [title]="buttonTitle()"
         (click)="openDialog($event)"
       >

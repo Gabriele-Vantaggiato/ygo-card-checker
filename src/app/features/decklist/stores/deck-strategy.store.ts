@@ -1,14 +1,22 @@
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { Observable, combineLatest, debounceTime, shareReplay, switchMap, catchError, of as rxOf } from 'rxjs';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
+import {
+  Observable,
+  combineLatest,
+  debounceTime,
+  shareReplay,
+  switchMap,
+  catchError,
+  of as rxOf,
+} from 'rxjs';
 import {
   DeckCompletionDirection,
   CompletionRagResult,
   buildCompletionProfile,
   profileSummary,
-} from '../utils/completion-prompt.utils';
-import { CompletionRagService } from '../services/completion-rag.service';
-import { OllamaService } from '../services/ollama.service';
+} from '../../../utils/completion-prompt.utils';
+import { CompletionRagService } from '../../../services/completion-rag.service';
+import { OllamaService } from '../../../services/ollama.service';
 
 const STORAGE_DIRECTION = 'ygo-strategy-direction';
 const STORAGE_PROMPT = 'ygo-strategy-prompt';
@@ -25,31 +33,31 @@ export class DeckStrategyStore {
   readonly useOllama = signal(this.readUseOllama());
   readonly ollamaAvailable = signal<boolean | null>(null);
 
-  readonly ragResult$: Observable<CompletionRagResult>;
+  readonly ragResult$ = combineLatest([
+    toObservable(this.direction),
+    toObservable(this.prompt),
+    toObservable(this.useOllama),
+  ]).pipe(
+    debounceTime(280),
+    switchMap(([direction, prompt, useOllama]) =>
+      this.rag.buildProfile$(direction, prompt, useOllama).pipe(
+        catchError(() => {
+          const profile = buildCompletionProfile(direction, prompt);
+          return rxOf({
+            profile,
+            summary: profileSummary(profile),
+            sources: ['rules'] as CompletionRagResult['sources'],
+            ollamaUsed: false,
+          });
+        }),
+      ),
+    ),
+    shareReplay({ bufferSize: 1, refCount: true }),
+  );
+
+  readonly ragResult = toSignal(this.ragResult$, { requireSync: true });
 
   constructor() {
-    this.ragResult$ = combineLatest([
-      toObservable(this.direction),
-      toObservable(this.prompt),
-      toObservable(this.useOllama),
-    ]).pipe(
-      debounceTime(280),
-      switchMap(([direction, prompt, useOllama]) =>
-        this.rag.buildProfile$(direction, prompt, useOllama).pipe(
-          catchError(() => {
-            const profile = buildCompletionProfile(direction, prompt);
-            return rxOf({
-              profile,
-              summary: profileSummary(profile),
-              sources: ['rules'] as CompletionRagResult['sources'],
-              ollamaUsed: false,
-            });
-          }),
-        ),
-      ),
-      shareReplay({ bufferSize: 1, refCount: true }),
-    );
-
     this.checkOllamaStatus();
   }
 

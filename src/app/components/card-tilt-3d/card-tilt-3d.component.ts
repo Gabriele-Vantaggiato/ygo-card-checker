@@ -1,5 +1,6 @@
 import {
   afterNextRender,
+  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   inject,
@@ -11,6 +12,7 @@ const HOVER_ZONES = 8;
 const MAX_TILT = 14;
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-tilt-3d',
   standalone: true,
   template: `

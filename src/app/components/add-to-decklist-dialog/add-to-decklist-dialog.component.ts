@@ -1,21 +1,25 @@
-import { Component, computed, effect, ElementRef, inject, input, output, signal, viewChild, afterNextRender } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, output, signal, viewChild, afterNextRender } from '@angular/core';
+import { deckInitial } from '../../shared/utils/deck-display.utils';
 import { FormsModule } from '@angular/forms';
 import { BanlistStatus } from '../../models/ygo-format.model';
 import { AddToDecklistPayload } from '../../models/decklist.model';
 import { I18nService } from '../../services/i18n.service';
 import { ToastService } from '../../services/toast.service';
-import { DecklistStore } from '../../stores/decklist.store';
+import { DecklistStore } from '../../features/decklist/stores/decklist.store';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-add-to-decklist-dialog',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule,
+    TranslatePipe],
   template: `
     <dialog #dialogEl class="modal modal-open w-full max-w-md p-0 border-0 bg-transparent shadow-none">
       <div class="modal-box max-w-md p-0 overflow-hidden duel-modal" (click)="$event.stopPropagation()">
         <div class="bg-gradient-to-br from-primary/10 to-base-200 px-4 py-4 border-b border-base-300">
-          <h3 class="font-bold text-lg">{{ i18n.t('decklist.dialog.title') }}</h3>
-          <p class="text-xs text-base-content/60 mt-0.5">{{ i18n.t('decklist.dialog.subtitle') }}</p>
+          <h3 class="font-bold text-lg">{{ 'decklist.dialog.title' | translate }}</h3>
+          <p class="text-xs text-base-content/60 mt-0.5">{{ 'decklist.dialog.subtitle' | translate }}</p>
         </div>
 
         <div class="p-4 space-y-4 max-h-[min(70vh,32rem)] overflow-y-auto">
@@ -33,11 +37,11 @@ import { DecklistStore } from '../../stores/decklist.store';
 
           @if (isForbidden()) {
             <div class="alert alert-warning py-2 text-xs">
-              <span>{{ i18n.t('decklist.feedback.forbidden') }}</span>
+              <span>{{ 'decklist.feedback.forbidden' | translate }}</span>
             </div>
           } @else {
             <div>
-              <p class="text-sm font-medium mb-2">{{ i18n.t('decklist.dialog.pickDeck') }}</p>
+              <p class="text-sm font-medium mb-2">{{ 'decklist.dialog.pickDeck' | translate }}</p>
               <div class="space-y-2 max-h-36 overflow-y-auto pr-1">
                 @for (deck of decklistStore.decklists(); track deck.id) {
                   <button
@@ -77,7 +81,7 @@ import { DecklistStore } from '../../stores/decklist.store';
             @if (selectedDeck()) {
               <label class="form-control w-full">
                 <span class="label py-0 mb-1">
-                  <span class="label-text font-medium">{{ i18n.t('decklist.dialog.renameDeck') }}</span>
+                  <span class="label-text font-medium">{{ 'decklist.dialog.renameDeck' | translate }}</span>
                 </span>
                 <input
                   type="text"
@@ -89,15 +93,15 @@ import { DecklistStore } from '../../stores/decklist.store';
 
               <div class="rounded-xl border border-dashed border-base-300 bg-base-200/30 p-3 grid grid-cols-3 gap-2 text-center text-xs">
                 <div>
-                  <p class="text-base-content/50">{{ i18n.t('decklist.dialog.inDeck') }}</p>
+                  <p class="text-base-content/50">{{ 'decklist.dialog.inDeck' | translate }}</p>
                   <p class="font-bold tabular-nums text-sm mt-0.5">{{ inDeckQty() }}/{{ maxCopies() }}</p>
                 </div>
                 <div>
-                  <p class="text-base-content/50">{{ i18n.t('decklist.dialog.canAdd') }}</p>
+                  <p class="text-base-content/50">{{ 'decklist.dialog.canAdd' | translate }}</p>
                   <p class="font-bold tabular-nums text-sm mt-0.5 text-primary">{{ remaining() }}</p>
                 </div>
                 <div>
-                  <p class="text-base-content/50">{{ i18n.t('decklist.dialog.deckTotal') }}</p>
+                  <p class="text-base-content/50">{{ 'decklist.dialog.deckTotal' | translate }}</p>
                   <p class="font-bold tabular-nums text-sm mt-0.5">
                     {{ decklistStore.totalCardsForDeck(selectedDeckId()) }}
                   </p>
@@ -105,7 +109,7 @@ import { DecklistStore } from '../../stores/decklist.store';
               </div>
 
               <div>
-                <p class="text-sm font-medium mb-2">{{ i18n.t('decklist.dialog.quantity') }}</p>
+                <p class="text-sm font-medium mb-2">{{ 'decklist.dialog.quantity' | translate }}</p>
                 <div class="flex flex-wrap gap-2">
                   @for (preset of quantityPresets(); track preset) {
                     <button
@@ -125,7 +129,7 @@ import { DecklistStore } from '../../stores/decklist.store';
                     [disabled]="remaining() <= 0"
                     (click)="quantity.set(remaining())"
                   >
-                    {{ i18n.t('decklist.dialog.max') }}
+                    {{ 'decklist.dialog.max' | translate }}
                   </button>
                 </div>
               </div>
@@ -133,24 +137,24 @@ import { DecklistStore } from '../../stores/decklist.store';
 
             @if (showNewDeck()) {
               <div class="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2">
-                <p class="text-sm font-medium">{{ i18n.t('decklist.dialog.newDeck') }}</p>
+                <p class="text-sm font-medium">{{ 'decklist.dialog.newDeck' | translate }}</p>
                 <div class="flex gap-2">
                   <input
                     type="text"
                     class="input input-bordered input-sm flex-1"
-                    [placeholder]="i18n.t('decklist.dialog.newDeckPlaceholder')"
+                    [placeholder]="'decklist.dialog.newDeckPlaceholder' | translate"
                     [ngModel]="newDeckName()"
                     (ngModelChange)="newDeckName.set($event)"
                     (keydown.enter)="createAndSelectDeck()"
                   />
                   <button type="button" class="btn btn-primary btn-sm" (click)="createAndSelectDeck()">
-                    {{ i18n.t('decklist.dialog.create') }}
+                    {{ 'decklist.dialog.create' | translate }}
                   </button>
                 </div>
               </div>
             } @else {
               <button type="button" class="btn btn-ghost btn-sm w-full" (click)="showNewDeck.set(true)">
-                + {{ i18n.t('decklist.dialog.newDeck') }}
+                + {{ 'decklist.dialog.newDeck' | translate }}
               </button>
             }
           }
@@ -158,7 +162,7 @@ import { DecklistStore } from '../../stores/decklist.store';
 
         <div class="flex gap-2 justify-end px-4 py-4 border-t border-base-300 bg-base-100">
           <button type="button" class="btn btn-ghost btn-sm" (click)="close()">
-            {{ i18n.t('decklist.dialog.cancel') }}
+            {{ 'decklist.dialog.cancel' | translate }}
           </button>
           @if (!isForbidden()) {
             <button
@@ -167,13 +171,13 @@ import { DecklistStore } from '../../stores/decklist.store';
               [disabled]="!canConfirm()"
               (click)="confirmAdd()"
             >
-              {{ i18n.t('decklist.dialog.confirm') }}
+              {{ 'decklist.dialog.confirm' | translate }}
             </button>
           }
         </div>
       </div>
       <form method="dialog" class="modal-backdrop bg-black/50">
-        <button type="button" (click)="close()">{{ i18n.t('decklist.dialog.cancel') }}</button>
+        <button type="button" (click)="close()">{{ 'decklist.dialog.cancel' | translate }}</button>
       </form>
     </dialog>
   `,
@@ -255,9 +259,7 @@ export class AddToDecklistDialogComponent {
     );
   }
 
-  deckInitial(name: string): string {
-    return name.trim().charAt(0).toUpperCase() || '?';
-  }
+  protected readonly deckInitial = deckInitial;
 
   deckSummary(deckId: string): string {
     return this.i18n.t('decklist.deckCardCount', {

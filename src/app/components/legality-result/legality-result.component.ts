@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { CardTilt3dComponent } from '../card-tilt-3d/card-tilt-3d.component';
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
@@ -12,10 +12,14 @@ import {
   verdictLabelKey,
 } from '../../utils/legality-display.utils';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { VerdictBadgeComponent } from '../../shared/ui/verdict-badge/verdict-badge.component';
+
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-legality-result',
   standalone: true,
-  imports: [CardTilt3dComponent, AddToDecklistButtonComponent],
+  imports: [CardTilt3dComponent, AddToDecklistButtonComponent, TranslatePipe, VerdictBadgeComponent],
   template: `
     @if (!card()) {
       <div
@@ -24,17 +28,17 @@ import {
         <div class="card-body items-center justify-center text-center p-6 sm:p-8 space-y-5">
           <div class="text-4xl opacity-40" aria-hidden="true">🃏</div>
           <div class="space-y-2 max-w-sm">
-            <h2 class="text-lg font-semibold text-base-content/80">{{ i18n.t('result.emptyTitle') }}</h2>
-            <p class="text-sm text-base-content/60">{{ i18n.t('result.selectCard') }}</p>
+            <h2 class="text-lg font-semibold text-base-content/80">{{ 'result.emptyTitle' | translate }}</h2>
+            <p class="text-sm text-base-content/60">{{ 'result.selectCard' | translate }}</p>
           </div>
           <ol class="text-sm text-left text-base-content/70 space-y-2 max-w-xs w-full">
             <li class="flex gap-2">
               <span class="badge badge-neutral badge-sm shrink-0">1</span>
-              <span>{{ i18n.t('result.emptyStep1') }}</span>
+              <span>{{ 'result.emptyStep1' | translate }}</span>
             </li>
             <li class="flex gap-2">
               <span class="badge badge-neutral badge-sm shrink-0">2</span>
-              <span>{{ i18n.t('result.emptyStep2') }}</span>
+              <span>{{ 'result.emptyStep2' | translate }}</span>
             </li>
           </ol>
           @if (quickPickEntry(); as entry) {
@@ -66,7 +70,11 @@ import {
           >
             @if (cardImageLarge(); as src) {
               <div class="mx-auto h-fit w-full max-w-[220px] self-start sm:max-w-[260px] lg:mx-0 lg:max-w-[280px]">
-                <app-card-tilt-3d [src]="src" [alt]="card()!.name" />
+                @defer (on idle) {
+                  <app-card-tilt-3d [src]="src" [alt]="card()!.name" />
+                } @placeholder {
+                  <img [src]="src" [alt]="card()!.name" class="w-full rounded-lg shadow-lg" />
+                }
               </div>
             }
 
@@ -77,13 +85,9 @@ import {
                   <p class="text-sm text-base-content/70">{{ card()!.type }}</p>
                 </div>
 
-                <div class="rounded-xl border border-base-300 bg-base-200/40 p-3 space-y-2 w-full sm:max-w-sm">
-                  <span class="badge badge-lg w-full justify-center py-3" [class]="verdictBadgeClass(res.verdict)">
-                    {{ i18n.t(verdictLabelKey(res.verdict)) }}
-                  </span>
-                  <p class="text-center text-sm text-base-content/70">
-                    {{ i18n.t(banlistStatusLabelKey(res.banlistStatus)) }}
-                  </p>
+                <div class="rounded-xl border border-base-300 bg-base-200/40 p-3 space-y-2 w-full sm:max-w-sm flex flex-col items-center gap-2">
+                  <app-verdict-badge mode="verdict" [verdict]="res.verdict" size="lg" />
+                  <app-verdict-badge mode="quantity" [banlistStatus]="res.banlistStatus" size="sm" />
                 </div>
 
                 <app-add-to-decklist-btn
@@ -96,7 +100,7 @@ import {
               @if (card()!.desc) {
                 <section class="rounded-lg bg-base-200/50 p-4">
                   <h3 class="font-semibold mb-2 text-sm uppercase tracking-wide text-base-content/80">
-                    {{ i18n.t('result.effect') }}
+                    {{ 'result.effect' | translate }}
                   </h3>
                   <p class="text-sm leading-relaxed whitespace-pre-line text-base-content/90 max-h-48 overflow-y-auto">
                     {{ card()!.desc }}
@@ -106,40 +110,40 @@ import {
 
               <details class="rounded-lg border border-base-300/80 bg-base-200/20 group">
                 <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-base-content/80 list-none flex items-center justify-between">
-                  <span>{{ i18n.t('result.detailsLegality') }}</span>
+                  <span>{{ 'result.detailsLegality' | translate }}</span>
                   <span class="text-base-content/40 group-open:rotate-180 transition-transform" aria-hidden="true">▾</span>
                 </summary>
                 <div class="px-4 pb-4 space-y-3 border-t border-base-300/60 pt-3">
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     @if (res.tcgDate) {
                       <div>
-                        <span class="font-medium">{{ i18n.t('result.tcgDate') }}:</span>
+                        <span class="font-medium">{{ 'result.tcgDate' | translate }}:</span>
                         {{ res.tcgDate }}
                       </div>
                     }
                     <div>
-                      <span class="font-medium">{{ i18n.t('result.banlistStatus') }}:</span>
-                      {{ i18n.t(banlistStatusLabelKey(res.banlistStatus)) }}
+                      <span class="font-medium">{{ 'result.banlistStatus' | translate }}:</span>
+                      {{ (banlistStatusLabelKey(res.banlistStatus)) | translate }}
                     </div>
                     @if (format()?.banlistEffectiveDate) {
                       <div>
-                        <span class="font-medium">{{ i18n.t('result.banlistDate') }}:</span>
+                        <span class="font-medium">{{ 'result.banlistDate' | translate }}:</span>
                         {{ format()!.banlistEffectiveDate }}
                       </div>
                     }
                     @if (format()?.cardPoolEndDate) {
                       <div>
-                        <span class="font-medium">{{ i18n.t('result.cardPool') }}:</span>
+                        <span class="font-medium">{{ 'result.cardPool' | translate }}:</span>
                         {{ format()!.cardPoolEndDate }}
                       </div>
                     }
                   </div>
 
                   <div>
-                    <h4 class="font-medium mb-1 text-sm">{{ i18n.t('result.reasons') }}</h4>
+                    <h4 class="font-medium mb-1 text-sm">{{ 'result.reasons' | translate }}</h4>
                     <ul class="list-disc list-inside text-sm space-y-1 text-base-content/80">
                       @for (reason of res.reasons; track $index) {
-                        <li>{{ i18n.t(reason.key, reason.params) }}</li>
+                        <li>{{ (reason.key) | translate: reason.params }}</li>
                       }
                     </ul>
                   </div>

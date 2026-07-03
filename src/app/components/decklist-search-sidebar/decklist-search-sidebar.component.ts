@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   computed,
@@ -15,31 +16,34 @@ import { DecklistCard } from '../../models/decklist.model';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { CardSearchFacade } from '../../services/card-search.facade';
 import { I18nService } from '../../services/i18n.service';
-import { FormatStore } from '../../stores/format.store';
+import { FormatStore } from '../../core/stores/format.store';
 import { sortYgoCardsByPlayability } from '../../utils/card-sort.utils';
 import { maxCopiesForStatus } from '../../models/decklist.model';
 import { CardSearchResultRowComponent } from '../card-search-result-row/card-search-result-row.component';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-search-sidebar',
   standalone: true,
-  imports: [FormsModule, CardSearchResultRowComponent],
+  imports: [FormsModule, CardSearchResultRowComponent,
+    TranslatePipe],
   template: `
     <aside class="duel-panel flex flex-col overflow-hidden min-w-0 w-full">
       <div class="duel-panel-header shrink-0 space-y-2">
         <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">
-          {{ i18n.t('decklist.editor.search') }}
+          {{ 'decklist.editor.search' | translate }}
         </p>
         <div class="flex gap-2">
           <input
             type="text"
             class="input input-bordered input-sm flex-1 min-w-0"
-            [placeholder]="i18n.t('search.placeholder')"
+            [placeholder]="'search.placeholder' | translate"
             [ngModel]="searchQuery()"
             (ngModelChange)="onSearchInput($event)"
           />
           <button type="button" class="btn btn-primary btn-sm" (click)="triggerSearch()">
-            {{ i18n.t('decklist.editor.searchBtn') }}
+            {{ 'decklist.editor.searchBtn' | translate }}
           </button>
         </div>
         @if (searchTotalRows() > 0) {
@@ -47,45 +51,45 @@ import { CardSearchResultRowComponent } from '../card-search-result-row/card-sea
             {{ searchResultsLabel() }}
           </p>
         }
-        <p class="text-[10px] text-base-content/45 mt-1 px-0.5">{{ i18n.t('decklist.editor.searchRowHint') }}</p>
+        <p class="text-[10px] text-base-content/45 mt-1 px-0.5">{{ 'decklist.editor.searchRowHint' | translate }}</p>
       </div>
 
       <div class="overflow-y-auto overscroll-y-contain p-2 min-h-[10rem] max-h-[min(45vh,20rem)] lg:max-h-[min(28vh,14rem)]">
         @if (searchLoading() || legalityLoading()) {
-          <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.loading') }}</p>
+          <p class="text-xs text-base-content/60 px-2 py-4">{{ 'search.loading' | translate }}</p>
         } @else {
-          @for (card of sortedSearchResults(); track card.id) {
+          @for (row of enrichedSearchRows(); track row.card.id) {
             <div class="flex items-center gap-1 rounded-lg">
               <app-card-search-result-row
                 class="flex-1 min-w-0"
-                [card]="card"
-                [legality]="legalityFor(card.id)"
+                [card]="row.card"
+                [legality]="row.legality"
                 [legalityLoading]="legalityLoading()"
-                [active]="inspectedCardId() === card.id"
-                [qtyInDeck]="qtyInDeck(card.id)"
+                [active]="inspectedCardId() === row.card.id"
+                [qtyInDeck]="row.qtyInDeck"
                 (cardSelect)="cardInspect.emit($event)"
               />
               <button
                 type="button"
                 class="btn btn-primary btn-xs btn-square shrink-0 mr-1"
-                [class.btn-disabled]="isForbidden(card.id) || !canAdd(card.id)"
-                [attr.aria-label]="i18n.t('decklist.editor.quickAdd')"
-                (click)="onQuickAdd(card, $event)"
+                [class.btn-disabled]="row.isForbidden || !row.canAdd"
+                [attr.aria-label]="'decklist.editor.quickAdd' | translate"
+                (click)="onQuickAdd(row.card, $event)"
               >
                 +
               </button>
             </div>
           } @empty {
             @if (searchQuery().trim().length >= 2) {
-              <p class="text-xs text-base-content/60 px-2 py-4">{{ i18n.t('search.noResults') }}</p>
+              <p class="text-xs text-base-content/60 px-2 py-4">{{ 'search.noResults' | translate }}</p>
             } @else {
-              <p class="text-xs text-base-content/50 px-2 py-4">{{ i18n.t('decklist.editor.searchHint') }}</p>
+              <p class="text-xs text-base-content/50 px-2 py-4">{{ 'decklist.editor.searchHint' | translate }}</p>
             }
           }
         }
         @if (searchHasMore() && !searchLoading() && !legalityLoading()) {
           <button type="button" class="btn btn-ghost btn-sm w-full mt-2" (click)="loadMore()">
-            {{ i18n.t('decklist.editor.loadMore') }}
+            {{ 'decklist.editor.loadMore' | translate }}
           </button>
         }
       </div>
@@ -118,6 +122,26 @@ export class DecklistSearchSidebarComponent {
   readonly sortedSearchResults = computed(() =>
     sortYgoCardsByPlayability(this.searchResults(), this.searchLegality()),
   );
+
+  readonly searchResultsLabel = computed(() =>
+    this.i18n.t('decklist.editor.resultsCount', {
+      shown: `${this.searchResults().length}`,
+      total: `${this.searchTotalRows()}`,
+    }),
+  );
+
+  readonly enrichedSearchRows = computed(() => {
+    const legalityMap = this.searchLegality();
+    const deckCards = this.deckCards();
+    return this.sortedSearchResults().map((card) => {
+      const legality = legalityMap.get(card.id) ?? null;
+      const qtyInDeck = deckCards.find((c) => c.id === card.id)?.quantity ?? 0;
+      const isForbidden = legality?.banlistStatus === 'Forbidden';
+      const status = legality?.banlistStatus ?? 'Unlimited';
+      const canAdd = !isForbidden && qtyInDeck < maxCopiesForStatus(status);
+      return { card, legality, qtyInDeck, isForbidden, canAdd };
+    });
+  });
 
   constructor() {
     this.search$
@@ -162,26 +186,6 @@ export class DecklistSearchSidebarComponent {
       });
   }
 
-  legalityFor(cardId: number): LegalityResult | null {
-    return this.searchLegality().get(cardId) ?? null;
-  }
-
-  qtyInDeck(cardId: number): number {
-    return this.deckCards().find((c) => c.id === cardId)?.quantity ?? 0;
-  }
-
-  isForbidden(cardId: number): boolean {
-    return this.searchLegality().get(cardId)?.banlistStatus === 'Forbidden';
-  }
-
-  canAdd(cardId: number): boolean {
-    if (this.isForbidden(cardId)) {
-      return false;
-    }
-    const status = this.searchLegality().get(cardId)?.banlistStatus ?? 'Unlimited';
-    return this.qtyInDeck(cardId) < maxCopiesForStatus(status);
-  }
-
   onSearchInput(value: string): void {
     this.searchQuery.set(value);
     this.search$.next(value);
@@ -216,18 +220,12 @@ export class DecklistSearchSidebarComponent {
       });
   }
 
-  searchResultsLabel(): string {
-    return this.i18n.t('decklist.editor.resultsCount', {
-      shown: `${this.searchResults().length}`,
-      total: `${this.searchTotalRows()}`,
-    });
-  }
-
   onQuickAdd(card: YgoCard, event: Event): void {
     event.stopPropagation();
     event.preventDefault();
     this.cardInspect.emit(card);
-    if (this.canAdd(card.id)) {
+    const row = this.enrichedSearchRows().find((item) => item.card.id === card.id);
+    if (row?.canAdd) {
       this.quickAdd.emit(card);
     }
   }

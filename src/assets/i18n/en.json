@@ -1,5 +1,6 @@
 {
   "app.title": "YGO Card Checker",
+  "common.close": "Close",
   "app.titleShort": "YGO Checker",
   "app.subtitle": "Check if a card is playable in the selected format",
   "nav.search": "Search",

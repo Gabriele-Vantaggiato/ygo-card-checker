@@ -1,8 +1,9 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { AddToDecklistDialogComponent } from '../add-to-decklist-dialog/add-to-decklist-dialog.component';
 import { DialogService } from '../../services/dialog.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-dialog-host',
   standalone: true,
   imports: [AddToDecklistDialogComponent],

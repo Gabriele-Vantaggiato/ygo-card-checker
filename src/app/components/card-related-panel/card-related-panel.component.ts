@@ -1,4 +1,4 @@
-import { Component, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
 import {
   CardKnowledgeDisplayTag,
   CardKnowledgeEffect,
@@ -8,9 +8,12 @@ import {
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { I18nService } from '../../services/i18n.service';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-related-panel',
   standalone: true,
+  imports: [TranslatePipe],
   template: `
     <section
       [class.card]="!embedded()"
@@ -23,21 +26,21 @@ import { I18nService } from '../../services/i18n.service';
     >
       <div class="card-body p-4 sm:p-6 space-y-4" [class.p-0]="embedded()">
         <header class="space-y-1">
-          <h3 class="font-bold text-lg">{{ i18n.t('knowledge.title') }}</h3>
-          <p class="text-sm text-base-content/60">{{ i18n.t('knowledge.subtitle') }}</p>
+          <h3 class="font-bold text-lg">{{ 'knowledge.title' | translate }}</h3>
+          <p class="text-sm text-base-content/60">{{ 'knowledge.subtitle' | translate }}</p>
         </header>
 
         @if (!available()) {
-          <p class="text-sm text-base-content/60">{{ i18n.t('knowledge.unavailable') }}</p>
+          <p class="text-sm text-base-content/60">{{ 'knowledge.unavailable' | translate }}</p>
         } @else if (loading()) {
-          <p class="text-sm text-base-content/60">{{ i18n.t('knowledge.loading') }}</p>
+          <p class="text-sm text-base-content/60">{{ 'knowledge.loading' | translate }}</p>
         } @else {
           @if (displayTags().length > 0) {
             <div class="space-y-1">
-              <span class="text-xs text-base-content/50">{{ i18n.t('knowledge.mechanics') }}</span>
+              <span class="text-xs text-base-content/50">{{ 'knowledge.mechanics' | translate }}</span>
               <div class="flex flex-wrap gap-1">
                 @for (tag of displayTags(); track tag.id) {
-                  <span class="badge badge-secondary badge-sm badge-outline">{{ i18n.t(tag.labelKey) }}</span>
+                  <span class="badge badge-secondary badge-sm badge-outline">{{ (tag.labelKey) | translate }}</span>
                 }
               </div>
             </div>
@@ -45,7 +48,7 @@ import { I18nService } from '../../services/i18n.service';
 
           @if (series().length > 0) {
             <div class="space-y-1">
-              <span class="text-xs text-base-content/50">{{ i18n.t('knowledge.series') }}</span>
+              <span class="text-xs text-base-content/50">{{ 'knowledge.series' | translate }}</span>
               <div class="flex flex-wrap gap-1">
                 @for (label of series(); track label) {
                   <span class="badge badge-primary badge-sm badge-outline">{{ label }}</span>
@@ -56,7 +59,7 @@ import { I18nService } from '../../services/i18n.service';
 
           @if (mentions().length > 0) {
             <div class="space-y-1">
-              <span class="text-xs text-base-content/50">{{ i18n.t('knowledge.mentions') }}</span>
+              <span class="text-xs text-base-content/50">{{ 'knowledge.mentions' | translate }}</span>
               <div class="flex flex-wrap gap-1">
                 @for (label of mentions(); track label) {
                   <span class="badge badge-accent badge-sm badge-outline">{{ label }}</span>
@@ -67,7 +70,7 @@ import { I18nService } from '../../services/i18n.service';
 
           @if (effects().length > 0) {
             <div class="space-y-1">
-              <span class="text-xs text-base-content/50">{{ i18n.t('knowledge.effects') }}</span>
+              <span class="text-xs text-base-content/50">{{ 'knowledge.effects' | translate }}</span>
               <div class="flex flex-wrap gap-1">
                 @for (effect of effects(); track effect.kind) {
                   <span class="badge badge-info badge-sm badge-outline">
@@ -79,13 +82,13 @@ import { I18nService } from '../../services/i18n.service';
           }
 
           @if (groups().length === 0) {
-            <p class="text-sm text-base-content/60">{{ i18n.t('knowledge.empty') }}</p>
+            <p class="text-sm text-base-content/60">{{ 'knowledge.empty' | translate }}</p>
           } @else {
             <div class="space-y-4">
               @for (group of groups(); track group.relation) {
                 <div class="space-y-2">
                   <h4 class="text-sm font-semibold text-base-content/80">
-                    {{ i18n.t(group.labelKey) }}
+                    {{ (group.labelKey) | translate }}
                     <span class="badge badge-ghost badge-xs ml-1">{{ group.suggestions.length }}</span>
                   </h4>
                   <ul class="space-y-2">
@@ -100,13 +103,13 @@ import { I18nService } from '../../services/i18n.service';
                           <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium truncate">{{ item.name }}</p>
                             <p class="text-[11px] text-base-content/60 truncate">
-                              {{ i18n.t(item.reasonKey, item.reasonParams) }}
+                              {{ (item.reasonKey) | translate: item.reasonParams }}
                             </p>
                           </div>
                           <span class="badge badge-xs shrink-0 badge-ghost">{{ relationLabel(item.relation) }}</span>
                           @if (item.maxCopies !== undefined && item.maxCopies < 3) {
                             <span class="badge badge-xs shrink-0 badge-warning">
-                              {{ i18n.t('knowledge.maxCopies', { count: '' + item.maxCopies }) }}
+                              {{ 'knowledge.maxCopies' | translate: { count: '' + item.maxCopies } }}
                             </span>
                           }
                         </button>

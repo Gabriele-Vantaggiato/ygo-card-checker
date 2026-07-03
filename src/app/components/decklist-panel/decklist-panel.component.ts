@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
@@ -6,34 +6,37 @@ import { FormsModule } from '@angular/forms';
 import { DecklistEditorComponent } from '../decklist-editor/decklist-editor.component';
 import { DecklistGridComponent } from '../decklist-grid/decklist-grid.component';
 import { I18nService } from '../../services/i18n.service';
-import { DecklistStore } from '../../stores/decklist.store';
+import { DecklistStore } from '../../features/decklist/stores/decklist.store';
 
 type DecklistView = 'grid' | 'editor';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-panel',
   standalone: true,
-  imports: [FormsModule, DecklistGridComponent, DecklistEditorComponent],
+  imports: [FormsModule, DecklistGridComponent, DecklistEditorComponent,
+    TranslatePipe],
   template: `
     <section class="flex flex-col min-h-0 gap-4">
       @if (createOpen()) {
         <dialog class="modal modal-open" open>
           <div class="modal-box duel-modal">
-            <h3 class="font-bold text-lg">{{ i18n.t('decklist.create.title') }}</h3>
+            <h3 class="font-bold text-lg">{{ 'decklist.create.title' | translate }}</h3>
             <input
               type="text"
               class="input input-bordered w-full mt-4"
-              [placeholder]="i18n.t('decklist.create.placeholder')"
+              [placeholder]="'decklist.create.placeholder' | translate"
               [ngModel]="newDeckName()"
               (ngModelChange)="newDeckName.set($event)"
               (keydown.enter)="submitCreateDeck()"
             />
             <div class="modal-action">
               <button type="button" class="btn btn-ghost" (click)="cancelCreateDeck()">
-                {{ i18n.t('decklist.dialog.cancel') }}
+                {{ 'decklist.dialog.cancel' | translate }}
               </button>
               <button type="button" class="btn btn-primary" (click)="submitCreateDeck()">
-                {{ i18n.t('decklist.create.confirm') }}
+                {{ 'decklist.create.confirm' | translate }}
               </button>
             </div>
           </div>

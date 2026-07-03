@@ -1,18 +1,18 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, of } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
-import { DeckStrategyPanelComponent } from '../../components/deck-strategy-panel/deck-strategy-panel.component';
-import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
-import { ComboPayoff, ComboRequirement, ComboResult } from '../../models/card-combo.model';
-import { CardKnowledgeEffect } from '../../models/card-knowledge.model';
-import { YgoCard } from '../../models/ygo-card.model';
-import { CardComboService } from '../../services/card-combo.service';
-import { CardKnowledgeService } from '../../services/card-knowledge.service';
-import { I18nService } from '../../services/i18n.service';
-import { YgoApiService } from '../../services/ygo-api.service';
-import { FormatStore } from '../../stores/format.store';
+import { DeckStrategyPanelComponent } from '../../../components/deck-strategy-panel/deck-strategy-panel.component';
+import { FormatSelectorComponent } from '../../../components/format-selector/format-selector.component';
+import { ComboPayoff, ComboRequirement, ComboResult } from '../../../models/card-combo.model';
+import { CardKnowledgeEffect } from '../../../models/card-knowledge.model';
+import { YgoCard } from '../../../models/ygo-card.model';
+import { CardComboService } from '../../../services/card-combo.service';
+import { CardKnowledgeService } from '../../../services/card-knowledge.service';
+import { I18nService } from '../../../services/i18n.service';
+import { YgoApiService } from '../../../services/ygo-api.service';
+import { FormatStore } from '../../../core/stores/format.store';
 
 const EMPTY_COMBO: ComboResult = {
   tags: [],
@@ -27,10 +27,13 @@ const EMPTY_COMBO: ComboResult = {
   available: false,
 };
 
+import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-combo-page',
   standalone: true,
-  imports: [RouterLink, FormatSelectorComponent, DeckStrategyPanelComponent],
+  imports: [RouterLink, FormatSelectorComponent, DeckStrategyPanelComponent,
+    TranslatePipe],
   template: `
     <main class="page-main page-stack max-w-3xl lg:max-w-4xl">
       <div class="flex flex-wrap items-center gap-2">
@@ -40,13 +43,13 @@ const EMPTY_COMBO: ComboResult = {
           class="btn btn-ghost btn-sm gap-1.5"
         >
           <span aria-hidden="true">←</span>
-          {{ i18n.t('combo.backToSearch') }}
+          {{ 'combo.backToSearch' | translate }}
         </a>
       </div>
 
       <header class="space-y-1">
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">{{ i18n.t('combo.title') }}</h1>
-        <p class="text-sm text-base-content/60">{{ i18n.t('combo.subtitle') }}</p>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">{{ 'combo.title' | translate }}</h1>
+        <p class="text-sm text-base-content/60">{{ 'combo.subtitle' | translate }}</p>
       </header>
 
       <div class="deck-context-strip">
@@ -62,10 +65,10 @@ const EMPTY_COMBO: ComboResult = {
       </div>
 
       @if (loading()) {
-        <p class="text-sm text-base-content/60">{{ i18n.t('combo.loading') }}</p>
+        <p class="text-sm text-base-content/60">{{ 'combo.loading' | translate }}</p>
       } @else if (!card()) {
         <div class="alert alert-warning">
-          <span>{{ i18n.t('combo.noCard') }}</span>
+          <span>{{ 'combo.noCard' | translate }}</span>
         </div>
       } @else {
         <section class="duel-panel">
@@ -83,21 +86,21 @@ const EMPTY_COMBO: ComboResult = {
         </section>
 
         @if (!combo().available) {
-          <p class="text-sm text-base-content/60">{{ i18n.t('combo.unavailable') }}</p>
+          <p class="text-sm text-base-content/60">{{ 'combo.unavailable' | translate }}</p>
         } @else if (
           combo().enablers.length === 0 &&
           combo().targets.length === 0 &&
           combo().lines.length === 0
         ) {
-          <p class="text-sm text-base-content/60">{{ i18n.t('combo.unparsed') }}</p>
+          <p class="text-sm text-base-content/60">{{ 'combo.unparsed' | translate }}</p>
         } @else {
           @if (combo().displayTags.length > 0) {
             <section class="card bg-base-100 shadow-xl border border-base-300">
               <div class="card-body p-4 sm:p-6 space-y-2">
-                <h3 class="font-semibold text-sm">{{ i18n.t('knowledge.mechanics') }}</h3>
+                <h3 class="font-semibold text-sm">{{ 'knowledge.mechanics' | translate }}</h3>
                 <div class="flex flex-wrap gap-1">
                   @for (tag of combo().displayTags; track tag.id) {
-                    <span class="badge badge-secondary badge-sm badge-outline">{{ i18n.t(tag.labelKey) }}</span>
+                    <span class="badge badge-secondary badge-sm badge-outline">{{ (tag.labelKey) | translate }}</span>
                   }
                 </div>
               </div>
@@ -107,7 +110,7 @@ const EMPTY_COMBO: ComboResult = {
           @if (combo().requirements.length > 0 || combo().payoffs.length > 0 || combo().effects.length > 0) {
             <section class="card bg-base-100 shadow-xl border border-base-300">
               <div class="card-body p-4 sm:p-6 space-y-3">
-                <h3 class="font-semibold">{{ i18n.t('combo.parsedEffects') }}</h3>
+                <h3 class="font-semibold">{{ 'combo.parsedEffects' | translate }}</h3>
                 <div class="flex flex-wrap gap-2">
                   @for (req of combo().requirements; track $index) {
                     <span class="badge badge-outline badge-primary">
@@ -131,7 +134,7 @@ const EMPTY_COMBO: ComboResult = {
 
           @if (combo().lines.length > 0) {
             <section class="space-y-3">
-              <h3 class="font-semibold text-lg">{{ i18n.t('combo.linesTitle') }}</h3>
+              <h3 class="font-semibold text-lg">{{ 'combo.linesTitle' | translate }}</h3>
               @for (line of combo().lines; track line.id) {
                 <article class="duel-panel">
                   <div class="p-4 space-y-3">
@@ -149,7 +152,7 @@ const EMPTY_COMBO: ComboResult = {
                               {{ step.name }}
                             </button>
                             <p class="text-[11px] text-base-content/60 truncate">
-                              {{ i18n.t(step.reasonKey, step.reasonParams) }}
+                              {{ (step.reasonKey) | translate: step.reasonParams }}
                             </p>
                           </div>
                         </li>
@@ -164,7 +167,7 @@ const EMPTY_COMBO: ComboResult = {
           @if (combo().enablers.length > 0) {
             <section class="card bg-base-100 shadow-xl border border-base-300">
               <div class="card-body p-4 sm:p-6 space-y-3">
-                <h3 class="font-semibold">{{ i18n.t('combo.enablersTitle') }}</h3>
+                <h3 class="font-semibold">{{ 'combo.enablersTitle' | translate }}</h3>
                 <ul class="space-y-2">
                   @for (item of combo().enablers; track item.id) {
                     <li>
@@ -177,7 +180,7 @@ const EMPTY_COMBO: ComboResult = {
                         <div class="min-w-0">
                           <p class="text-sm font-medium truncate">{{ item.name }}</p>
                           <p class="text-[11px] text-base-content/60 truncate">
-                            {{ i18n.t(item.reasonKey, item.reasonParams) }}
+                            {{ (item.reasonKey) | translate: item.reasonParams }}
                           </p>
                         </div>
                       </button>
@@ -191,7 +194,7 @@ const EMPTY_COMBO: ComboResult = {
           @if (combo().targets.length > 0) {
             <section class="card bg-base-100 shadow-xl border border-base-300">
               <div class="card-body p-4 sm:p-6 space-y-3">
-                <h3 class="font-semibold">{{ i18n.t('combo.targetsTitle') }}</h3>
+                <h3 class="font-semibold">{{ 'combo.targetsTitle' | translate }}</h3>
                 <ul class="space-y-2">
                   @for (item of combo().targets; track item.id) {
                     <li>
@@ -204,7 +207,7 @@ const EMPTY_COMBO: ComboResult = {
                         <div class="min-w-0">
                           <p class="text-sm font-medium truncate">{{ item.name }}</p>
                           <p class="text-[11px] text-base-content/60 truncate">
-                            {{ i18n.t(item.reasonKey, item.reasonParams) }}
+                            {{ (item.reasonKey) | translate: item.reasonParams }}
                           </p>
                         </div>
                       </button>
@@ -218,8 +221,8 @@ const EMPTY_COMBO: ComboResult = {
           @if (combo().synergies.length > 0) {
             <section class="card bg-base-100 shadow-xl border border-primary/30">
               <div class="card-body p-4 sm:p-6 space-y-3">
-                <h3 class="font-semibold">{{ i18n.t('combo.synergiesTitle') }}</h3>
-                <p class="text-xs text-base-content/60">{{ i18n.t('combo.synergiesHint') }}</p>
+                <h3 class="font-semibold">{{ 'combo.synergiesTitle' | translate }}</h3>
+                <p class="text-xs text-base-content/60">{{ 'combo.synergiesHint' | translate }}</p>
                 <ul class="space-y-2">
                   @for (item of combo().synergies; track item.id) {
                     <li>
@@ -232,7 +235,7 @@ const EMPTY_COMBO: ComboResult = {
                         <div class="min-w-0">
                           <p class="text-sm font-medium truncate">{{ item.name }}</p>
                           <p class="text-[11px] text-base-content/60 truncate">
-                            {{ i18n.t(item.reasonKey, item.reasonParams) }}
+                            {{ (item.reasonKey) | translate: item.reasonParams }}
                           </p>
                         </div>
                       </button>
@@ -244,7 +247,7 @@ const EMPTY_COMBO: ComboResult = {
           }
 
           @if (combo().enablers.length === 0 && combo().targets.length === 0 && combo().lines.length === 0 && combo().synergies.length === 0) {
-            <p class="text-sm text-base-content/60">{{ i18n.t('combo.emptyFormat') }}</p>
+            <p class="text-sm text-base-content/60">{{ 'combo.emptyFormat' | translate }}</p>
           }
         }
       }

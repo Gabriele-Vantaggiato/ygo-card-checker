@@ -24,7 +24,7 @@ import { CardLegalityFacade } from './card-legality.facade';
 import { YgoApiService } from './ygo-api.service';
 import { CompletionRagService } from './completion-rag.service';
 import { CardKnowledgeIndexService } from './card-knowledge-index.service';
-import { DeckStrategyStore } from '../stores/deck-strategy.store';
+import { DeckStrategyStore } from '../features/decklist/stores/deck-strategy.store';
 
 const DEFAULT_TARGET_MAIN = 40;
 const MIN_TARGET_MAIN = 40;

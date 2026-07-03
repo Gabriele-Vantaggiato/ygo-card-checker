@@ -1,14 +1,14 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
-import { CardSearchComponent } from '../../components/card-search/card-search.component';
-import { CardDetailTabsComponent } from '../../components/card-detail-tabs/card-detail-tabs.component';
-import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
-import { SearchHistoryComponent } from '../../components/search-history/search-history.component';
-import { I18nService } from '../../services/i18n.service';
-import { CheckerStore } from '../../stores/checker.store';
-import { DecklistStore } from '../../stores/decklist.store';
+import { CardSearchComponent } from '../../../components/card-search/card-search.component';
+import { CardDetailTabsComponent } from '../../../components/card-detail-tabs/card-detail-tabs.component';
+import { FormatSelectorComponent } from '../../../components/format-selector/format-selector.component';
+import { SearchHistoryComponent } from '../../../components/search-history/search-history.component';
+import { I18nService } from '../../../services/i18n.service';
+import { CheckerStore } from '../stores/checker.store';
+import { DecklistStore } from '../../decklist/stores/decklist.store';
 
 interface DeckReturnContext {
   deckId: string;
@@ -16,7 +16,9 @@ interface DeckReturnContext {
   cardId: number;
 }
 
+import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-checker-page',
   standalone: true,
   imports: [
@@ -24,6 +26,7 @@ interface DeckReturnContext {
     CardSearchComponent,
     CardDetailTabsComponent,
     SearchHistoryComponent,
+    TranslatePipe,
   ],
   providers: [CheckerStore],
   template: `
@@ -32,18 +35,18 @@ interface DeckReturnContext {
         <div
           class="sticky top-14 z-20 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 sm:px-4 backdrop-blur-sm"
           role="navigation"
-          [attr.aria-label]="i18n.t('search.backToDeck')"
+          [attr.aria-label]="'search.backToDeck' | translate"
         >
           <div class="min-w-0 flex items-center gap-2">
-            <span class="badge badge-primary badge-sm shrink-0 hidden sm:inline-flex">{{ i18n.t('nav.decklist') }}</span>
+            <span class="badge badge-primary badge-sm shrink-0 hidden sm:inline-flex">{{ 'nav.decklist' | translate }}</span>
             <p class="text-sm min-w-0 truncate">
               <span class="font-semibold text-primary">{{ ctx.deckName }}</span>
-              <span class="text-base-content/70 hidden sm:inline"> · {{ i18n.t('search.fromDeckContext') }}</span>
+              <span class="text-base-content/70 hidden sm:inline"> · {{ 'search.fromDeckContext' | translate }}</span>
             </p>
           </div>
           <button type="button" class="btn btn-primary btn-sm shrink-0 gap-1.5" (click)="returnToDecklist()">
             <span aria-hidden="true">←</span>
-            {{ i18n.t('search.backToDeck') }}
+            {{ 'search.backToDeck' | translate }}
           </button>
         </div>
       }

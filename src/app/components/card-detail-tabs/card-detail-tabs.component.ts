@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CardRelatedPanelComponent } from '../card-related-panel/card-related-panel.component';
 import { LegalityResultComponent } from '../legality-result/legality-result.component';
@@ -30,10 +30,13 @@ const EMPTY_COMBO: ComboResult = {
   available: false,
 };
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-detail-tabs',
   standalone: true,
-  imports: [LegalityResultComponent, CardRelatedPanelComponent, RouterLink],
+  imports: [LegalityResultComponent, CardRelatedPanelComponent, RouterLink,
+    TranslatePipe],
   template: `
     @if (card()) {
       <div class="card bg-base-100 shadow-xl border border-base-300 overflow-hidden">
@@ -45,7 +48,7 @@ const EMPTY_COMBO: ComboResult = {
             [class.tab-active]="activeTab() === 'legality'"
             (click)="activeTab.set('legality')"
           >
-            {{ i18n.t('detail.tab.legality') }}
+            {{ 'detail.tab.legality' | translate }}
           </button>
           <button
             type="button"
@@ -54,7 +57,7 @@ const EMPTY_COMBO: ComboResult = {
             [class.tab-active]="activeTab() === 'related'"
             (click)="activeTab.set('related')"
           >
-            {{ i18n.t('detail.tab.related') }}
+            {{ 'detail.tab.related' | translate }}
           </button>
           <button
             type="button"
@@ -63,7 +66,7 @@ const EMPTY_COMBO: ComboResult = {
             [class.tab-active]="activeTab() === 'combo'"
             (click)="activeTab.set('combo')"
           >
-            {{ i18n.t('detail.tab.combo') }}
+            {{ 'detail.tab.combo' | translate }}
           </button>
         </div>
 
@@ -78,31 +81,38 @@ const EMPTY_COMBO: ComboResult = {
               />
             }
             @case ('related') {
-              <div class="p-4 sm:p-6">
-                <app-card-related-panel
-                  [embedded]="true"
-                  [loading]="relatedLoading()"
-                  [available]="relatedAvailable()"
-                  [series]="relatedSeries()"
-                  [mentions]="relatedMentions()"
-                  [effects]="relatedEffects()"
-                  [displayTags]="relatedTags()"
-                  [groups]="relatedGroups()"
-                  [suggestions]="relatedSuggestions()"
-                  (cardSelected)="relatedCardSelect.emit($event)"
-                />
-              </div>
+              @defer (when activeTab() === 'related') {
+                <div class="p-4 sm:p-6">
+                  <app-card-related-panel
+                    [embedded]="true"
+                    [loading]="relatedLoading()"
+                    [available]="relatedAvailable()"
+                    [series]="relatedSeries()"
+                    [mentions]="relatedMentions()"
+                    [effects]="relatedEffects()"
+                    [displayTags]="relatedTags()"
+                    [groups]="relatedGroups()"
+                    [suggestions]="relatedSuggestions()"
+                    (cardSelected)="relatedCardSelect.emit($event)"
+                  />
+                </div>
+              } @placeholder {
+                <div class="p-4 sm:p-6">
+                  <p class="text-sm text-base-content/60">{{ 'search.loading' | translate }}</p>
+                </div>
+              }
             }
             @case ('combo') {
-              <div class="p-4 sm:p-6 space-y-4">
+              @defer (when activeTab() === 'combo') {
+                <div class="p-4 sm:p-6 space-y-4">
                 @if (comboLoading()) {
-                  <p class="text-sm text-base-content/60">{{ i18n.t('combo.loading') }}</p>
+                  <p class="text-sm text-base-content/60">{{ 'combo.loading' | translate }}</p>
                 } @else if (!combo().available) {
-                  <p class="text-sm text-base-content/60">{{ i18n.t('combo.unavailable') }}</p>
+                  <p class="text-sm text-base-content/60">{{ 'combo.unavailable' | translate }}</p>
                 } @else if (combo().lines.length === 0) {
-                  <p class="text-sm text-base-content/60">{{ i18n.t('combo.unparsed') }}</p>
+                  <p class="text-sm text-base-content/60">{{ 'combo.unparsed' | translate }}</p>
                 } @else {
-                  <p class="text-sm text-base-content/60">{{ i18n.t('detail.comboPreview') }}</p>
+                  <p class="text-sm text-base-content/60">{{ 'detail.comboPreview' | translate }}</p>
                   @for (line of previewLines(); track line.id) {
                     <article class="rounded-xl border border-base-300 bg-base-200/30 p-3 space-y-2">
                       <ol class="space-y-2">
@@ -113,7 +123,7 @@ const EMPTY_COMBO: ComboResult = {
                             <div class="min-w-0 flex-1">
                               <p class="text-sm font-medium truncate">{{ step.name }}</p>
                               <p class="text-[11px] text-base-content/60 truncate">
-                                {{ i18n.t(step.reasonKey, step.reasonParams) }}
+                                {{ (step.reasonKey) | translate: step.reasonParams }}
                               </p>
                             </div>
                           </li>
@@ -129,11 +139,16 @@ const EMPTY_COMBO: ComboResult = {
                     [queryParams]="{ cardId: card()!.id }"
                     class="btn btn-outline btn-primary btn-sm gap-2"
                   >
-                    {{ i18n.t('combo.openPage') }}
+                    {{ 'combo.openPage' | translate }}
                     <span aria-hidden="true">→</span>
                   </a>
                 </div>
-              </div>
+                </div>
+              } @placeholder {
+                <div class="p-4 sm:p-6">
+                  <p class="text-sm text-base-content/60">{{ 'combo.loading' | translate }}</p>
+                </div>
+              }
             }
           }
         </div>

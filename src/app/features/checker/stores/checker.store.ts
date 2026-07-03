@@ -12,16 +12,16 @@ import {
   tap,
   withLatestFrom,
 } from 'rxjs/operators';
-import { LegalityResult, YgoCard } from '../models/ygo-card.model';
-import { SearchHistoryEntry } from '../models/search-history.model';
-import { YgoFormat } from '../models/ygo-format.model';
-import { CardRelatedResult } from '../models/card-knowledge.model';
-import { I18nService } from '../services/i18n.service';
-import { CardKnowledgeService } from '../services/card-knowledge.service';
-import { CardLegalityFacade } from '../services/card-legality.facade';
-import { YgoApiService } from '../services/ygo-api.service';
-import { FormatStore } from './format.store';
-import { sortYgoCardsByPlayability } from '../utils/card-sort.utils';
+import { LegalityResult, YgoCard } from '../../../models/ygo-card.model';
+import { SearchHistoryEntry } from '../../../models/search-history.model';
+import { YgoFormat } from '../../../models/ygo-format.model';
+import { CardRelatedResult } from '../../../models/card-knowledge.model';
+import { I18nService } from '../../../services/i18n.service';
+import { CardKnowledgeService } from '../../../services/card-knowledge.service';
+import { CardLegalityFacade } from '../../../services/card-legality.facade';
+import { YgoApiService } from '../../../services/ygo-api.service';
+import { FormatStore } from '../../../core/stores/format.store';
+import { sortYgoCardsByPlayability } from '../../../utils/card-sort.utils';
 
 interface SearchIntent {
   query: string;

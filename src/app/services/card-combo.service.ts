@@ -19,7 +19,7 @@ import { scoreForCompletion } from '../utils/completion-prompt.utils';
 import { CardLegalityFacade } from './card-legality.facade';
 import { CardKnowledgeService } from './card-knowledge.service';
 import { SynergyRetrievalService } from './synergy-retrieval.service';
-import { DeckStrategyStore } from '../stores/deck-strategy.store';
+import { DeckStrategyStore } from '../features/decklist/stores/deck-strategy.store';
 import { toDisplayTags } from '../utils/knowledge-display.utils';
 import { SYNERGY_REASON_KEYS } from '../utils/knowledge-constants';
 import { CardKnowledgeIndexService } from './card-knowledge-index.service';

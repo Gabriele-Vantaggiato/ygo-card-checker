@@ -1,5 +1,6 @@
 {
   "app.title": "YGO Card Checker",
+  "common.close": "Chiudi",
   "app.titleShort": "YGO Checker",
   "app.subtitle": "Verifica se una carta è giocabile nel formato selezionato",
   "nav.search": "Ricerca",

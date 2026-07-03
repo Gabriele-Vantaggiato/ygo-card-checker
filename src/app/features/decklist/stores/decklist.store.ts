@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { forkJoin, Observable, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
-import { BanlistStatus } from '../models/ygo-format.model';
+import { BanlistStatus } from '../../../models/ygo-format.model';
 import {
   AddToDecklistPayload,
   Decklist,
@@ -9,15 +9,15 @@ import {
   DecklistStorage,
   DeckSection,
   maxCopiesForStatus,
-} from '../models/decklist.model';
-import { DecklistService } from '../services/decklist.service';
-import { CardLegalityFacade } from '../services/card-legality.facade';
-import { I18nService } from '../services/i18n.service';
-import { YgoApiService } from '../services/ygo-api.service';
-import { YdkeService, YdkeSections, passcodesToQuantityMap } from '../services/ydke.service';
-import { YgoFormat } from '../models/ygo-format.model';
-import { YgoCard, LegalityResult } from '../models/ygo-card.model';
-import { DeckCompletionPlan } from '../models/deck-completion.model';
+} from '../../../models/decklist.model';
+import { DecklistService } from '../../../services/decklist.service';
+import { CardLegalityFacade } from '../../../services/card-legality.facade';
+import { I18nService } from '../../../services/i18n.service';
+import { YgoApiService } from '../../../services/ygo-api.service';
+import { YdkeService, YdkeSections, passcodesToQuantityMap } from '../../../services/ydke.service';
+import { YgoFormat } from '../../../models/ygo-format.model';
+import { YgoCard, LegalityResult } from '../../../models/ygo-card.model';
+import { DeckCompletionPlan } from '../../../models/deck-completion.model';
 
 @Injectable({ providedIn: 'root' })
 export class DecklistStore {

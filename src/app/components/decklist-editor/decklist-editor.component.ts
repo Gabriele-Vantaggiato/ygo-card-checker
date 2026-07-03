@@ -1,18 +1,27 @@
-import { Component, DestroyRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { FormsModule } from '@angular/forms';
 import { Subscription, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
 import { Decklist, DecklistCard } from '../../models/decklist.model';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
-import { BanlistStatus } from '../../models/ygo-format.model';
 import { CardLegalityFacade } from '../../services/card-legality.facade';
 import { I18nService } from '../../services/i18n.service';
 import { YgoApiService } from '../../services/ygo-api.service';
 import { splitDeckIntoYdkeSections, parseYdkeUrl } from '../../services/ydke.service';
-import { DecklistStore } from '../../stores/decklist.store';
-import { FormatStore } from '../../stores/format.store';
+import { DecklistStore } from '../../features/decklist/stores/decklist.store';
+import { FormatStore } from '../../core/stores/format.store';
 import {
   computeTypeStats,
   deckSections,
@@ -21,15 +30,8 @@ import {
   sortDeckCards,
   splitDeckSections,
 } from '../../utils/deck-card.utils';
-import { DECK_SECTION_I18N_KEYS, DeckSectionKey } from '../../utils/deck-section.utils';
-import {
-  quantityBadgeClass,
-  quantityLabelKey,
-  verdictBadgeClass,
-  verdictBannerClass,
-  verdictLabelKey,
-  verdictShortKey,
-} from '../../utils/legality-display.utils';
+import { DECK_SECTION_I18N_KEYS } from '../../utils/deck-section.utils';
+import { verdictShortKey } from '../../utils/legality-display.utils';
 import { FormatSelectorComponent } from '../format-selector/format-selector.component';
 import { DeckSuggestionsPanelComponent } from '../deck-suggestions-panel/deck-suggestions-panel.component';
 import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.component';
@@ -37,89 +39,61 @@ import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckCompletionService } from '../../services/deck-completion.service';
 import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy-panel.component';
 import { DecklistSearchSidebarComponent } from '../decklist-search-sidebar/decklist-search-sidebar.component';
-import { DeckStrategyStore } from '../../stores/deck-strategy.store';
+import { DeckStrategyStore } from '../../features/decklist/stores/deck-strategy.store';
 import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
 import { DeckCompletionPlan } from '../../models/deck-completion.model';
-
-type InspectTarget =
-  | { kind: 'deck'; card: DecklistCard }
-  | { kind: 'search'; card: YgoCard };
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { DecklistEditorHeaderComponent } from './decklist-editor-header.component';
+import { DeckSectionGridComponent } from './deck-section-grid.component';
+import {
+  DeckCardInspectMobileComponent,
+  DeckCardInspectPanelComponent,
+} from './deck-card-inspect-panel.component';
+import { CompleteDeckDialogComponent } from './complete-deck-dialog.component';
+import { YdkeExportDialogComponent, YdkeImportDialogComponent } from './ydke-dialogs.component';
+import {
+  DeckCardInspectViewModel,
+  DeckSectionViewModel,
+  InspectTarget,
+} from './decklist-editor.model';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-editor',
   standalone: true,
-  imports: [FormsModule, FormatSelectorComponent, DeckSuggestionsPanelComponent, DeckStatsStripComponent, DeckStrategyPanelComponent, DecklistSearchSidebarComponent],
+  imports: [
+    TranslatePipe,
+    FormatSelectorComponent,
+    DeckSuggestionsPanelComponent,
+    DeckStatsStripComponent,
+    DeckStrategyPanelComponent,
+    DecklistSearchSidebarComponent,
+    DecklistEditorHeaderComponent,
+    DeckSectionGridComponent,
+    DeckCardInspectPanelComponent,
+    DeckCardInspectMobileComponent,
+    CompleteDeckDialogComponent,
+    YdkeExportDialogComponent,
+    YdkeImportDialogComponent,
+  ],
   template: `
     @if (deck(); as activeDeck) {
       <section class="flex flex-col min-h-0 gap-4">
-        <header class="duel-panel px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-3">
-          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" (click)="back.emit()">
-              ←
-            </button>
-
-            <div class="flex-1 min-w-0 flex items-center gap-2">
-              @if (renaming()) {
-                <input
-                  type="text"
-                  class="input input-bordered input-sm flex-1 min-w-0"
-                  [ngModel]="renameDraft()"
-                  (ngModelChange)="renameDraft.set($event)"
-                  (keydown.enter)="commitRename()"
-                  (keydown.escape)="cancelRename()"
-                />
-                <button type="button" class="btn btn-primary btn-sm" (click)="commitRename()">
-                  {{ i18n.t('decklist.renameSave') }}
-                </button>
-              } @else {
-                <h2 class="font-bold text-lg truncate tracking-tight">{{ activeDeck.name }}</h2>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-xs btn-square shrink-0"
-                  [attr.aria-label]="i18n.t('decklist.rename')"
-                  (click)="startRename(activeDeck.name)"
-                >
-                  ✎
-                </button>
-              }
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <button type="button" class="btn btn-primary btn-sm" (click)="openCompleteDeckDialog()">
-              {{ i18n.t('decklist.completeDeck') }}
-            </button>
-            <div class="join hidden sm:inline-flex">
-              <button type="button" class="btn btn-outline btn-sm join-item" (click)="openImportYdkeDialog()">
-                {{ i18n.t('decklist.importYdke') }}
-              </button>
-              <button type="button" class="btn btn-outline btn-sm join-item" (click)="openYdkeDialog(activeDeck)">
-                {{ i18n.t('decklist.exportYdke') }}
-              </button>
-            </div>
-            <div class="dropdown dropdown-end sm:hidden">
-              <button type="button" tabindex="0" class="btn btn-outline btn-sm">
-                {{ i18n.t('decklist.toolbar.more') }}
-              </button>
-              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-44 p-2 shadow-lg border border-base-300">
-                <li><button type="button" (click)="openImportYdkeDialog()">{{ i18n.t('decklist.importYdke') }}</button></li>
-                <li><button type="button" (click)="openYdkeDialog(activeDeck)">{{ i18n.t('decklist.exportYdke') }}</button></li>
-                <li><button type="button" (click)="decklistStore.sortActiveDeck()">{{ i18n.t('decklist.editor.sort') }}</button></li>
-                <li><button type="button" class="text-error" (click)="decklistStore.deleteActiveDecklist(); back.emit()">{{ i18n.t('decklist.delete') }}</button></li>
-              </ul>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm hidden sm:inline-flex" (click)="decklistStore.sortActiveDeck()">
-              {{ i18n.t('decklist.editor.sort') }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-ghost btn-sm text-error hidden sm:inline-flex ml-auto"
-              (click)="decklistStore.deleteActiveDecklist(); back.emit()"
-            >
-              {{ i18n.t('decklist.delete') }}
-            </button>
-          </div>
-        </header>
+        <app-decklist-editor-header
+          [deck]="activeDeck"
+          [renaming]="renaming()"
+          [renameDraft]="renameDraft()"
+          (back)="back.emit()"
+          (renameStart)="startRename($event)"
+          (renameDraftChange)="renameDraft.set($event)"
+          (renameCommit)="commitRename()"
+          (renameCancel)="cancelRename()"
+          (completeDeck)="openCompleteDeckDialog()"
+          (importYdke)="openImportYdkeDialog()"
+          (exportYdke)="openYdkeDialog(activeDeck)"
+          (sortDeck)="decklistStore.sortActiveDeck()"
+          (deleteDeck)="decklistStore.deleteActiveDecklist(); back.emit()"
+        />
 
         <app-deck-stats-strip [cards]="liveDeck().cards" [mainTarget]="completeDeckTarget()" />
 
@@ -132,10 +106,14 @@ type InspectTarget =
               (selectedChange)="formatStore.setFormatId($event)"
             />
           </div>
-          <app-deck-strategy-panel class="min-w-0" />
+          @defer (on viewport) {
+            <app-deck-strategy-panel class="min-w-0" />
+          } @placeholder {
+            <div class="deck-context-format min-h-12"></div>
+          }
         </div>
 
-        <div role="tablist" class="workspace-tabs lg:hidden" [attr.aria-label]="i18n.t('decklist.editor.workspace')">
+        <div role="tablist" class="workspace-tabs lg:hidden" [attr.aria-label]="'decklist.editor.workspace' | translate">
           <button
             type="button"
             role="tab"
@@ -144,7 +122,7 @@ type InspectTarget =
             [attr.aria-selected]="mobileWorkspaceTab() === 'deck'"
             (click)="mobileWorkspaceTab.set('deck')"
           >
-            {{ i18n.t('decklist.editor.tab.deck') }}
+            {{ 'decklist.editor.tab.deck' | translate }}
           </button>
           <button
             type="button"
@@ -154,7 +132,7 @@ type InspectTarget =
             [attr.aria-selected]="mobileWorkspaceTab() === 'search'"
             (click)="mobileWorkspaceTab.set('search')"
           >
-            {{ i18n.t('decklist.editor.tab.search') }}
+            {{ 'decklist.editor.tab.search' | translate }}
           </button>
           @if (activeDeck.cards.length > 0) {
             <button
@@ -165,187 +143,27 @@ type InspectTarget =
               [attr.aria-selected]="mobileWorkspaceTab() === 'assist'"
               (click)="mobileWorkspaceTab.set('assist')"
             >
-              {{ i18n.t('decklist.editor.tab.assist') }}
+              {{ 'decklist.editor.tab.assist' | translate }}
             </button>
           }
         </div>
 
         <div class="deck-workspace">
-          <aside class="hidden lg:flex flex-col duel-panel overflow-hidden min-h-[24rem] max-h-[calc(100vh-11rem)]">
-            <div class="duel-panel-header shrink-0">
-              {{ i18n.t('decklist.editor.preview') }}
-            </div>
-            <div class="flex-1 min-h-0 flex flex-col p-3">
-              @if (inspectCard(); as target) {
-                <div class="flex flex-col gap-3 min-h-0 flex-1">
-                  <div class="flex gap-3 shrink-0">
-                    @if (inspectImage(); as src) {
-                      <img [src]="src" [alt]="inspectName()" class="w-20 rounded-lg shadow-md shrink-0" />
-                    }
-                    <div class="min-w-0 flex-1">
-                      <p class="font-semibold text-sm leading-tight line-clamp-2">{{ inspectName() }}</p>
-                      <p class="text-[11px] text-base-content/60 mt-1">{{ inspectType() }}</p>
-                      @if (inspectLegality(); as legality) {
-                        <div class="flex flex-wrap gap-1 mt-2">
-                          <span class="badge badge-xs" [class]="verdictBadgeClass(legality.verdict)">
-                            {{ verdictLabel(legality.verdict) }}
-                          </span>
-                          <span class="badge badge-xs badge-outline" [class]="quantityBadgeClass(legality.banlistStatus)">
-                            {{ quantityLabel(legality.banlistStatus) }}
-                          </span>
-                        </div>
-                      }
-                    </div>
-                  </div>
+          <app-deck-card-inspect-panel
+            [view]="inspectViewModel()"
+            (increment)="incrementInspect()"
+            (decrement)="decrementInspect()"
+            (removeCopy)="removeInspectedCopy()"
+            (openInSearch)="openInspectedInSearch()"
+          />
 
-                  @if (inspectDescLoading()) {
-                    <p class="text-xs text-base-content/50">{{ i18n.t('search.loading') }}</p>
-                  } @else if (inspectDesc(); as desc) {
-                    <section class="rounded-lg bg-base-200/50 p-2.5 flex-1 min-h-0 flex flex-col">
-                      <h3 class="text-[10px] font-semibold uppercase tracking-wide text-base-content/60 mb-1.5 shrink-0">
-                        {{ i18n.t('result.effect') }}
-                      </h3>
-                      <p class="text-xs leading-relaxed whitespace-pre-line text-base-content/90 overflow-y-auto min-h-0 flex-1">
-                        {{ desc }}
-                      </p>
-                    </section>
-                  }
-
-                  <div class="shrink-0 space-y-2 pt-1 border-t border-base-300">
-                    <div class="flex items-center justify-between gap-2">
-                      <span class="text-xs text-base-content/60">
-                        {{ inspectInDeckLabel() }}
-                      </span>
-                      <div class="join">
-                        <button
-                          type="button"
-                          class="btn btn-sm join-item"
-                          [disabled]="inspectQty() === 0"
-                          (click)="decrementInspect()"
-                        >
-                          −
-                        </button>
-                        <span class="btn btn-sm join-item btn-disabled tabular-nums no-animation">×{{ inspectQty() }}</span>
-                        <button
-                          type="button"
-                          class="btn btn-sm join-item"
-                          [disabled]="!canAddInspect()"
-                          (click)="incrementInspect()"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    @if (inspectQty() > 0) {
-                      <button
-                        type="button"
-                        class="btn btn-ghost btn-xs text-error w-full"
-                        (click)="removeOneCopy(inspectedCardId()!, $event)"
-                      >
-                        {{ i18n.t('decklist.editor.removeCopy') }}
-                      </button>
-                    }
-                    <button
-                      type="button"
-                      class="btn btn-ghost btn-xs w-full text-primary/80"
-                      (click)="openInspectedInSearch()"
-                    >
-                      {{ i18n.t('decklist.editor.openInSearch') }}
-                    </button>
-                  </div>
-                </div>
-              } @else {
-                <p class="text-sm text-base-content/50 text-center px-2 py-8">{{ i18n.t('decklist.editor.inspectHint') }}</p>
-              }
-            </div>
-          </aside>
-
-          <div
-            class="duel-panel overflow-hidden flex flex-col min-h-[24rem]"
-            [class.max-lg:hidden]="mobileWorkspaceTab() !== 'deck'"
-          >
-            <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-4 max-h-[min(70vh,48rem)]">
-              @for (section of sections(activeDeck); track section.key) {
-                <div>
-                  <div
-                    class="flex flex-wrap items-center gap-2 sm:gap-3 mb-2 px-2 py-1.5 rounded-lg bg-base-200/80 border border-base-300"
-                  >
-                    <span class="font-semibold text-sm">{{ sectionTitle(section.key) }}</span>
-                    <span class="text-xs text-base-content/60 tabular-nums">
-                      {{ sectionCardCount(section.cards) }}
-                    </span>
-                    <div class="flex gap-1.5 ml-auto text-[11px] font-medium">
-                      <span
-                        class="duel-section-chip bg-warning/15 text-warning"
-                        [title]="i18n.t('decklist.editor.type.monsters')"
-                      >
-                        {{ typeStats(section.cards).monsters }}M
-                      </span>
-                      <span
-                        class="duel-section-chip bg-success/15 text-success"
-                        [title]="i18n.t('decklist.editor.type.spells')"
-                      >
-                        {{ typeStats(section.cards).spells }}S
-                      </span>
-                      <span
-                        class="duel-section-chip bg-secondary/15 text-secondary"
-                        [title]="i18n.t('decklist.editor.type.traps')"
-                      >
-                        {{ typeStats(section.cards).traps }}T
-                      </span>
-                    </div>
-                  </div>
-
-                  @if (section.cards.length === 0) {
-                    <p class="text-xs text-base-content/50 px-2 py-6 text-center border border-dashed border-base-300 rounded-lg">
-                      {{ sectionEmpty(section.key) }}
-                    </p>
-                  } @else {
-                    <div class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-1">
-                      @for (card of expandSection(section.cards); track card.id + '-' + $index) {
-                        <div
-                          class="group relative aspect-[59/86] rounded transition-transform duration-200 ease-out hover:scale-[1.35] hover:z-30"
-                        >
-                          <button
-                            type="button"
-                            class="relative w-full h-full rounded overflow-hidden border-2 transition-colors"
-                            [class.border-primary]="isDeckInspected(card.id)"
-                            [class.border-transparent]="!isDeckInspected(card.id)"
-                            [class.ring-2]="isDeckInspected(card.id)"
-                            [class.ring-primary/40]="isDeckInspected(card.id)"
-                            (click)="inspectDeckCard(card)"
-                          >
-                            @if (card.imageUrlSmall; as src) {
-                              <img [src]="src" [alt]="" class="w-full h-full object-cover" loading="lazy" />
-                            } @else {
-                              <span class="block w-full h-full bg-base-300"></span>
-                            }
-                            @if (card.legalityVerdict; as verdict) {
-                              @if (verdict !== 'legal') {
-                                <span
-                                  class="absolute bottom-0 inset-x-0 z-10 text-[8px] sm:text-[9px] font-bold text-center py-0.5 leading-tight truncate px-0.5"
-                                  [class]="verdictBannerClass(verdict)"
-                                >
-                                  {{ verdictShort(verdict) }}
-                                </span>
-                              }
-                            }
-                          </button>
-                          <button
-                            type="button"
-                            class="absolute -top-0.5 -right-0.5 z-20 btn btn-error btn-circle shadow-md transition-opacity h-4 w-4 min-h-4 min-w-4 text-[9px] p-0 opacity-90 lg:-top-1 lg:-right-1 lg:btn-xs lg:h-auto lg:w-auto lg:min-h-0 lg:min-w-0 lg:opacity-0 lg:group-hover:opacity-100"
-                            [attr.aria-label]="i18n.t('decklist.editor.removeCopy')"
-                            (click)="removeOneCopy(card.id, $event)"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-            </div>
+          <div [class.max-lg:hidden]="mobileWorkspaceTab() !== 'deck'">
+            <app-deck-section-grid
+              [sections]="sectionViewModels()"
+              [inspectedCardId]="deckInspectedCardId()"
+              (cardInspect)="inspectDeckCard($event)"
+              (cardRemove)="removeOneCopy($event.cardId, $event.event)"
+            />
           </div>
 
           <div class="deck-rail" [class.max-lg:hidden]="mobileWorkspaceTab() !== 'search'">
@@ -359,300 +177,84 @@ type InspectTarget =
 
             @if (activeDeck.cards.length > 0) {
               <div class="hidden lg:block min-h-0 flex-1">
-                <app-deck-suggestions-panel
-                  [compact]="true"
-                  [loading]="deckSuggestionsLoading()"
-                  [available]="deckSuggestions().available"
-                  [sourceCount]="deckSuggestions().sourceCount"
-                  [groups]="deckSuggestions().groups"
-                  [formatLabel]="deckSuggestionFormatLabel()"
-                  (cardSelected)="addSuggestion($event)"
-                />
+                @defer (on viewport) {
+                  <app-deck-suggestions-panel
+                    [compact]="true"
+                    [loading]="deckSuggestionsLoading()"
+                    [available]="deckSuggestions().available"
+                    [sourceCount]="deckSuggestions().sourceCount"
+                    [groups]="deckSuggestions().groups"
+                    [formatLabel]="deckSuggestionFormatLabel()"
+                    (cardSelected)="addSuggestion($event)"
+                  />
+                } @placeholder {
+                  <div class="duel-panel min-h-24"></div>
+                }
               </div>
             }
           </div>
         </div>
 
-        @if (inspectCard(); as target) {
-          <div class="lg:hidden rounded-xl border border-base-300 bg-base-100 p-3 flex flex-col gap-3">
-            <div class="flex gap-3 items-start">
-              @if (inspectImage(); as src) {
-                <img [src]="src" [alt]="" class="w-14 h-20 object-cover rounded-lg shrink-0" />
-              }
-              <div class="flex-1 min-w-0">
-                <p class="font-semibold text-sm leading-tight">{{ inspectName() }}</p>
-                @if (inspectLegality(); as legality) {
-                  <span class="badge badge-xs mt-1" [class]="verdictBadgeClass(legality.verdict)">
-                    {{ verdictLabel(legality.verdict) }}
-                  </span>
-                }
-                <div class="join mt-2">
-                  <button
-                    type="button"
-                    class="btn btn-xs join-item"
-                    [disabled]="inspectQty() === 0"
-                    (click)="decrementInspect()"
-                  >
-                    −
-                  </button>
-                  <span class="btn btn-xs join-item btn-disabled tabular-nums no-animation">×{{ inspectQty() }}</span>
-                  <button
-                    type="button"
-                    class="btn btn-xs join-item"
-                    [disabled]="!canAddInspect()"
-                    (click)="incrementInspect()"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-              <button
-                type="button"
-                class="btn btn-ghost btn-xs btn-circle text-error shrink-0"
-                [disabled]="inspectQty() === 0"
-                [attr.aria-label]="i18n.t('decklist.editor.removeCopy')"
-                (click)="removeOneCopy(inspectedCardId()!, $event)"
-              >
-                ✕
-              </button>
-            </div>
-            @if (inspectDesc(); as desc) {
-              <section class="rounded-lg bg-base-200/50 p-2.5 max-h-32 overflow-y-auto">
-                <h3 class="text-[10px] font-semibold uppercase tracking-wide text-base-content/60 mb-1">
-                  {{ i18n.t('result.effect') }}
-                </h3>
-                <p class="text-xs leading-relaxed whitespace-pre-line text-base-content/90">{{ desc }}</p>
-              </section>
-            }
-          </div>
-        }
+        <app-deck-card-inspect-mobile
+          [view]="inspectViewModel()"
+          (increment)="incrementInspect()"
+          (decrement)="decrementInspect()"
+          (removeCopy)="removeInspectedCopy()"
+        />
       </section>
 
       @if (activeDeck.cards.length > 0) {
         <div class="lg:hidden" [class.hidden]="mobileWorkspaceTab() !== 'assist'">
-          <app-deck-suggestions-panel
-            [loading]="deckSuggestionsLoading()"
-            [available]="deckSuggestions().available"
-            [sourceCount]="deckSuggestions().sourceCount"
-            [groups]="deckSuggestions().groups"
-            [formatLabel]="deckSuggestionFormatLabel()"
-            (cardSelected)="addSuggestion($event)"
-          />
+          @defer (when mobileWorkspaceTab() === 'assist') {
+            <app-deck-suggestions-panel
+              [loading]="deckSuggestionsLoading()"
+              [available]="deckSuggestions().available"
+              [sourceCount]="deckSuggestions().sourceCount"
+              [groups]="deckSuggestions().groups"
+              [formatLabel]="deckSuggestionFormatLabel()"
+              (cardSelected)="addSuggestion($event)"
+            />
+          }
         </div>
       }
     }
 
-    @if (completeDeckDialogOpen()) {
-      <dialog class="modal modal-open" open>
-        <div class="modal-box duel-modal max-w-2xl max-h-[90vh] flex flex-col">
-          <h3 class="font-bold text-lg">{{ i18n.t('decklist.completion.title') }}</h3>
-          <p class="text-sm text-base-content/60 mt-1">{{ i18n.t('decklist.completion.hint') }}</p>
+    <app-complete-deck-dialog
+      [open]="completeDeckDialogOpen()"
+      [targetMain]="completeDeckTarget()"
+      [includeSide]="completeDeckIncludeSide()"
+      [mainCount]="mainDeckCount()"
+      [extraCount]="extraDeckCount()"
+      [sideCount]="sideDeckCount()"
+      [planning]="completeDeckPlanning()"
+      [plan]="completeDeckPlan()"
+      (targetMainChange)="onCompleteDeckTargetChange($event)"
+      (includeSideChange)="onCompleteDeckIncludeSideChange($event)"
+      (closed)="closeCompleteDeckDialog()"
+      (refresh)="refreshCompleteDeckPlan()"
+      (apply)="confirmCompleteDeck()"
+    />
 
-          <div class="mt-4 flex flex-wrap items-end gap-3">
-            <label class="form-control w-32">
-              <span class="label-text text-xs">{{ i18n.t('decklist.completion.targetMain') }}</span>
-              <input
-                type="number"
-                class="input input-bordered input-sm"
-                min="40"
-                max="60"
-                [ngModel]="completeDeckTarget()"
-                (ngModelChange)="onCompleteDeckTargetChange($event)"
-              />
-            </label>
-            <label class="label cursor-pointer gap-2 pb-2">
-              <input
-                type="checkbox"
-                class="checkbox checkbox-sm checkbox-primary"
-                [ngModel]="completeDeckIncludeSide()"
-                (ngModelChange)="onCompleteDeckIncludeSideChange($event)"
-              />
-              <span class="label-text text-sm">{{ i18n.t('decklist.completion.includeSide') }}</span>
-            </label>
-            <p class="text-sm text-base-content/70 pb-2">
-              {{
-                i18n.t('decklist.completion.progress', {
-                  current: '' + mainDeckCount(),
-                  target: '' + completeDeckTarget(),
-                })
-              }}
-              ·
-              {{
-                i18n.t('decklist.completion.extraProgress', {
-                  current: '' + (completeDeckPlan()?.currentExtra ?? extraDeckCount()),
-                  target: '15',
-                })
-              }}
-              @if (completeDeckIncludeSide()) {
-                ·
-                {{
-                  i18n.t('decklist.completion.sideProgress', {
-                    current: '' + (completeDeckPlan()?.currentSide ?? sideDeckCount()),
-                    target: '15',
-                  })
-                }}
-              }
-            </p>
-          </div>
+    <app-ydke-import-dialog
+      [open]="importYdkeDialogOpen()"
+      [draft]="importYdkeDraft()"
+      [replace]="importYdkeReplace()"
+      [importing]="importYdkeImporting()"
+      [preview]="importYdkePreview()"
+      (draftChange)="onImportYdkeDraftChange($event)"
+      (replaceChange)="importYdkeReplace.set($event)"
+      (closed)="closeImportYdkeDialog()"
+      (confirm)="confirmImportYdke()"
+    />
 
-          <app-deck-strategy-panel class="block mt-4" />
-
-          @if (completeDeckPlanning()) {
-            <p class="text-sm text-base-content/60 mt-4">{{ i18n.t('decklist.completion.planning') }}</p>
-          } @else if (completeDeckPlan(); as plan) {
-            @if (plan.status === 'already_complete') {
-              <p class="text-sm text-success mt-4">{{ i18n.t('decklist.completion.alreadyComplete') }}</p>
-            } @else if (plan.status === 'empty_deck') {
-              <p class="text-sm text-warning mt-4">{{ i18n.t('decklist.completion.emptyDeck') }}</p>
-            } @else if (plan.status === 'no_candidates') {
-              <p class="text-sm text-warning mt-4">{{ i18n.t('decklist.completion.noCandidates') }}</p>
-            } @else {
-              <div class="mt-4 space-y-4 overflow-y-auto flex-1 min-h-0">
-                @if (plan.comboLines.length > 0) {
-                  <div class="space-y-2">
-                    <h4 class="text-sm font-semibold">{{ i18n.t('decklist.completion.comboLines') }}</h4>
-                    @for (line of plan.comboLines; track line.id) {
-                      <div class="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
-                        <div class="flex flex-wrap items-center gap-2">
-                          @for (step of line.steps; track step.cardId + step.role; let last = $last) {
-                            <div class="flex items-center gap-2">
-                              <img [src]="step.imageSmall" [alt]="" class="w-8 h-11 object-cover rounded" loading="lazy" />
-                              <span class="text-xs font-medium">{{ step.name }}</span>
-                              @if (!last) {
-                                <span class="text-base-content/40">→</span>
-                              }
-                            </div>
-                          }
-                        </div>
-                      </div>
-                    }
-                  </div>
-                }
-
-                <div class="space-y-2">
-                  <h4 class="text-sm font-semibold">
-                    {{ i18n.t('decklist.completion.addsTitle', { count: '' + plan.adds.length }) }}
-                  </h4>
-                  <ul class="space-y-2">
-                    @for (add of plan.adds; track add.cardId) {
-                      <li class="flex items-center gap-3 p-2 rounded-lg bg-base-200/60">
-                        <img [src]="add.imageUrlSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
-                        <div class="flex-1 min-w-0">
-                          <p class="text-sm font-medium truncate">
-                            {{ add.name }}
-                            <span class="text-[10px] uppercase text-base-content/50 ml-1">
-                              {{ sectionLabel(add.section) }}
-                            </span>
-                          </p>
-                          <p class="text-[11px] text-base-content/60 truncate">
-                            {{ i18n.t(add.reasonKey, add.reasonParams) }}
-                          </p>
-                        </div>
-                        <span class="badge badge-primary">+{{ add.quantity }}</span>
-                      </li>
-                    }
-                  </ul>
-                </div>
-              </div>
-            }
-          }
-
-          <div class="modal-action shrink-0">
-            <button type="button" class="btn btn-ghost" (click)="closeCompleteDeckDialog()">
-              {{ i18n.t('decklist.dialog.cancel') }}
-            </button>
-            <button type="button" class="btn btn-ghost" [disabled]="completeDeckPlanning()" (click)="refreshCompleteDeckPlan()">
-              {{ i18n.t('decklist.completion.refresh') }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary"
-              [disabled]="completeDeckPlanning() || completeDeckPlan()?.status !== 'ready'"
-              (click)="confirmCompleteDeck()"
-            >
-              {{ i18n.t('decklist.completion.apply') }}
-            </button>
-          </div>
-        </div>
-        <form method="dialog" class="modal-backdrop">
-          <button type="button" (click)="closeCompleteDeckDialog()">close</button>
-        </form>
-      </dialog>
-    }
-
-    @if (importYdkeDialogOpen()) {
-      <dialog class="modal modal-open" open>
-        <div class="modal-box duel-modal max-w-2xl">
-          <h3 class="font-bold text-lg">{{ i18n.t('decklist.ydke.importTitle') }}</h3>
-          <p class="text-sm text-base-content/60 mt-1">{{ i18n.t('decklist.ydke.importHint') }}</p>
-          <textarea
-            class="textarea textarea-bordered w-full mt-4 font-mono text-xs leading-relaxed min-h-28"
-            [ngModel]="importYdkeDraft()"
-            (ngModelChange)="onImportYdkeDraftChange($event)"
-            [placeholder]="i18n.t('decklist.ydke.importPlaceholder')"
-          ></textarea>
-          @if (importYdkePreview(); as preview) {
-            <p class="text-xs text-base-content/60 mt-2">
-              {{ i18n.t('decklist.ydke.hint', preview) }}
-            </p>
-          }
-          <label class="label cursor-pointer justify-start gap-3 mt-3">
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm"
-              [ngModel]="importYdkeReplace()"
-              (ngModelChange)="importYdkeReplace.set($event)"
-            />
-            <span class="label-text">{{ i18n.t('decklist.ydke.importReplace') }}</span>
-          </label>
-          <div class="modal-action">
-            <button type="button" class="btn btn-ghost" (click)="closeImportYdkeDialog()">
-              {{ i18n.t('decklist.dialog.cancel') }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary"
-              [disabled]="!importYdkeDraft().trim() || importYdkeImporting()"
-              (click)="confirmImportYdke()"
-            >
-              @if (importYdkeImporting()) {
-                <span class="loading loading-spinner loading-xs"></span>
-              }
-              {{ i18n.t('decklist.ydke.importConfirm') }}
-            </button>
-          </div>
-        </div>
-        <form method="dialog" class="modal-backdrop">
-          <button type="button" (click)="closeImportYdkeDialog()">close</button>
-        </form>
-      </dialog>
-    }
-
-    @if (ydkeDialogOpen()) {
-      <dialog class="modal modal-open" open>
-        <div class="modal-box duel-modal max-w-2xl">
-          <h3 class="font-bold text-lg">{{ i18n.t('decklist.ydke.title') }}</h3>
-          <p class="text-sm text-base-content/60 mt-1">{{ ydkeHint() }}</p>
-          <textarea
-            class="textarea textarea-bordered w-full mt-4 font-mono text-xs leading-relaxed min-h-28"
-            readonly
-            [value]="ydkeUrl()"
-            (focus)="selectYdkeText($event)"
-          ></textarea>
-          <div class="modal-action">
-            <button type="button" class="btn btn-ghost" (click)="closeYdkeDialog()">
-              {{ i18n.t('decklist.ydke.close') }}
-            </button>
-            <button type="button" class="btn btn-primary" (click)="copyYdke()">
-              {{ i18n.t('decklist.ydke.copy') }}
-            </button>
-          </div>
-        </div>
-        <form method="dialog" class="modal-backdrop">
-          <button type="button" (click)="closeYdkeDialog()">close</button>
-        </form>
-      </dialog>
-    }
+    <app-ydke-export-dialog
+      [open]="ydkeDialogOpen()"
+      [url]="ydkeUrl()"
+      [hint]="ydkeHint()"
+      (closed)="closeYdkeDialog()"
+      (copy)="copyYdke()"
+      (selectText)="selectYdkeText($event)"
+    />
   `,
 })
 export class DecklistEditorComponent {
@@ -686,6 +288,21 @@ export class DecklistEditorComponent {
   readonly importYdkeDraft = signal('');
   readonly importYdkeReplace = signal(true);
   readonly importYdkeImporting = signal(false);
+  readonly importYdkePreview = signal<{ main: string; extra: string; side: string } | null>(null);
+  readonly deckSuggestionsLoading = signal(false);
+  readonly deckSuggestions = signal<DeckRelatedResult>({
+    suggestions: [],
+    groups: [],
+    sourceCount: 0,
+    available: false,
+    formatId: null,
+  });
+  readonly completeDeckDialogOpen = signal(false);
+  readonly completeDeckTarget = signal(40);
+  readonly completeDeckIncludeSide = signal(true);
+  readonly completeDeckPlanning = signal(false);
+  readonly completeDeckPlan = signal<DeckCompletionPlan | null>(null);
+
   readonly deckRevision = computed(() => {
     const deck = this.liveDeck();
     const total = deck.cards.reduce((sum, card) => sum + card.quantity, 0);
@@ -696,15 +313,7 @@ export class DecklistEditorComponent {
     const deckId = this.deck().id;
     return this.decklistStore.decklists().find((item) => item.id === deckId) ?? this.deck();
   });
-  readonly importYdkePreview = signal<{ main: string; extra: string; side: string } | null>(null);
-  readonly deckSuggestionsLoading = signal(false);
-  readonly deckSuggestions = signal<DeckRelatedResult>({
-    suggestions: [],
-    groups: [],
-    sourceCount: 0,
-    available: false,
-    formatId: null,
-  });
+
   readonly deckSuggestionFormatLabel = computed(() => {
     const format = this.formatStore.selectedFormat();
     if (!format) {
@@ -713,11 +322,7 @@ export class DecklistEditorComponent {
     const lang = this.i18n.lang();
     return format.name[lang] ?? format.name.en;
   });
-  readonly completeDeckDialogOpen = signal(false);
-  readonly completeDeckTarget = signal(40);
-  readonly completeDeckIncludeSide = signal(true);
-  readonly completeDeckPlanning = signal(false);
-  readonly completeDeckPlan = signal<DeckCompletionPlan | null>(null);
+
   readonly mainDeckCount = computed(() =>
     sectionCardCount(splitDeckSections(this.liveDeck().cards).main),
   );
@@ -728,18 +333,65 @@ export class DecklistEditorComponent {
     sectionCardCount(splitDeckSections(this.liveDeck().cards).side),
   );
 
-  protected readonly sectionCardCount = sectionCardCount;
-  protected readonly quantityBadgeClass = quantityBadgeClass;
-  protected readonly verdictBadgeClass = verdictBadgeClass;
-  protected readonly verdictBannerClass = verdictBannerClass;
-
-  private readonly descCache = new Map<number, string>();
-  private completeDeckPlanSub: Subscription | null = null;
-
   readonly inspectedSearchCardId = computed(() => {
     const inspect = this.inspectCard();
     return inspect?.kind === 'search' ? inspect.card.id : null;
   });
+
+  readonly deckInspectedCardId = computed(() => {
+    const inspect = this.inspectCard();
+    return inspect?.kind === 'deck' ? inspect.card.id : null;
+  });
+
+  readonly sectionViewModels = computed((): DeckSectionViewModel[] => {
+    const sections = deckSections(sortDeckCards(this.liveDeck().cards));
+    return sections.map((section) => {
+      const stats = computeTypeStats(section.cards);
+      return {
+        key: section.key,
+        titleKey: DECK_SECTION_I18N_KEYS[section.key].title,
+        emptyKey: DECK_SECTION_I18N_KEYS[section.key].empty,
+        count: sectionCardCount(section.cards),
+        monsters: stats.monsters,
+        spells: stats.spells,
+        traps: stats.traps,
+        cards: section.cards,
+        expandedCards: expandCardsForGrid(section.cards).map((card) => ({
+          card,
+          verdictShortKey: card.legalityVerdict ? verdictShortKey(card.legalityVerdict) : null,
+        })),
+      };
+    });
+  });
+
+  readonly inspectViewModel = computed((): DeckCardInspectViewModel | null => {
+    const inspect = this.inspectCard();
+    if (!inspect) {
+      return null;
+    }
+    const cardId = inspect.card.id;
+    const legality = this.resolveInspectLegality(inspect);
+    const qty = this.decklistStore.quantityInActive(cardId);
+    return {
+      cardId,
+      name: inspect.card.name,
+      type: inspect.card.type,
+      imageUrl:
+        inspect.kind === 'deck'
+          ? inspect.card.imageUrlSmall
+          : (inspect.card.card_images[0]?.image_url_small ?? null),
+      desc: this.inspectDesc(),
+      descLoading: this.inspectDescLoading(),
+      legality,
+      qty,
+      inDeckLabelKey: 'decklist.editor.inDeck',
+      inDeckLabelParams: { qty: String(qty) },
+      canAdd: this.canAddInspectTarget(inspect, legality),
+    };
+  });
+
+  private readonly descCache = new Map<number, string>();
+  private completeDeckPlanSub: Subscription | null = null;
 
   constructor() {
     this.formatStore.formatId$
@@ -787,12 +439,10 @@ export class DecklistEditorComponent {
       const revision = this.deckRevision();
       const deck = this.liveDeck();
       const format = this.formatStore.selectedFormat();
-      const formatId = this.formatStore.formatId();
       void this.strategy.direction();
       void this.strategy.prompt();
       void this.strategy.useOllama();
       void revision;
-      void formatId;
 
       if (!format || deck.cards.length === 0) {
         this.deckSuggestions.set({
@@ -823,26 +473,6 @@ export class DecklistEditorComponent {
       });
       onCleanup(() => sub.unsubscribe());
     });
-  }
-
-  sections(deck: Decklist) {
-    return deckSections(sortDeckCards(deck.cards));
-  }
-
-  sectionTitle(key: DeckSectionKey): string {
-    return this.i18n.t(DECK_SECTION_I18N_KEYS[key].title);
-  }
-
-  sectionEmpty(key: DeckSectionKey): string {
-    return this.i18n.t(DECK_SECTION_I18N_KEYS[key].empty);
-  }
-
-  typeStats(cards: DecklistCard[]) {
-    return computeTypeStats(cards);
-  }
-
-  expandSection(cards: DecklistCard[]): DecklistCard[] {
-    return expandCardsForGrid(cards);
   }
 
   startRename(name: string): void {
@@ -876,106 +506,9 @@ export class DecklistEditorComponent {
     this.inspectDescLoading.set(false);
   }
 
-  inspectedCardId(): number | null {
-    const inspect = this.inspectCard();
-    return inspect?.card.id ?? null;
-  }
-
-  isDeckInspected(cardId: number): boolean {
-    const inspect = this.inspectCard();
-    return inspect?.kind === 'deck' && inspect.card.id === cardId;
-  }
-
-  isSearchInspected(cardId: number): boolean {
-    return this.inspectedSearchCardId() === cardId;
-  }
-
-  private searchLegalityMap(): Map<number, LegalityResult> {
-    return this.searchSidebar()?.searchLegality() ?? new Map();
-  }
-
-  inspectName(): string {
-    return this.inspectCard()?.card.name ?? '';
-  }
-
-  inspectType(): string {
-    const inspect = this.inspectCard();
-    if (!inspect) {
-      return '';
-    }
-    return inspect.kind === 'deck' ? inspect.card.type : inspect.card.type;
-  }
-
-  inspectImage(): string | null {
-    const inspect = this.inspectCard();
-    if (!inspect) {
-      return null;
-    }
-    if (inspect.kind === 'deck') {
-      return inspect.card.imageUrlSmall;
-    }
-    return inspect.card.card_images[0]?.image_url_small ?? null;
-  }
-
-  inspectLegality(): LegalityResult | null {
-    const inspect = this.inspectCard();
-    if (!inspect) {
-      return null;
-    }
-    if (inspect.kind === 'search') {
-      return this.searchLegalityMap().get(inspect.card.id) ?? null;
-    }
-    const card = inspect.card;
-    if (card.legalityVerdict && card.banlistStatus) {
-      return {
-        verdict: card.legalityVerdict,
-        banlistStatus: card.banlistStatus,
-        tcgDate: null,
-        reasons: [],
-      };
-    }
-    return null;
-  }
-
-  inspectQty(): number {
-    const id = this.inspectedCardId();
-    return id ? this.qtyInDeck(id) : 0;
-  }
-
-  inspectInDeckLabel(): string {
-    return this.i18n.t('decklist.editor.inDeck', { qty: String(this.inspectQty()) });
-  }
-
-  canAddInspect(): boolean {
-    const inspect = this.inspectCard();
-    if (!inspect) {
-      return false;
-    }
-    const cardId = inspect.card.id;
-    if (inspect.kind === 'deck' && inspect.card.banlistStatus === 'Forbidden') {
-      return false;
-    }
-    if (inspect.kind === 'search' && this.isSearchForbidden(cardId)) {
-      return false;
-    }
-    const banlistStatus =
-      inspect.kind === 'deck'
-        ? inspect.card.banlistStatus ?? null
-        : this.searchLegalityMap().get(cardId)?.banlistStatus ?? null;
-    return this.decklistStore.canAddToDeck(this.deck().id, cardId, banlistStatus);
-  }
-
-  canAddSearchCard(cardId: number): boolean {
-    if (this.isSearchForbidden(cardId)) {
-      return false;
-    }
-    const legality = this.searchLegalityMap().get(cardId);
-    return this.decklistStore.canAddToDeck(this.deck().id, cardId, legality?.banlistStatus ?? null);
-  }
-
   incrementInspect(): void {
     const inspect = this.inspectCard();
-    if (!inspect || !this.canAddInspect()) {
+    if (!inspect || !this.inspectViewModel()?.canAdd) {
       return;
     }
     if (inspect.kind === 'deck') {
@@ -987,51 +520,22 @@ export class DecklistEditorComponent {
 
   decrementInspect(): void {
     const inspect = this.inspectCard();
-    const id = this.inspectedCardId();
-    if (!id || this.inspectQty() === 0) {
+    const id = inspect?.card.id;
+    if (!id || this.decklistStore.quantityInActive(id) === 0) {
       return;
     }
     const banlistStatus =
       inspect?.kind === 'deck'
         ? inspect.card.banlistStatus ?? null
-        : this.searchLegalityMap().get(id)?.banlistStatus ?? null;
+        : (this.searchLegalityMap().get(id)?.banlistStatus ?? null);
     this.decklistStore.decrementCard(id, banlistStatus);
   }
 
-  private loadInspectDesc(cardId: number): void {
-    const cached = this.descCache.get(cardId);
-    if (cached) {
-      this.inspectDesc.set(cached);
-      this.inspectDescLoading.set(false);
-      return;
+  removeInspectedCopy(): void {
+    const id = this.inspectViewModel()?.cardId;
+    if (id) {
+      this.removeOneCopy(id);
     }
-    this.inspectDescLoading.set(true);
-    this.inspectDesc.set(null);
-    this.ygoApi
-      .getCardById$(cardId, this.i18n.lang())
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((card) => {
-        const desc = card?.desc ?? null;
-        if (desc) {
-          this.descCache.set(cardId, desc);
-        }
-        this.inspectDesc.set(desc);
-        this.inspectDescLoading.set(false);
-      });
-  }
-
-  openInspectedInSearch(): void {
-    const id = this.inspectedCardId();
-    if (!id) {
-      return;
-    }
-    void this.router.navigate(['/'], {
-      queryParams: {
-        cardId: id,
-        from: 'decklist',
-        deckId: this.deck().id,
-      },
-    });
   }
 
   removeOneCopy(cardId: number, event?: Event): void {
@@ -1039,19 +543,12 @@ export class DecklistEditorComponent {
     event?.preventDefault();
     this.decklistStore.removeOneCopy(cardId);
     const inspect = this.inspectCard();
-    if (inspect?.card.id === cardId) {
-      if (inspect.kind === 'deck') {
-        const deck = this.deck();
-        const fresh = deck.cards.find((c) => c.id === cardId);
-        if (fresh) {
-          this.inspectCard.set({ kind: 'deck', card: fresh });
-        }
+    if (inspect?.card.id === cardId && inspect.kind === 'deck') {
+      const fresh = this.deck().cards.find((c) => c.id === cardId);
+      if (fresh) {
+        this.inspectCard.set({ kind: 'deck', card: fresh });
       }
     }
-  }
-
-  qtyInDeck(cardId: number): number {
-    return this.decklistStore.quantityInActive(cardId);
   }
 
   addSearchCard(card: YgoCard): void {
@@ -1059,7 +556,6 @@ export class DecklistEditorComponent {
     if (legality?.banlistStatus === 'Forbidden') {
       return;
     }
-
     this.decklistStore.addCard({
       id: card.id,
       name: card.name,
@@ -1070,20 +566,14 @@ export class DecklistEditorComponent {
     });
   }
 
-  isSearchForbidden(cardId: number): boolean {
-    return this.searchLegalityMap().get(cardId)?.banlistStatus === 'Forbidden';
-  }
-
-  verdictLabel(verdict: LegalityResult['verdict']): string {
-    return this.i18n.t(verdictLabelKey(verdict));
-  }
-
-  quantityLabel(status: BanlistStatus): string {
-    return this.i18n.t(quantityLabelKey(status));
-  }
-
-  verdictShort(verdict: LegalityResult['verdict']): string {
-    return this.i18n.t(verdictShortKey(verdict));
+  openInspectedInSearch(): void {
+    const id = this.inspectViewModel()?.cardId;
+    if (!id) {
+      return;
+    }
+    void this.router.navigate(['/'], {
+      queryParams: { cardId: id, from: 'decklist', deckId: this.deck().id },
+    });
   }
 
   openYdkeDialog(deck: Decklist): void {
@@ -1094,7 +584,7 @@ export class DecklistEditorComponent {
     }
     this.ydkeUrl.set(url);
     this.ydkeHint.set(
-      this.i18n.t('decklist.ydke.hint', {
+      this.i18n.translate('decklist.ydke.hint', {
         main: `${sections.main.length}`,
         extra: `${sections.extra.length}`,
         side: `${sections.side.length}`,
@@ -1163,7 +653,6 @@ export class DecklistEditorComponent {
     if (!draft || !format || this.importYdkeImporting()) {
       return;
     }
-
     this.importYdkeImporting.set(true);
     this.decklistStore
       .importFromYdke$(draft, deck.id, this.importYdkeReplace(), format)
@@ -1175,9 +664,7 @@ export class DecklistEditorComponent {
             this.closeImportYdkeDialog();
           }
         },
-        error: () => {
-          this.importYdkeImporting.set(false);
-        },
+        error: () => this.importYdkeImporting.set(false),
       });
   }
 
@@ -1194,9 +681,7 @@ export class DecklistEditorComponent {
           if (!card) {
             return of(null);
           }
-          return this.cardLegality.evaluate$(card, format).pipe(
-            map((result) => ({ card, result })),
-          );
+          return this.cardLegality.evaluate$(card, format).pipe(map((result) => ({ card, result })));
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -1238,7 +723,9 @@ export class DecklistEditorComponent {
 
   onCompleteDeckTargetChange(value: number | string): void {
     const parsed = typeof value === 'number' ? value : Number(value);
-    this.completeDeckTarget.set(this.completion.normalizeTargetMain(Number.isFinite(parsed) ? parsed : 40));
+    this.completeDeckTarget.set(
+      this.completion.normalizeTargetMain(Number.isFinite(parsed) ? parsed : 40),
+    );
     this.refreshCompleteDeckPlan();
   }
 
@@ -1247,16 +734,11 @@ export class DecklistEditorComponent {
     this.refreshCompleteDeckPlan();
   }
 
-  sectionLabel(section: DeckSectionKey | undefined): string {
-    return this.i18n.t(DECK_SECTION_I18N_KEYS[section ?? 'main'].title);
-  }
-
   refreshCompleteDeckPlan(): void {
     const format = this.formatStore.selectedFormat();
     if (!format || this.completeDeckPlanning()) {
       return;
     }
-
     this.completeDeckPlanSub?.unsubscribe();
     this.completeDeckPlanning.set(true);
     this.completeDeckPlanSub = this.completion
@@ -1284,9 +766,68 @@ export class DecklistEditorComponent {
     if (!plan || plan.status !== 'ready') {
       return;
     }
-
     if (this.decklistStore.applyCompletionPlan(deck.id, plan)) {
       this.closeCompleteDeckDialog();
     }
+  }
+
+  private searchLegalityMap(): Map<number, LegalityResult> {
+    return this.searchSidebar()?.searchLegality() ?? new Map();
+  }
+
+  private resolveInspectLegality(inspect: InspectTarget): LegalityResult | null {
+    if (inspect.kind === 'search') {
+      return this.searchLegalityMap().get(inspect.card.id) ?? null;
+    }
+    const card = inspect.card;
+    if (card.legalityVerdict && card.banlistStatus) {
+      return {
+        verdict: card.legalityVerdict,
+        banlistStatus: card.banlistStatus,
+        tcgDate: null,
+        reasons: [],
+      };
+    }
+    return null;
+  }
+
+  private canAddInspectTarget(
+    inspect: InspectTarget,
+    legality: LegalityResult | null,
+  ): boolean {
+    const cardId = inspect.card.id;
+    if (inspect.kind === 'deck' && inspect.card.banlistStatus === 'Forbidden') {
+      return false;
+    }
+    if (inspect.kind === 'search' && legality?.banlistStatus === 'Forbidden') {
+      return false;
+    }
+    const banlistStatus =
+      inspect.kind === 'deck'
+        ? inspect.card.banlistStatus ?? null
+        : (legality?.banlistStatus ?? null);
+    return this.decklistStore.canAddToDeck(this.deck().id, cardId, banlistStatus);
+  }
+
+  private loadInspectDesc(cardId: number): void {
+    const cached = this.descCache.get(cardId);
+    if (cached) {
+      this.inspectDesc.set(cached);
+      this.inspectDescLoading.set(false);
+      return;
+    }
+    this.inspectDescLoading.set(true);
+    this.inspectDesc.set(null);
+    this.ygoApi
+      .getCardById$(cardId, this.i18n.lang())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((card) => {
+        const desc = card?.desc ?? null;
+        if (desc) {
+          this.descCache.set(cardId, desc);
+        }
+        this.inspectDesc.set(desc);
+        this.inspectDescLoading.set(false);
+      });
   }
 }

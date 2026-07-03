@@ -1,11 +1,13 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { LanguageToggleComponent } from '../components/language-toggle/language-toggle.component';
-import { DialogHostComponent } from '../components/dialog-host/dialog-host.component';
-import { ToastHostComponent } from '../components/toast-host/toast-host.component';
-import { I18nService } from '../services/i18n.service';
+import { LanguageToggleComponent } from '../../components/language-toggle/language-toggle.component';
+import { DialogHostComponent } from '../../components/dialog-host/dialog-host.component';
+import { ToastHostComponent } from '../../components/toast-host/toast-host.component';
+import { I18nService } from '../../services/i18n.service';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-shell',
   standalone: true,
   imports: [
@@ -15,6 +17,7 @@ import { I18nService } from '../services/i18n.service';
     LanguageToggleComponent,
     DialogHostComponent,
     ToastHostComponent,
+    TranslatePipe,
   ],
   template: `
     <div class="min-h-screen bg-base-200 flex flex-col">
@@ -23,8 +26,8 @@ import { I18nService } from '../services/i18n.service';
       >
         <div class="flex-1 min-w-0">
           <span class="font-bold tracking-tight text-primary text-sm sm:text-base md:text-lg whitespace-nowrap">
-            <span class="md:hidden">{{ i18n.t('app.titleShort') }}</span>
-            <span class="hidden md:inline">{{ i18n.t('app.title') }}</span>
+            <span class="md:hidden">{{ 'app.titleShort' | translate }}</span>
+            <span class="hidden md:inline">{{ 'app.title' | translate }}</span>
           </span>
         </div>
 
@@ -37,13 +40,13 @@ import { I18nService } from '../services/i18n.service';
               [routerLinkActiveOptions]="{ exact: true }"
               class="tab text-sm px-4"
             >
-              {{ i18n.t('nav.search') }}
+              {{ 'nav.search' | translate }}
             </a>
             <a role="tab" routerLink="/combo" routerLinkActive="tab-active" class="tab text-sm px-4">
-              {{ i18n.t('nav.combo') }}
+              {{ 'nav.combo' | translate }}
             </a>
             <a role="tab" routerLink="/decklist" routerLinkActive="tab-active" class="tab text-sm px-4">
-              {{ i18n.t('nav.decklist') }}
+              {{ 'nav.decklist' | translate }}
             </a>
           </div>
         </nav>
@@ -59,7 +62,7 @@ import { I18nService } from '../services/i18n.service';
 
       <nav
         class="mobile-tab-bar md:hidden"
-        [attr.aria-label]="i18n.t('nav.main')"
+        [attr.aria-label]="'nav.main' | translate"
       >
         <a
           routerLink="/"
@@ -68,15 +71,15 @@ import { I18nService } from '../services/i18n.service';
           class="mobile-tab"
         >
           <span class="mobile-tab-icon" aria-hidden="true">⌕</span>
-          <span class="mobile-tab-label">{{ i18n.t('nav.search') }}</span>
+          <span class="mobile-tab-label">{{ 'nav.search' | translate }}</span>
         </a>
         <a routerLink="/combo" routerLinkActive="mobile-tab-active" class="mobile-tab">
           <span class="mobile-tab-icon" aria-hidden="true">⚡</span>
-          <span class="mobile-tab-label">{{ i18n.t('nav.combo') }}</span>
+          <span class="mobile-tab-label">{{ 'nav.combo' | translate }}</span>
         </a>
         <a routerLink="/decklist" routerLinkActive="mobile-tab-active" class="mobile-tab">
           <span class="mobile-tab-icon" aria-hidden="true">▤</span>
-          <span class="mobile-tab-label">{{ i18n.t('nav.decklist') }}</span>
+          <span class="mobile-tab-label">{{ 'nav.decklist' | translate }}</span>
         </a>
       </nav>
 

@@ -1,22 +1,25 @@
-import { Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { CardSearchResultRowComponent } from '../card-search-result-row/card-search-result-row.component';
 import { I18nService } from '../../services/i18n.service';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-search',
   standalone: true,
-  imports: [CardSearchResultRowComponent],
+  imports: [CardSearchResultRowComponent,
+    TranslatePipe],
   host: { class: 'block lg:flex lg:flex-col lg:min-h-0 lg:flex-1' },
   template: `
     <div class="form-control w-full relative lg:flex lg:flex-col lg:min-h-0 lg:flex-1">
       <div class="label">
-        <span class="label-text font-medium">{{ i18n.t('search.label') }}</span>
+        <span class="label-text font-medium">{{ 'search.label' | translate }}</span>
       </div>
       <input
         type="text"
         class="input input-bordered input-lg w-full text-base"
-        [placeholder]="i18n.t('search.placeholder')"
+        [placeholder]="'search.placeholder' | translate"
         [value]="query()"
         (input)="onInput($event)"
         autocomplete="off"
@@ -24,7 +27,7 @@ import { I18nService } from '../../services/i18n.service';
 
       @if (loading() || legalityLoading()) {
         <div class="label">
-          <span class="label-text-alt">{{ i18n.t('search.loading') }}</span>
+          <span class="label-text-alt">{{ 'search.loading' | translate }}</span>
         </div>
       }
 
@@ -33,7 +36,7 @@ import { I18nService } from '../../services/i18n.service';
           class="bg-base-100 rounded-box border border-base-300 absolute z-20 w-full top-full mt-1 max-h-[min(70vh,28rem)] overflow-y-auto shadow-xl p-1.5 space-y-1 lg:hidden"
         >
           @if (loading() && listCards().length === 0) {
-            <li class="px-3 py-4 text-sm text-base-content/60">{{ i18n.t('search.loading') }}</li>
+            <li class="px-3 py-4 text-sm text-base-content/60">{{ 'search.loading' | translate }}</li>
           } @else {
             @for (card of listCards(); track card.id) {
             <li>
@@ -47,7 +50,7 @@ import { I18nService } from '../../services/i18n.service';
               />
             </li>
           } @empty {
-            <li class="px-3 py-4 text-sm text-base-content/60">{{ i18n.t('search.noResults') }}</li>
+            <li class="px-3 py-4 text-sm text-base-content/60">{{ 'search.noResults' | translate }}</li>
           }
           }
         </ul>
@@ -67,7 +70,7 @@ import { I18nService } from '../../services/i18n.service';
               (cardSelect)="selectCard($event)"
             />
           } @empty {
-            <p class="text-sm text-base-content/60 px-3 py-4">{{ i18n.t('search.noResults') }}</p>
+            <p class="text-sm text-base-content/60 px-3 py-4">{{ 'search.noResults' | translate }}</p>
           }
         </div>
       }

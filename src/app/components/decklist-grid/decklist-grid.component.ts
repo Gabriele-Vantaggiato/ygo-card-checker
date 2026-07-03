@@ -1,20 +1,24 @@
-import { Component, inject, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import { deckInitial } from '../../shared/utils/deck-display.utils';
 import { Decklist } from '../../models/decklist.model';
 import { I18nService } from '../../services/i18n.service';
-import { DecklistStore } from '../../stores/decklist.store';
+import { DecklistStore } from '../../features/decklist/stores/decklist.store';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-grid',
   standalone: true,
+  imports: [TranslatePipe],
   template: `
     <section class="space-y-4">
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-lg sm:text-xl font-bold tracking-wide uppercase">
-            {{ i18n.t('decklist.grid.title') }}
+            {{ 'decklist.grid.title' | translate }}
           </h2>
           <p class="text-xs sm:text-sm text-base-content/60 mt-0.5">
-            {{ i18n.t('decklist.grid.count', { count: '' + decklistStore.decklists().length }) }}
+            {{ 'decklist.grid.count' | translate: { count: '' + decklistStore.decklists().length } }}
           </p>
         </div>
       </header>
@@ -25,7 +29,7 @@ import { DecklistStore } from '../../stores/decklist.store';
         <button
           type="button"
           class="group aspect-[4/5] rounded-xl border-2 border-dashed border-primary/40 bg-base-200/40 hover:bg-primary/10 hover:border-primary transition-all flex flex-col items-center justify-center gap-3"
-          [attr.aria-label]="i18n.t('decklist.create.button')"
+          [attr.aria-label]="'decklist.create.button' | translate"
           (click)="createRequested.emit()"
         >
           <span
@@ -33,7 +37,7 @@ import { DecklistStore } from '../../stores/decklist.store';
           >
             +
           </span>
-          <span class="text-xs font-medium text-primary/80">{{ i18n.t('decklist.grid.add') }}</span>
+          <span class="text-xs font-medium text-primary/80">{{ 'decklist.grid.add' | translate }}</span>
         </button>
 
         @for (deck of decklistStore.decklists(); track deck.id) {
@@ -98,9 +102,7 @@ export class DecklistGridComponent {
   protected readonly decklistStore = inject(DecklistStore);
   protected readonly i18n = inject(I18nService);
 
-  deckInitial(name: string): string {
-    return name.trim().charAt(0).toUpperCase() || '?';
-  }
+  protected readonly deckInitial = deckInitial;
 
   deckCountLabel(deck: Decklist): string {
     return this.i18n.t('decklist.deckCardCount', {
