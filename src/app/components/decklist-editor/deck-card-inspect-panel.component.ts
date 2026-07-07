@@ -10,7 +10,10 @@ import { DeckCardInspectViewModel } from './decklist-editor.model';
   imports: [TranslatePipe, VerdictBadgeComponent, DuelPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-duel-panel [title]="'decklist.editor.preview' | translate" panelClass="min-h-[24rem] max-h-[calc(100vh-11rem)] hidden lg:flex flex-col overflow-hidden">
+    <app-duel-panel
+      [title]="'decklist.editor.preview' | translate"
+      panelClass="flex flex-col overflow-hidden max-h-[min(22rem,40vh)] lg:max-h-none"
+    >
       <div class="flex-1 min-h-0 flex flex-col p-3">
         @if (view(); as vm) {
           <div class="flex flex-col gap-3 min-h-0 flex-1">

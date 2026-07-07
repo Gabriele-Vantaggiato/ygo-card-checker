@@ -4,12 +4,12 @@ import { CardSearchResultRowComponent } from '../card-search-result-row/card-sea
 import { I18nService } from '../../services/i18n.service';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-search',
   standalone: true,
-  imports: [CardSearchResultRowComponent,
-    TranslatePipe],
+  imports: [CardSearchResultRowComponent, TranslatePipe, LoadingSkeletonComponent],
   host: { class: 'block lg:flex lg:flex-col lg:min-h-0 lg:flex-1' },
   template: `
     <div class="form-control w-full relative lg:flex lg:flex-col lg:min-h-0 lg:flex-1">
@@ -32,7 +32,9 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           class="bg-base-100 rounded-box border border-base-300 absolute z-20 w-full top-full mt-1 max-h-[min(70vh,28rem)] overflow-y-auto shadow-xl p-1.5 space-y-1 lg:hidden"
         >
           @if (loading() && listCards().length === 0) {
-            <li class="px-3 py-4 text-sm text-base-content/60">{{ 'search.loading' | translate }}</li>
+            <li class="px-1 py-1">
+              <app-loading-skeleton [rows]="3" rowClass="h-10 w-full" />
+            </li>
           } @else {
             @for (card of listCards(); track card.id) {
             <li>
@@ -66,7 +68,11 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               (cardSelect)="selectCard($event)"
             />
           } @empty {
-            <p class="text-sm text-base-content/60 px-3 py-4">{{ 'search.noResults' | translate }}</p>
+            @if (loading()) {
+              <app-loading-skeleton [rows]="4" rowClass="h-10 w-full" />
+            } @else {
+              <p class="text-sm text-base-content/60 px-3 py-4">{{ 'search.noResults' | translate }}</p>
+            }
           }
         </div>
       }

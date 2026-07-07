@@ -26,18 +26,27 @@ const EMPTY_COMBO: ComboResult = {
 };
 
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
+import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
+import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
+import { DuelPanelComponent } from '../../../shared/ui/duel-panel/duel-panel.component';
+import { DuelCollapseComponent } from '../../../shared/ui/duel-collapse/duel-collapse.component';
+import { LoadingSkeletonComponent } from '../../../shared/ui/loading-skeleton/loading-skeleton.component';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-combo-page',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [
+    RouterLink,
+    TranslatePipe,
+    PageHeaderComponent,
+    EmptyStateComponent,
+    DuelPanelComponent,
+    DuelCollapseComponent,
+    LoadingSkeletonComponent,
+  ],
   template: `
-    <main class="page-main page-stack max-w-3xl lg:max-w-4xl">
-      <header class="page-header flex flex-wrap items-start justify-between gap-3">
-        <div class="space-y-1 min-w-0">
-          <h1 class="page-title">{{ 'combo.title' | translate }}</h1>
-          <p class="page-subtitle">{{ 'combo.subtitle' | translate }}</p>
-        </div>
+    <main class="page-main page-stack max-w-3xl lg:max-w-4xl fade-in-panel">
+      <app-page-header titleKey="combo.title" subtitleKey="combo.subtitle">
         <a
           routerLink="/"
           [queryParams]="card() ? { cardId: card()!.id } : null"
@@ -46,16 +55,14 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
           <span aria-hidden="true">←</span>
           {{ 'combo.backToSearch' | translate }}
         </a>
-      </header>
+      </app-page-header>
 
       @if (loading()) {
-        <p class="text-sm text-base-content/60">{{ 'combo.loading' | translate }}</p>
+        <app-loading-skeleton [rows]="4" />
       } @else if (!card()) {
-        <div class="empty-state py-10">
-          <p class="empty-state-title">{{ 'combo.noCard' | translate }}</p>
-        </div>
+        <app-empty-state titleKey="combo.noCard" hostClass="py-10" />
       } @else {
-        <section class="duel-panel">
+        <app-duel-panel>
           <div class="p-4 sm:p-5">
             <div class="flex gap-4 items-start">
               @if (card()!.card_images[0].image_url_small; as img) {
@@ -67,7 +74,7 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
               </div>
             </div>
           </div>
-        </section>
+        </app-duel-panel>
 
         @if (!combo().available) {
           <p class="text-sm text-base-content/60">{{ 'combo.unavailable' | translate }}</p>
@@ -82,13 +89,13 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
             <section class="space-y-2">
               <h3 class="section-title">{{ 'combo.linesTitle' | translate }}</h3>
               @for (line of combo().lines; track line.id) {
-                <article class="duel-panel">
+                <app-duel-panel>
                   <div class="p-4 space-y-2">
-                    <ol class="space-y-2">
+                    <ol class="combo-timeline">
                       @for (step of line.steps; track step.cardId + step.role; let idx = $index) {
-                        <li class="flex items-center gap-3">
-                          <span class="badge badge-neutral badge-sm shrink-0">{{ idx + 1 }}</span>
-                          <img [src]="step.imageSmall" [alt]="" class="w-8 h-11 object-cover rounded shrink-0" loading="lazy" />
+                        <li class="combo-timeline-item">
+                          <span class="combo-timeline-marker">{{ idx + 1 }}</span>
+                          <img [src]="step.imageSmall" [alt]="" class="w-8 h-11 object-cover rounded shrink-0 shadow-sm" loading="lazy" />
                           <div class="min-w-0 flex-1">
                             <button
                               type="button"
@@ -105,14 +112,13 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
                       }
                     </ol>
                   </div>
-                </article>
+                </app-duel-panel>
               }
             </section>
           }
 
           @if (relatedCards().length > 0) {
-            <section class="duel-panel">
-              <div class="duel-panel-header">{{ 'combo.relatedTitle' | translate }}</div>
+            <app-duel-panel [title]="'combo.relatedTitle' | translate">
               <ul class="divide-y divide-base-300/60">
                 @for (item of relatedCards(); track item.id + item.group) {
                   <li>
@@ -132,16 +138,11 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
                   </li>
                 }
               </ul>
-            </section>
+            </app-duel-panel>
           }
 
           @if (combo().displayTags.length > 0 || combo().requirements.length > 0 || combo().payoffs.length > 0 || combo().effects.length > 0) {
-            <details class="duel-panel group">
-              <summary class="duel-panel-header cursor-pointer list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
-                <span class="text-primary/80 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
-                {{ 'combo.technicalDetails' | translate }}
-              </summary>
-              <div class="p-4 space-y-3">
+            <app-duel-collapse titleKey="combo.technicalDetails" bodyClass="p-4 space-y-3">
                 @if (combo().displayTags.length > 0) {
                   <div class="flex flex-wrap gap-1">
                     @for (tag of combo().displayTags; track tag.id) {
@@ -160,8 +161,7 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
                     <span class="badge badge-outline badge-info badge-sm">{{ effectLabel(effect) }}</span>
                   }
                 </div>
-              </div>
-            </details>
+            </app-duel-collapse>
           }
 
           @if (combo().enablers.length === 0 && combo().targets.length === 0 && combo().lines.length === 0 && combo().synergies.length === 0) {

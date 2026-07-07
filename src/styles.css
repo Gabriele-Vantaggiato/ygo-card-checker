@@ -22,11 +22,16 @@
   --color-neutral-content: oklch(90% 0.02 85);
   --color-info: oklch(62% 0.12 240);
   --color-success: oklch(68% 0.14 145);
-  --color-warning: oklch(78% 0.14 85);
+  --color-warning: oklch(72% 0.16 55);
   --color-error: oklch(58% 0.18 25);
   --radius-selector: 0.5rem;
   --radius-field: 0.5rem;
   --radius-box: 0.75rem;
+}
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Rajdhani", "DM Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -35,17 +40,73 @@
   }
 
   body {
-    @apply antialiased;
+    @apply antialiased font-sans text-base-content;
+    background-color: oklch(16% 0.035 265);
+  }
+
+  :where(button, a, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    @apply outline-none ring-2 ring-primary/55 ring-offset-2 ring-offset-base-200;
   }
 }
 
 @layer components {
+  .duel-app-bg {
+    background-color: transparent;
+  }
+
+  .dropdown {
+    @apply relative z-20;
+  }
+
+  .dropdown-content {
+    z-index: 80 !important;
+  }
+
+  .deck-editor-header {
+    @apply relative z-40;
+  }
+
+  .deck-copy-capacity {
+    @apply inline-flex items-center gap-0.5 rounded-md border border-base-300/70 bg-base-200/50 px-1 py-0.5;
+  }
+
+  .deck-copy-pip {
+    @apply h-2.5 w-1.5 rounded-[2px] border border-base-content/25;
+  }
+
+  .deck-copy-pip-filled {
+    @apply bg-primary border-primary/70;
+  }
+
+  .deck-copy-pip-free {
+    @apply bg-base-100/80;
+  }
+
+  .deck-copy-capacity-label {
+    @apply ml-0.5 min-w-[0.85rem] text-center text-[10px] font-semibold text-base-content/75 leading-none;
+  }
+
+  .duel-panel-overflow-visible {
+    overflow: visible !important;
+  }
+
+  .surface-default,
   .duel-panel {
-    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm;
+    @apply rounded-xl border border-base-300/70 bg-base-100/95 shadow-sm shadow-black/15 backdrop-blur-[2px];
+  }
+
+  .surface-elevated,
+  .detail-hero-panel {
+    @apply rounded-xl border border-base-300/60 bg-base-100 shadow-lg shadow-black/25 ring-1 ring-white/5;
+  }
+
+  .surface-inset,
+  .context-panel {
+    @apply rounded-xl border border-base-300/50 bg-base-200/35 shadow-none divide-y divide-base-300/50 overflow-hidden;
   }
 
   .duel-panel-header {
-    @apply px-3 py-2 sm:px-4 sm:py-2.5 border-b border-base-300/70 text-xs font-semibold uppercase tracking-wider text-base-content/55;
+    @apply px-3 py-2 sm:px-4 sm:py-2.5 border-b border-base-300/60 text-xs font-semibold uppercase tracking-wider text-base-content/65;
   }
 
   .duel-section-chip {
@@ -57,22 +118,23 @@
   .badge.badge-lg.duel-verdict-badge,
   .badge.duel-verdict-badge {
     padding-inline: 0.625rem !important;
+    @apply font-semibold tracking-wide;
   }
 
   .duel-kbd-hint {
-    @apply text-[10px] uppercase tracking-wide text-base-content/45;
+    @apply text-[10px] uppercase tracking-wide text-base-content/50;
   }
 
   .duel-modal {
-    @apply modal-box border border-base-300/80 bg-base-100 shadow-xl;
+    @apply modal-box border border-base-300/80 bg-base-100 shadow-2xl shadow-black/40;
   }
 
   .page-main {
-    @apply container mx-auto w-full max-w-7xl px-4 py-4 sm:py-6 flex-1;
+    @apply container mx-auto w-full max-w-7xl px-4 py-4 sm:py-6 flex-1 relative;
   }
 
   .page-stack {
-    @apply flex flex-col gap-3 sm:gap-4;
+    @apply flex flex-col gap-4 sm:gap-5;
   }
 
   .page-header {
@@ -80,15 +142,19 @@
   }
 
   .page-title {
-    @apply text-xl sm:text-2xl font-bold tracking-tight text-base-content;
+    @apply font-display text-2xl sm:text-3xl font-bold tracking-tight text-base-content;
   }
 
   .page-subtitle {
-    @apply text-sm text-base-content/55 max-w-2xl;
+    @apply text-sm text-base-content/65 max-w-2xl leading-relaxed;
   }
 
   .section-title {
-    @apply text-sm font-semibold text-base-content/75;
+    @apply text-sm font-semibold text-base-content/85 pl-2.5 border-l-2 border-primary/75;
+  }
+
+  .app-brand {
+    @apply font-display font-bold uppercase tracking-[0.12em] text-primary text-sm sm:text-base;
   }
 
   .deck-context-strip {
@@ -96,7 +162,7 @@
   }
 
   .deck-context-bar {
-    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3;
+    @apply rounded-xl border border-base-300/70 bg-base-100/95 shadow-sm shadow-black/15 backdrop-blur-[2px] flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3;
   }
 
   .deck-context-divider {
@@ -108,23 +174,28 @@
   }
 
   .deck-context-format {
-    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm px-3 py-2.5 sm:px-4 sm:py-3 w-full min-w-0;
+    @apply rounded-xl border border-base-300/70 bg-base-100/95 shadow-sm shadow-black/15 backdrop-blur-[2px] px-3 py-2.5 sm:px-4 sm:py-3 w-full min-w-0;
   }
 
   .mobile-tab-bar {
-    @apply fixed bottom-0 inset-x-0 z-40 flex items-stretch gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-base-100 border-t border-base-300 shadow-[0_-4px_24px_oklch(0%_0_0/0.35)];
+    @apply fixed bottom-0 inset-x-0 z-40 flex items-stretch gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-base-100/95 backdrop-blur-md border-t border-base-300/80 shadow-[0_-4px_24px_oklch(0%_0_0/0.4)];
   }
 
   .mobile-tab {
-    @apply flex flex-1 flex-col items-center justify-center gap-0.5 min-h-14 rounded-xl px-1 py-1.5 text-base-content/55 transition-colors;
+    @apply relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-14 rounded-xl px-1 py-1.5 text-base-content/55 transition-colors duration-200;
   }
 
   .mobile-tab-active {
-    @apply bg-primary/15 text-primary font-semibold;
+    @apply bg-primary/12 text-primary font-semibold;
+  }
+
+  .mobile-tab-active::before {
+    content: "";
+    @apply absolute top-0 inset-x-4 h-0.5 rounded-full bg-primary;
   }
 
   .mobile-tab-icon {
-    @apply text-xl leading-none;
+    @apply leading-none;
   }
 
   .mobile-tab-label {
@@ -132,7 +203,7 @@
   }
 
   .dialog-layer {
-    @apply fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/60;
+    @apply fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/65 backdrop-blur-sm;
   }
 
   .toast-host {
@@ -143,12 +214,24 @@
     @apply grid grid-cols-1 gap-4 min-h-0 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,20rem)] lg:items-start;
   }
 
-  .deck-rail {
-    @apply flex flex-col gap-4 min-h-0 lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:overscroll-y-contain;
+  .deck-workspace-editor {
+    @apply grid grid-cols-1 gap-4 min-h-0 relative z-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,17.5rem)] lg:items-start;
   }
 
-  .context-panel {
-    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm divide-y divide-base-300/60 overflow-hidden;
+  .deck-editor-main {
+    @apply min-w-0 min-h-0 relative z-0;
+  }
+
+  .deck-editor-rail {
+    @apply flex flex-col gap-3 min-h-0 lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:overflow-x-visible lg:overscroll-y-contain;
+  }
+
+  .deck-editor-assist {
+    @apply hidden lg:flex flex-col min-w-0;
+  }
+
+  .deck-rail {
+    @apply flex flex-col gap-4 min-h-0 lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:overscroll-y-contain;
   }
 
   .context-panel-section {
@@ -156,26 +239,331 @@
   }
 
   .workspace-tabs {
-    @apply tabs tabs-box tabs-sm w-full bg-base-200/80 p-0.5 rounded-lg;
+    @apply tabs tabs-box tabs-sm w-full bg-base-200/70 p-0.5 rounded-lg border border-base-300/40;
   }
 
   .workspace-tab {
-    @apply tab flex-1 text-xs sm:text-sm min-h-9;
+    @apply tab flex-1 text-xs sm:text-sm min-h-9 transition-colors duration-150;
   }
 
   .empty-state {
-    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm flex flex-col items-center justify-center text-center px-6 py-12 sm:py-16;
+    @apply rounded-xl border border-base-300/70 bg-base-100/95 shadow-sm shadow-black/15 backdrop-blur-[2px] flex flex-col items-center justify-center text-center px-6 py-12 sm:py-16;
   }
 
   .empty-state-icon {
-    @apply text-4xl sm:text-5xl opacity-30 mb-3 select-none;
+    @apply text-4xl sm:text-5xl opacity-35 mb-3 select-none;
   }
 
   .empty-state-title {
-    @apply text-base sm:text-lg font-semibold text-base-content/80;
+    @apply font-display text-lg sm:text-xl font-semibold text-base-content/85 tracking-tight;
   }
 
   .empty-state-hint {
-    @apply text-sm text-base-content/55 mt-1 max-w-md;
+    @apply text-sm text-base-content/65 mt-1 max-w-md leading-relaxed;
+  }
+
+  .deck-card-tile {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .deck-card-tile:hover {
+    @apply scale-[1.05] z-20 shadow-lg shadow-primary/15;
+  }
+
+  .deck-create-tile {
+    @apply aspect-[4/5] rounded-xl border border-dashed border-primary/40 bg-base-100/40 hover:bg-primary/8 hover:border-primary/70 transition-all duration-200 flex flex-col items-center justify-center gap-2 hover:shadow-md hover:shadow-primary/10;
+  }
+
+  .deck-create-icon {
+    @apply w-11 h-11 rounded-full border border-primary/50 text-primary flex items-center justify-center text-2xl font-light transition-transform duration-200;
+  }
+
+  .deck-create-tile:hover .deck-create-icon {
+    @apply scale-110 border-primary;
+  }
+
+  .combo-timeline {
+    @apply relative pl-1 space-y-2;
+  }
+
+  .combo-timeline-item {
+    @apply relative flex items-center gap-3 pl-5;
+  }
+
+  .combo-timeline-item::before {
+    content: "";
+    @apply absolute left-[0.4rem] top-7 bottom-[-0.5rem] w-px bg-base-300/80;
+  }
+
+  .combo-timeline-item:last-child::before {
+    @apply hidden;
+  }
+
+  .combo-timeline-marker {
+    @apply absolute left-0 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-base-300 text-[10px] font-bold text-base-content/80 ring-2 ring-base-100;
+  }
+
+  .format-select {
+    @apply w-full bg-base-200/50 border border-base-300/70 transition-colors rounded-lg;
+  }
+
+  .format-select:hover {
+    border-color: oklch(78% 0.14 85 / 0.35);
+  }
+
+  .format-select:focus {
+    border-color: oklch(78% 0.14 85);
+    outline: none;
+  }
+
+  .detail-hero-panel {
+    @apply overflow-hidden;
+  }
+
+  .card-art-frame {
+    @apply rounded-lg overflow-hidden shadow-xl shadow-black/40 ring-1 ring-white/10;
+  }
+
+  .fade-in-panel {
+    animation: duel-fade-in 280ms ease-out both;
+  }
+
+  @keyframes duel-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .duel-field-bg {
+    @apply pointer-events-none fixed inset-0 z-[1] overflow-hidden;
+  }
+
+  .duel-field-grid {
+    position: absolute;
+    inset: -20%;
+    background-image:
+      linear-gradient(oklch(78% 0.14 85 / 0.09) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(78% 0.14 85 / 0.09) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 85% 70% at 50% 45%, black 15%, transparent 80%);
+    animation: duel-grid-drift 48s linear infinite;
+  }
+
+  .duel-field-beam {
+    position: absolute;
+    width: 140%;
+    height: 45%;
+    left: -20%;
+    filter: blur(56px);
+    opacity: 0.55;
+  }
+
+  .duel-field-beam-a {
+    top: 6%;
+    background: linear-gradient(105deg, transparent, oklch(55% 0.14 250 / 0.55), transparent);
+    animation: duel-beam-a 22s ease-in-out infinite;
+  }
+
+  .duel-field-beam-b {
+    bottom: 0;
+    background: linear-gradient(-75deg, transparent, oklch(78% 0.14 85 / 0.45), transparent);
+    animation: duel-beam-b 28s ease-in-out infinite;
+  }
+
+  .duel-field-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(48px);
+    opacity: 0.65;
+  }
+
+  .duel-field-orb-a {
+    width: 32rem;
+    height: 32rem;
+    top: -8rem;
+    right: -6rem;
+    background: oklch(55% 0.14 250 / 0.45);
+    animation: duel-orb-float-a 18s ease-in-out infinite;
+  }
+
+  .duel-field-orb-b {
+    width: 26rem;
+    height: 26rem;
+    bottom: 8%;
+    left: -6rem;
+    background: oklch(78% 0.14 85 / 0.32);
+    animation: duel-orb-float-b 24s ease-in-out infinite;
+  }
+
+  .duel-field-orb-c {
+    width: 20rem;
+    height: 20rem;
+    top: 40%;
+    left: 35%;
+    background: oklch(62% 0.16 35 / 0.28);
+    animation: duel-orb-float-c 20s ease-in-out infinite;
+  }
+
+  .app-shell-content {
+    @apply relative z-[2] flex flex-col min-h-screen bg-transparent;
+  }
+
+  .deck-tile-bg {
+    @apply absolute inset-0;
+  }
+
+  .deck-tile-cover {
+    @apply absolute inset-0 h-full w-full object-cover scale-110;
+    filter: blur(2px) brightness(0.45) saturate(1.1);
+  }
+
+  .deck-tile-vignette {
+    @apply absolute inset-0;
+    background:
+      linear-gradient(to top, oklch(0% 0 0 / 0.92) 0%, oklch(0% 0 0 / 0.35) 45%, oklch(0% 0 0 / 0.15) 100%),
+      radial-gradient(ellipse 80% 60% at 50% 35%, transparent 30%, oklch(0% 0 0 / 0.4) 100%);
+  }
+
+  .deck-tile-hero-frame {
+    @apply absolute inset-x-0 top-[10%] z-[1] flex justify-center pointer-events-none;
+  }
+
+  .deck-tile-hero-card {
+    width: 4.75rem;
+    height: 6.9rem;
+    object-fit: cover;
+    border-radius: 0.4rem;
+    border: 2px solid oklch(100% 0 0 / 0.22);
+    box-shadow:
+      0 16px 32px oklch(0% 0 0 / 0.55),
+      0 0 0 1px oklch(78% 0.14 85 / 0.25);
+    transform: rotate(-3deg);
+    transition: transform 220ms ease, box-shadow 220ms ease;
+  }
+
+  .deck-tile-empty-mark {
+    @apply absolute inset-x-0 top-[22%] flex items-center justify-center text-5xl font-bold text-white/25 pointer-events-none select-none;
+  }
+
+  .deck-tile:hover .deck-tile-hero-card {
+    transform: rotate(0deg) translateY(-6px) scale(1.04);
+    box-shadow:
+      0 22px 40px oklch(0% 0 0 / 0.6),
+      0 0 24px oklch(78% 0.14 85 / 0.2);
+  }
+
+  .deck-tile-initial {
+    @apply absolute top-2.5 left-2.5 z-10 flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold;
+    background: oklch(0% 0 0 / 0.45);
+    border: 1px solid oklch(100% 0 0 / 0.15);
+    color: oklch(92% 0.02 85);
+    backdrop-filter: blur(4px);
+  }
+
+  .deck-tile-footer {
+    @apply absolute inset-x-0 bottom-0 z-10 px-2.5 py-2.5;
+    background: linear-gradient(to top, oklch(0% 0 0 / 0.88) 0%, oklch(0% 0 0 / 0.55) 70%, transparent 100%);
+  }
+
+  .deck-tile-name {
+    @apply font-display font-semibold text-sm leading-tight truncate text-white;
+  }
+
+  .deck-tile-meta {
+    @apply text-[11px] text-white/75 mt-0.5 tabular-nums;
+  }
+
+  @keyframes duel-grid-drift {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-48px, -48px, 0);
+    }
+  }
+
+  @keyframes duel-beam-a {
+    0%,
+    100% {
+      transform: translateX(-8%) skewY(-6deg);
+      opacity: 0.2;
+    }
+    50% {
+      transform: translateX(8%) skewY(-3deg);
+      opacity: 0.42;
+    }
+  }
+
+  @keyframes duel-beam-b {
+    0%,
+    100% {
+      transform: translateX(6%) skewY(4deg);
+      opacity: 0.18;
+    }
+    50% {
+      transform: translateX(-10%) skewY(2deg);
+      opacity: 0.38;
+    }
+  }
+
+  @keyframes duel-orb-float-a {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    50% {
+      transform: translate(-2rem, 1.5rem) scale(1.08);
+    }
+  }
+
+  @keyframes duel-orb-float-b {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    50% {
+      transform: translate(2.5rem, -1rem) scale(1.05);
+    }
+  }
+
+  @keyframes duel-orb-float-c {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+      opacity: 0.25;
+    }
+    50% {
+      transform: translate(-1.5rem, 2rem) scale(1.12);
+      opacity: 0.4;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-card-tile:hover {
+    transform: none;
+  }
+
+  .fade-in-panel {
+    animation: none;
+  }
+
+  .deck-create-icon {
+    transition: none;
+  }
+
+  .duel-field-grid,
+  .duel-field-beam,
+  .duel-field-orb {
+    animation: none !important;
+  }
+
+  .deck-tile:hover .deck-tile-hero-card {
+    transform: rotate(-3deg);
   }
 }

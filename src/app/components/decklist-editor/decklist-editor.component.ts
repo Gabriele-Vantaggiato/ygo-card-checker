@@ -34,11 +34,9 @@ import {
 import { DECK_SECTION_I18N_KEYS } from '../../utils/deck-section.utils';
 import { verdictShortKey } from '../../utils/legality-display.utils';
 import { FormatSelectorComponent } from '../format-selector/format-selector.component';
-import { DeckSuggestionsPanelComponent } from '../deck-suggestions-panel/deck-suggestions-panel.component';
-import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.component';
+import { DeckAssistPanelComponent } from './deck-assist-panel.component';
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckCompletionService } from '../../services/deck-completion.service';
-import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy-panel.component';
 import { DecklistSearchSidebarComponent } from '../decklist-search-sidebar/decklist-search-sidebar.component';
 import { DeckStrategyStore } from '../../features/decklist/stores/deck-strategy.store';
 import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
@@ -66,9 +64,7 @@ import {
   imports: [
     TranslatePipe,
     FormatSelectorComponent,
-    DeckSuggestionsPanelComponent,
-    DeckStatsStripComponent,
-    DeckStrategyPanelComponent,
+    DeckAssistPanelComponent,
     DecklistSearchSidebarComponent,
     DecklistEditorHeaderComponent,
     DeckSectionGridComponent,
@@ -85,6 +81,8 @@ import {
       <section class="flex flex-col min-h-0 gap-3">
         <app-decklist-editor-header
           [deck]="activeDeck"
+          [cards]="liveDeck().cards"
+          [mainTarget]="completeDeckTarget()"
           [renaming]="renaming()"
           [renameDraft]="renameDraft()"
           (back)="back.emit()"
@@ -111,20 +109,6 @@ import {
           />
         </div>
 
-        <div class="deck-context-bar">
-          <app-deck-stats-strip
-            [embedded]="true"
-            [cards]="liveDeck().cards"
-            [mainTarget]="completeDeckTarget()"
-          />
-        </div>
-
-        @defer (on viewport) {
-          <app-deck-strategy-panel class="min-w-0" />
-        } @placeholder {
-          <div class="duel-panel min-h-10"></div>
-        }
-
         <div role="tablist" class="workspace-tabs lg:hidden" [attr.aria-label]="'decklist.editor.workspace' | translate">
           <button
             type="button"
@@ -146,30 +130,20 @@ import {
           >
             {{ 'decklist.editor.tab.search' | translate }}
           </button>
-          @if (activeDeck.cards.length > 0) {
-            <button
-              type="button"
-              role="tab"
-              class="workspace-tab"
-              [class.tab-active]="mobileWorkspaceTab() === 'assist'"
-              [attr.aria-selected]="mobileWorkspaceTab() === 'assist'"
-              (click)="mobileWorkspaceTab.set('assist')"
-            >
-              {{ 'decklist.editor.tab.assist' | translate }}
-            </button>
-          }
+          <button
+            type="button"
+            role="tab"
+            class="workspace-tab"
+            [class.tab-active]="mobileWorkspaceTab() === 'assist'"
+            [attr.aria-selected]="mobileWorkspaceTab() === 'assist'"
+            (click)="mobileWorkspaceTab.set('assist')"
+          >
+            {{ 'decklist.editor.tab.assist' | translate }}
+          </button>
         </div>
 
-        <div class="deck-workspace">
-          <app-deck-card-inspect-panel
-            [view]="inspectViewModel()"
-            (increment)="incrementInspect()"
-            (decrement)="decrementInspect()"
-            (removeCopy)="removeInspectedCopy()"
-            (openInSearch)="openInspectedInSearch()"
-          />
-
-          <div [class.max-lg:hidden]="mobileWorkspaceTab() !== 'deck'">
+        <div class="deck-workspace deck-workspace-editor">
+          <div class="deck-editor-main" [class.max-lg:hidden]="mobileWorkspaceTab() !== 'deck'">
             <app-deck-section-grid
               [sections]="sectionViewModels()"
               [inspectedCardId]="deckInspectedCardId()"
@@ -178,7 +152,7 @@ import {
             />
           </div>
 
-          <div class="deck-rail" [class.max-lg:hidden]="mobileWorkspaceTab() !== 'search'">
+          <aside class="deck-editor-rail" [class.max-lg:hidden]="mobileWorkspaceTab() !== 'search'">
             <app-decklist-search-sidebar
               class="shrink-0 min-w-0"
               [deckCards]="liveDeck().cards"
@@ -187,24 +161,37 @@ import {
               (quickAdd)="addSearchCard($event)"
             />
 
-            @if (activeDeck.cards.length > 0) {
-              <div class="hidden lg:block min-h-0 flex-1">
-                @defer (on viewport) {
-                  <app-deck-suggestions-panel
-                    [compact]="true"
-                    [loading]="deckSuggestionsLoading()"
-                    [available]="deckSuggestions().available"
-                    [sourceCount]="deckSuggestions().sourceCount"
-                    [groups]="deckSuggestions().groups"
-                    [formatLabel]="deckSuggestionFormatLabel()"
-                    (cardSelected)="addSuggestion($event)"
-                  />
-                } @placeholder {
-                  <div class="duel-panel min-h-24"></div>
-                }
-              </div>
+            @if (inspectViewModel(); as inspectVm) {
+              <app-deck-card-inspect-panel
+                [view]="inspectVm"
+                (increment)="incrementInspect()"
+                (decrement)="decrementInspect()"
+                (removeCopy)="removeInspectedCopy()"
+                (openInSearch)="openInspectedInSearch()"
+              />
             }
-          </div>
+          </aside>
+        </div>
+
+        <div class="deck-editor-assist">
+          @if (activeDeck.cards.length > 0) {
+            <app-deck-assist-panel
+              [loading]="deckSuggestionsLoading()"
+              [available]="deckSuggestions().available"
+              [sourceCount]="deckSuggestions().sourceCount"
+              [groups]="deckSuggestions().groups"
+              [formatLabel]="deckSuggestionFormatLabel()"
+              (cardSelected)="addSuggestion($event)"
+            />
+          } @else {
+            <app-deck-assist-panel
+              [loading]="false"
+              [available]="true"
+              [sourceCount]="0"
+              [groups]="[]"
+              [formatLabel]="deckSuggestionFormatLabel()"
+            />
+          }
         </div>
 
         <app-deck-card-inspect-mobile
@@ -215,16 +202,24 @@ import {
         />
       </section>
 
-      @if (activeDeck.cards.length > 0) {
-        <div class="lg:hidden" [class.hidden]="mobileWorkspaceTab() !== 'assist'">
-          @defer (when mobileWorkspaceTab() === 'assist') {
-            <app-deck-suggestions-panel
+      @if (mobileWorkspaceTab() === 'assist') {
+        <div class="lg:hidden">
+          @if (activeDeck.cards.length > 0) {
+            <app-deck-assist-panel
               [loading]="deckSuggestionsLoading()"
               [available]="deckSuggestions().available"
               [sourceCount]="deckSuggestions().sourceCount"
               [groups]="deckSuggestions().groups"
               [formatLabel]="deckSuggestionFormatLabel()"
               (cardSelected)="addSuggestion($event)"
+            />
+          } @else {
+            <app-deck-assist-panel
+              [loading]="false"
+              [available]="true"
+              [sourceCount]="0"
+              [groups]="[]"
+              [formatLabel]="deckSuggestionFormatLabel()"
             />
           }
         </div>
@@ -485,6 +480,7 @@ export class DecklistEditorComponent {
       void this.strategy.direction();
       void this.strategy.prompt();
       void this.strategy.useOllama();
+      void this.strategy.ragResult();
       void revision;
 
       if (!format || deck.cards.length === 0) {

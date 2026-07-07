@@ -17,6 +17,8 @@ interface DeckReturnContext {
 }
 
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
+import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
+import { ContextPanelComponent } from '../../../shared/ui/context-panel/context-panel.component';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-checker-page',
@@ -27,14 +29,16 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
     CardDetailTabsComponent,
     SearchHistoryComponent,
     TranslatePipe,
+    PageHeaderComponent,
+    ContextPanelComponent,
   ],
   providers: [CheckerStore],
   template: `
     <main class="page-main page-stack lg:max-w-7xl">
-      <header class="page-header">
-        <h1 class="page-title">{{ 'checker.pageTitle' | translate }}</h1>
-        <p class="page-subtitle">{{ 'checker.pageSubtitle' | translate }}</p>
-      </header>
+      <app-page-header
+        titleKey="checker.pageTitle"
+        subtitleKey="checker.pageSubtitle"
+      />
 
       @if (deckReturn(); as ctx) {
         <div
@@ -73,7 +77,7 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
       </div>
 
       <div class="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
-        <aside class="context-panel lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto lg:overscroll-y-contain">
+        <app-context-panel>
           <div class="context-panel-section">
             <app-card-search
               [query]="store.searchQuery()"
@@ -99,10 +103,10 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
               (clear)="store.clearSearchHistory()"
             />
           </div>
-        </aside>
+        </app-context-panel>
 
         <section
-          class="min-w-0 space-y-4 lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto lg:overscroll-y-contain"
+          class="min-w-0 space-y-4 lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto lg:overscroll-y-contain fade-in-panel"
         >
           <app-card-detail-tabs
             [card]="store.selectedCard()"

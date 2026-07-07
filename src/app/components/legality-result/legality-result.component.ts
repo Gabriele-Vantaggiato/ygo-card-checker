@@ -14,18 +14,22 @@ import {
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { VerdictBadgeComponent } from '../../shared/ui/verdict-badge/verdict-badge.component';
+import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
+import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-legality-result',
   standalone: true,
-  imports: [CardTilt3dComponent, AddToDecklistButtonComponent, TranslatePipe, VerdictBadgeComponent],
+  imports: [CardTilt3dComponent, AddToDecklistButtonComponent, TranslatePipe, VerdictBadgeComponent, EmptyStateComponent, DuelPanelComponent],
   template: `
     @if (!card()) {
-      <div class="empty-state min-h-56 lg:min-h-[calc(100vh-12rem)]">
-        <div class="empty-state-icon" aria-hidden="true">🃏</div>
-        <h2 class="empty-state-title">{{ 'result.emptyTitle' | translate }}</h2>
-        <p class="empty-state-hint">{{ 'result.selectCard' | translate }}</p>
+      <app-empty-state
+        icon="🃏"
+        titleKey="result.emptyTitle"
+        hintKey="result.selectCard"
+        hostClass="min-h-56 lg:min-h-[calc(100vh-12rem)]"
+      >
         @if (quickPickEntry(); as entry) {
           <button
             type="button"
@@ -38,24 +42,19 @@ import { VerdictBadgeComponent } from '../../shared/ui/verdict-badge/verdict-bad
             {{ entry.name }}
           </button>
         }
-      </div>
+      </app-empty-state>
     } @else if (result(); as res) {
-      <div
-        class="overflow-visible"
-        [class.duel-panel]="!embedded()"
-        [class.border]="!embedded()"
-        [class.border-base-300/80]="!embedded()"
-      >
+      <app-duel-panel [panelClass]="embedded() ? 'border-0 shadow-none bg-transparent' : ''">
         <div class="card-body !items-start !justify-start p-4 sm:p-6">
           <div
             class="grid w-full grid-cols-1 content-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:items-start"
           >
             @if (cardImageLarge(); as src) {
-              <div class="mx-auto h-fit w-full max-w-[220px] self-start sm:max-w-[260px] lg:mx-0 lg:max-w-[280px]">
+              <div class="mx-auto h-fit w-full max-w-[220px] self-start sm:max-w-[260px] lg:mx-0 lg:max-w-[280px] card-art-frame">
                 @defer (on idle) {
                   <app-card-tilt-3d [src]="src" [alt]="card()!.name" />
                 } @placeholder {
-                  <img [src]="src" [alt]="card()!.name" class="w-full rounded-lg shadow-lg" />
+                  <img [src]="src" [alt]="card()!.name" class="w-full" />
                 }
               </div>
             }
@@ -134,7 +133,7 @@ import { VerdictBadgeComponent } from '../../shared/ui/verdict-badge/verdict-bad
             </div>
           </div>
         </div>
-      </div>
+      </app-duel-panel>
     }
   `,
 })

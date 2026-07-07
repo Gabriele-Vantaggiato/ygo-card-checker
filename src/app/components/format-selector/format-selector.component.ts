@@ -18,7 +18,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </span>
         }
         <select
-          class="select select-bordered select-xs sm:select-sm w-full"
+          class="format-select select select-bordered select-xs sm:select-sm"
           [ngModel]="selectedId()"
           (ngModelChange)="onSelect($event)"
         >
@@ -35,7 +35,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </span>
         }
         <select
-          class="select select-bordered select-sm w-full"
+          class="format-select select select-bordered select-sm w-full"
           [ngModel]="selectedId()"
           (ngModelChange)="onSelect($event)"
         >
@@ -51,7 +51,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
         </div>
         @if (formats().length > 0) {
           <select
-            class="select select-bordered w-full"
+            class="format-select select select-bordered w-full"
             [ngModel]="selectedId()"
             (ngModelChange)="onSelect($event)"
           >

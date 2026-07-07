@@ -22,13 +22,16 @@ import { maxCopiesForStatus } from '../../models/decklist.model';
 import { CardSearchResultRowComponent } from '../card-search-result-row/card-search-result-row.component';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-search-sidebar',
   standalone: true,
-  imports: [FormsModule, CardSearchResultRowComponent, TranslatePipe],
+  imports: [FormsModule, CardSearchResultRowComponent, TranslatePipe, DuelPanelComponent, LoadingSkeletonComponent],
   template: `
-    <aside class="duel-panel flex flex-col overflow-hidden min-w-0 w-full">
+    <app-duel-panel panelClass="flex flex-col overflow-hidden min-w-0 w-full">
       <div class="duel-panel-header shrink-0">
         <input
           type="text"
@@ -47,7 +50,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 
       <div class="overflow-y-auto overscroll-y-contain p-2 min-h-[8rem] max-h-[min(45vh,20rem)] lg:max-h-[min(28vh,14rem)]">
         @if (searchLoading() || legalityLoading()) {
-          <p class="text-xs text-base-content/60 px-2 py-4">{{ 'search.loading' | translate }}</p>
+          <app-loading-skeleton [rows]="4" rowClass="h-10 w-full" />
         } @else {
           @for (row of enrichedSearchRows(); track row.card.id) {
             <div class="group flex items-center gap-1 rounded-lg">
@@ -85,7 +88,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </button>
         }
       </div>
-    </aside>
+    </app-duel-panel>
   `,
 })
 export class DecklistSearchSidebarComponent {

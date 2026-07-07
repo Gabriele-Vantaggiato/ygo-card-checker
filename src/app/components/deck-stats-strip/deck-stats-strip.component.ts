@@ -36,7 +36,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </span>
           @if (stat.progress !== null) {
             <progress
-              class="progress progress-primary w-14 sm:w-24 h-1.5"
+              class="progress progress-primary w-20 sm:w-28 h-2"
               [value]="stat.progress"
               max="100"
             ></progress>

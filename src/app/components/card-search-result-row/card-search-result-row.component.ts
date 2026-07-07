@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
-import { AddToDecklistPayload } from '../../models/decklist.model';
+import { AddToDecklistPayload, maxCopiesForStatus } from '../../models/decklist.model';
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { I18nService } from '../../services/i18n.service';
 import {
@@ -57,7 +57,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
             <p class="text-xs text-base-content/60 truncate mt-0.5">{{ card().type }}</p>
           }
           @if (legality(); as result) {
-            <span class="mt-1 inline-flex">
+            <span class="mt-1 inline-flex flex-wrap items-center gap-1.5">
               <span
                 class="badge badge-xs duel-verdict-badge"
                 [ngClass]="verdictBadgeClass(result.verdict)"
@@ -65,6 +65,22 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               >
                 {{ (verdictLabelKey(result.verdict)) | translate }}
               </span>
+              @if (result.banlistStatus !== 'Forbidden') {
+                <span
+                  class="deck-copy-capacity"
+                  [title]="copyCapacityTitle()"
+                  [attr.aria-label]="copyCapacityTitle()"
+                >
+                  @for (slot of copySlotIndices(); track slot) {
+                    <span
+                      class="deck-copy-pip"
+                      [class.deck-copy-pip-filled]="slot < qtyInDeck()"
+                      [class.deck-copy-pip-free]="slot >= qtyInDeck()"
+                    ></span>
+                  }
+                  <span class="deck-copy-capacity-label tabular-nums">{{ remainingCopies() }}</span>
+                </span>
+              }
             </span>
           } @else if (legalityLoading()) {
             <span class="loading loading-dots loading-xs mt-1 text-base-content/40"></span>
@@ -92,6 +108,26 @@ export class CardSearchResultRowComponent {
   protected readonly i18n = inject(I18nService);
   protected readonly verdictBadgeClass = verdictBadgeClass;
   protected readonly verdictLabelKey = verdictLabelKey;
+
+  readonly maxAllowedCopies = computed(() =>
+    maxCopiesForStatus(this.legality()?.banlistStatus),
+  );
+
+  readonly remainingCopies = computed(() =>
+    Math.max(0, this.maxAllowedCopies() - this.qtyInDeck()),
+  );
+
+  readonly copySlotIndices = computed(() =>
+    Array.from({ length: this.maxAllowedCopies() }, (_, index) => index),
+  );
+
+  copyCapacityTitle(): string {
+    return this.i18n.t('search.copyCapacity', {
+      remaining: `${this.remainingCopies()}`,
+      max: `${this.maxAllowedCopies()}`,
+      inDeck: `${this.qtyInDeck()}`,
+    });
+  }
 
   addPayload(): AddToDecklistPayload {
     const card = this.card();

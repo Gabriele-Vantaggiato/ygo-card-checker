@@ -2,16 +2,17 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { DecklistCard } from '../../models/decklist.model';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { verdictBannerClass } from '../../utils/legality-display.utils';
+import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 import { DeckSectionViewModel } from './decklist-editor.model';
+import { verdictBannerClass } from '../../utils/legality-display.utils';
 
 @Component({
   selector: 'app-deck-section-grid',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, DuelPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="duel-panel overflow-hidden flex flex-col min-h-[24rem]">
+    <app-duel-panel panelClass="overflow-hidden flex flex-col min-h-[24rem]">
       <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-4 max-h-[min(70vh,48rem)]">
         @for (section of sections(); track section.key) {
           <div>
@@ -50,11 +51,11 @@ import { DeckSectionViewModel } from './decklist-editor.model';
               <div class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-1">
                 @for (cell of section.expandedCards; track cell.card.id + '-' + $index) {
                   <div
-                    class="group relative aspect-[59/86] rounded transition-transform duration-200 ease-out hover:scale-[1.12] hover:z-20"
+                    class="group relative aspect-[59/86] rounded deck-card-tile"
                   >
                     <button
                       type="button"
-                      class="relative w-full h-full rounded overflow-hidden border-2 transition-colors"
+                      class="relative w-full h-full rounded overflow-hidden border-2 transition-colors duration-150"
                       [class.border-primary]="inspectedCardId() === cell.card.id"
                       [class.border-transparent]="inspectedCardId() !== cell.card.id"
                       [class.ring-2]="inspectedCardId() === cell.card.id"
@@ -79,7 +80,7 @@ import { DeckSectionViewModel } from './decklist-editor.model';
                     </button>
                     <button
                       type="button"
-                      class="absolute -top-0.5 -right-0.5 z-20 btn btn-error btn-circle shadow-md transition-opacity h-4 w-4 min-h-4 min-w-4 text-[9px] p-0 opacity-90 lg:-top-1 lg:-right-1 lg:btn-xs lg:h-auto lg:w-auto lg:min-h-0 lg:min-w-0 lg:opacity-0 lg:group-hover:opacity-100"
+                      class="absolute -top-1 -right-1 z-20 btn btn-error btn-circle shadow-md transition-opacity h-6 w-6 min-h-6 min-w-6 text-[10px] p-0 opacity-95 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
                       [attr.aria-label]="'decklist.editor.removeCopy' | translate"
                       (click)="cardRemove.emit({ cardId: cell.card.id, event: $event })"
                     >
@@ -92,7 +93,7 @@ import { DeckSectionViewModel } from './decklist-editor.model';
           </div>
         }
       </div>
-    </div>
+    </app-duel-panel>
   `,
 })
 export class DeckSectionGridComponent {

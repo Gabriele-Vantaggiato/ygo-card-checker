@@ -31,15 +31,23 @@ const EMPTY_COMBO: ComboResult = {
 };
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-detail-tabs',
   standalone: true,
-  imports: [LegalityResultComponent, CardRelatedPanelComponent, RouterLink,
-    TranslatePipe],
+  imports: [
+    LegalityResultComponent,
+    CardRelatedPanelComponent,
+    RouterLink,
+    TranslatePipe,
+    DuelPanelComponent,
+    LoadingSkeletonComponent,
+  ],
   template: `
     @if (card()) {
-      <div class="duel-panel overflow-hidden">
+      <app-duel-panel panelClass="surface-elevated detail-hero-panel fade-in-panel">
         <div role="tablist" class="workspace-tabs mx-3 mt-3 sm:mx-4 sm:mt-4">
           <button
             type="button"
@@ -100,16 +108,14 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                   />
                 </div>
               } @placeholder {
-                <div class="p-4 sm:p-6">
-                  <p class="text-sm text-base-content/60">{{ 'search.loading' | translate }}</p>
-                </div>
+                <app-loading-skeleton [rows]="3" />
               }
             }
             @case ('combo') {
               @defer (when activeTab() === 'combo') {
                 <div class="p-4 sm:p-6 space-y-4">
                 @if (comboLoading()) {
-                  <p class="text-sm text-base-content/60">{{ 'combo.loading' | translate }}</p>
+                  <app-loading-skeleton [rows]="2" />
                 } @else if (!combo().available) {
                   <p class="text-sm text-base-content/60">{{ 'combo.unavailable' | translate }}</p>
                 } @else if (combo().lines.length === 0) {
@@ -117,12 +123,12 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                 } @else {
                   <p class="text-sm text-base-content/60">{{ 'detail.comboPreview' | translate }}</p>
                   @for (line of previewLines(); track line.id) {
-                    <article class="rounded-xl border border-base-300 bg-base-200/30 p-3 space-y-2">
-                      <ol class="space-y-2">
+                    <article class="surface-inset p-3 space-y-2">
+                      <ol class="combo-timeline">
                         @for (step of line.steps; track step.cardId + step.role; let idx = $index) {
-                          <li class="flex items-center gap-3">
-                            <span class="badge badge-neutral badge-sm shrink-0">{{ idx + 1 }}</span>
-                            <img [src]="step.imageSmall" [alt]="" class="w-8 h-11 object-cover rounded shrink-0" loading="lazy" />
+                          <li class="combo-timeline-item">
+                            <span class="combo-timeline-marker">{{ idx + 1 }}</span>
+                            <img [src]="step.imageSmall" [alt]="" class="w-8 h-11 object-cover rounded shrink-0 shadow-sm" loading="lazy" />
                             <div class="min-w-0 flex-1">
                               <p class="text-sm font-medium truncate">{{ step.name }}</p>
                               <p class="text-[11px] text-base-content/60 truncate">
@@ -149,13 +155,13 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                 </div>
               } @placeholder {
                 <div class="p-4 sm:p-6">
-                  <p class="text-sm text-base-content/60">{{ 'combo.loading' | translate }}</p>
+                  <app-loading-skeleton [rows]="2" />
                 </div>
               }
             }
           }
         </div>
-      </div>
+      </app-duel-panel>
     } @else {
       <app-legality-result
         [card]="null"

@@ -32,6 +32,13 @@ import {
   mergeSuggestionPools,
   toSuggestion,
 } from './card-knowledge-shared';
+import {
+  buildDeckFingerprint,
+  enrichSuggestionReasonForFingerprint,
+  fingerprintToProfile,
+  suggestionAffinityMultiplier,
+} from '../../utils/deck-fingerprint.utils';
+import { mergeCompletionProfiles } from '../../utils/completion-prompt.utils';
 
 const EMPTY_DECK_RESULT: DeckRelatedResult = {
   suggestions: [],
@@ -42,7 +49,9 @@ const EMPTY_DECK_RESULT: DeckRelatedResult = {
 };
 
 const MAX_DECK_SUGGESTIONS = 24;
-const MAX_DECK_PER_RELATION = 6;
+const MAX_DECK_PER_RELATION = 5;
+const DISPLAY_ROSTER_PER_KEY = 10;
+const MIN_SUGGESTION_SCORE = 0.18;
 const COMPLETION_SUGGESTION_LIMIT = 96;
 const MAX_ROSTER_PER_KEY = 20;
 const MULTI_SOURCE_BOOST = 6;
@@ -120,7 +129,8 @@ export class DeckSuggestionService {
         }
 
         const deckCardIds = new Set(deck.cards.map((card) => card.id));
-        const ranked = this.aggregateDeckRanked(deck, index, comboIndex, forCompletion);
+        const fingerprint = buildDeckFingerprint(deck, index);
+        const ranked = this.aggregateDeckRanked(deck, index, comboIndex, forCompletion, fingerprint);
         if (ranked.length === 0) {
           return of([]);
         }
@@ -140,10 +150,16 @@ export class DeckSuggestionService {
               formatIndex,
             );
             const merged = mergeSuggestionPools(suggestions, matchup);
-            const withQty = this.applySuggestedQuantities(
-              applyStrategyToSuggestions(merged, index.entries, rag.profile, 'main'),
-              deck,
-            );
+            const profile = mergeCompletionProfiles(rag.profile, fingerprintToProfile(fingerprint));
+            const withStrategy = applyStrategyToSuggestions(merged, index.entries, profile, 'main');
+            const withAffinity = withStrategy
+              .map((suggestion) => {
+                const entry = index.entries[String(suggestion.cardId)];
+                const score = suggestion.score * suggestionAffinityMultiplier(suggestion, entry, fingerprint);
+                return enrichSuggestionReasonForFingerprint({ ...suggestion, score }, entry, fingerprint);
+              })
+              .filter((suggestion) => suggestion.score >= MIN_SUGGESTION_SCORE);
+            const withQty = this.applySuggestedQuantities(withAffinity, deck);
             return withQty
               .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
               .slice(0, effectiveLimit);
@@ -208,6 +224,7 @@ export class DeckSuggestionService {
     index: CardKnowledgeIndex,
     comboIndex: ComboIndex | null,
     forCompletion = false,
+    fingerprint?: ReturnType<typeof buildDeckFingerprint>,
   ): Array<CardKnowledgeRelated & { sourceName: string; sources: number }> {
     const uniqueCards = [...new Map(deck.cards.map((card) => [card.id, card])).values()];
     const deckCardIds = new Set(uniqueCards.map((card) => card.id));
@@ -292,6 +309,14 @@ export class DeckSuggestionService {
 
     if (forCompletion) {
       this.expandSynergyRoster(deck, index, uniqueCards, upsert);
+    } else if (fingerprint?.hasClearIdentity) {
+      this.expandSynergyRoster(deck, index, uniqueCards, upsert, {
+        archetypeKeys: fingerprint.dominantArchetypes.slice(0, 2),
+        seriesKeys: fingerprint.dominantSeries.slice(0, 2),
+        perKey: DISPLAY_ROSTER_PER_KEY,
+        archetypeScore: ARCHETYPE_ROSTER_SCORE * 1.15,
+        seriesScore: SERIES_ROSTER_SCORE * 1.1,
+      });
     }
 
     return [...aggregated.values()]
@@ -321,45 +346,64 @@ export class DeckSuggestionService {
       score: number,
       comboReady?: boolean,
     ) => void,
+    scope?: {
+      archetypeKeys?: string[];
+      seriesKeys?: string[];
+      perKey?: number;
+      archetypeScore?: number;
+      seriesScore?: number;
+    },
   ): void {
     const deckCardIds = new Set(uniqueCards.map((card) => card.id));
     const primarySource = uniqueCards[0]?.name ?? 'deck';
     const archetypeKeys = new Set<string>();
     const seriesKeys = new Set<string>();
+    const perKey = scope?.perKey ?? MAX_ROSTER_PER_KEY;
+    const archetypeScore = scope?.archetypeScore ?? ARCHETYPE_ROSTER_SCORE;
+    const seriesScore = scope?.seriesScore ?? SERIES_ROSTER_SCORE;
 
-    for (const card of uniqueCards) {
-      const entry = index.entries[String(card.id)];
-      if (!entry) {
-        continue;
+    if (scope?.archetypeKeys || scope?.seriesKeys) {
+      for (const key of scope.archetypeKeys ?? []) {
+        archetypeKeys.add(key);
       }
-      for (const token of entry.series) {
-        archetypeKeys.add(token);
-        seriesKeys.add(token);
+      for (const key of scope.seriesKeys ?? []) {
+        seriesKeys.add(key);
       }
-      for (const related of entry.related) {
-        if (related.archetype) {
-          archetypeKeys.add(related.archetype);
+    } else {
+      for (const card of uniqueCards) {
+        const entry = index.entries[String(card.id)];
+        if (!entry) {
+          continue;
+        }
+        for (const token of entry.series) {
+          archetypeKeys.add(token);
+          seriesKeys.add(token);
+        }
+        for (const related of entry.related) {
+          if (related.archetype) {
+            archetypeKeys.add(related.archetype);
+          }
         }
       }
     }
 
     for (const key of archetypeKeys) {
-      const roster = (index.archetypes?.[key] ?? []).slice(0, MAX_ROSTER_PER_KEY);
+      const roster = (index.archetypes?.[key] ?? []).slice(0, perKey);
       for (const member of roster) {
         if (deckCardIds.has(member.id)) {
           continue;
         }
-        upsert(this.rosterMemberToRelated(member, 'archetype'), primarySource, ARCHETYPE_ROSTER_SCORE);
+        upsert(this.rosterMemberToRelated(member, 'archetype'), primarySource, archetypeScore);
       }
     }
 
     for (const key of seriesKeys) {
-      const roster = (index.seriesIndex?.[key] ?? []).slice(0, MAX_ROSTER_PER_KEY);
+      const roster = (index.seriesIndex?.[key] ?? []).slice(0, perKey);
       for (const member of roster) {
         if (deckCardIds.has(member.id)) {
           continue;
         }
-        upsert(this.rosterMemberToRelated(member, 'series'), primarySource, SERIES_ROSTER_SCORE);
+        upsert(this.rosterMemberToRelated(member, 'series'), primarySource, seriesScore);
       }
     }
   }
@@ -419,7 +463,7 @@ export class DeckSuggestionService {
     const order = [...Object.keys(RELATION_GROUP_KEYS), 'series', 'archetype'];
 
     for (const relation of order) {
-      const bucket = byRelation.get(relation) ?? [];
+      const bucket = (byRelation.get(relation) ?? []).sort((a, b) => b.score - a.score);
       for (const item of bucket.slice(0, MAX_DECK_PER_RELATION)) {
         if (picked.length >= MAX_DECK_SUGGESTIONS) {
           return picked;

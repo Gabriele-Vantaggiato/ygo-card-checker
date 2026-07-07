@@ -3,13 +3,16 @@ import { CardRelatedGroup, CardRelatedSuggestion } from '../../models/card-knowl
 import { I18nService } from '../../services/i18n.service';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-deck-suggestions-panel',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, DuelPanelComponent],
   template: `
-    <section class="duel-panel overflow-hidden flex flex-col min-h-0" [class.h-full]="compact()">
+    <app-duel-panel
+      [panelClass]="(compact() ? 'min-h-0 h-full' : 'min-h-0') + ' overflow-hidden flex flex-col'"
+    >
       <div class="duel-panel-header flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div class="flex flex-wrap items-center gap-2 min-w-0 normal-case tracking-normal">
           <span>{{ 'decklist.suggestions.title' | translate }}</span>
@@ -87,7 +90,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </div>
         }
       </div>
-    </section>
+    </app-duel-panel>
   `,
 })
 export class DeckSuggestionsPanelComponent {

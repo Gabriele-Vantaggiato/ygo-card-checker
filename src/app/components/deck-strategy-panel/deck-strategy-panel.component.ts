@@ -5,32 +5,21 @@ import { DeckStrategyStore } from '../../features/decklist/stores/deck-strategy.
 import { DeckCompletionDirection } from '../../utils/completion-prompt.utils';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { DuelCollapseComponent } from '../../shared/ui/duel-collapse/duel-collapse.component';
 @Component({
   selector: 'app-deck-strategy-panel',
   standalone: true,
-  imports: [FormsModule,
-    TranslatePipe],
+  imports: [FormsModule, TranslatePipe, DuelCollapseComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <details class="duel-panel group" [attr.open]="defaultOpen() ? true : null">
-      <summary
-        class="px-3 py-2.5 sm:px-4 sm:py-3 border-b border-base-300/70 cursor-pointer list-none flex items-center justify-between gap-2 [&::-webkit-details-marker]:hidden"
-      >
-        <span class="flex items-center gap-2 min-w-0">
-          <span class="text-primary/80 transition-transform group-open:rotate-90 shrink-0" aria-hidden="true">›</span>
-          <span class="truncate text-sm font-semibold text-base-content/80">
-            {{ 'strategy.title' | translate }}
-          </span>
+    <app-duel-collapse titleKey="strategy.title" [open]="defaultOpen()" [compactHeader]="true">
+      @if (strategy.ragResult().summary; as summary) {
+        <span summary-extra class="badge badge-primary badge-xs font-normal truncate max-w-[45%] hidden sm:inline-flex">
+          {{ summary }}
         </span>
-        @if (strategy.ragResult().summary; as summary) {
-          <span class="badge badge-primary badge-xs font-normal truncate max-w-[45%] hidden sm:inline-flex">
-            {{ summary }}
-          </span>
-        }
-      </summary>
+      }
 
-      <div class="p-3 sm:p-4 space-y-3">
-        <p class="text-xs text-base-content/55 leading-relaxed">{{ 'strategy.hint' | translate }}</p>
+      <p class="text-xs text-base-content/55 leading-relaxed">{{ 'strategy.hint' | translate }}</p>
 
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
           @for (option of directions; track option.id) {
@@ -78,8 +67,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
             <span class="badge badge-ghost badge-xs">{{ 'decklist.completion.ollamaOffline' | translate }}</span>
           }
         </div>
-      </div>
-    </details>
+    </app-duel-collapse>
   `,
 })
 export class DeckStrategyPanelComponent {

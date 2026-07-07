@@ -14,7 +14,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           <h3 class="font-bold text-lg">{{ 'decklist.text.exportTitle' | translate }}</h3>
           <p class="text-sm text-base-content/60 mt-1">{{ hint() }}</p>
           <textarea
-            class="textarea textarea-bordered w-full mt-4 font-mono text-xs leading-relaxed min-h-48"
+            class="textarea textarea-bordered w-full mt-4 font-mono text-sm leading-relaxed min-h-48"
             readonly
             [value]="text()"
             (focus)="selectText.emit($event)"
@@ -57,7 +57,7 @@ export class TextDeckExportDialogComponent {
           <h3 class="font-bold text-lg">{{ 'decklist.text.importTitle' | translate }}</h3>
           <p class="text-sm text-base-content/60 mt-1">{{ 'decklist.text.importHint' | translate }}</p>
           <textarea
-            class="textarea textarea-bordered w-full mt-4 font-mono text-xs leading-relaxed min-h-48"
+            class="textarea textarea-bordered w-full mt-4 font-mono text-sm leading-relaxed min-h-48"
             [ngModel]="draft()"
             (ngModelChange)="draftChange.emit($event)"
             [placeholder]="'decklist.text.importPlaceholder' | translate"

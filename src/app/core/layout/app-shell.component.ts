@@ -8,6 +8,9 @@ import { I18nService } from '../../services/i18n.service';
 import { FormatStore } from '../stores/format.store';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { NavIconComponent } from '../../shared/ui/nav-icon/nav-icon.component';
+import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel-field-bg.component';
+
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-shell',
@@ -21,14 +24,17 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
     DialogHostComponent,
     ToastHostComponent,
     TranslatePipe,
+    NavIconComponent,
+    DuelFieldBackgroundComponent,
   ],
   template: `
-    <div class="min-h-screen bg-base-200 flex flex-col">
+    <app-duel-field-bg />
+    <div class="app-shell-content">
       <header
-        class="navbar bg-base-100/95 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-30 shadow-sm min-h-14 gap-2"
+        class="navbar bg-base-100/90 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-30 shadow-sm shadow-black/10 min-h-14 gap-2"
       >
         <div class="flex-1 min-w-0">
-          <span class="font-bold tracking-tight text-primary text-sm sm:text-base whitespace-nowrap">
+          <span class="app-brand whitespace-nowrap">
             <span class="md:hidden">{{ 'app.titleShort' | translate }}</span>
             <span class="hidden md:inline">{{ 'app.title' | translate }}</span>
           </span>
@@ -83,15 +89,15 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           [routerLinkActiveOptions]="{ exact: true }"
           class="mobile-tab"
         >
-          <span class="mobile-tab-icon" aria-hidden="true">⌕</span>
+          <span class="mobile-tab-icon"><app-nav-icon name="search" /></span>
           <span class="mobile-tab-label">{{ 'nav.search' | translate }}</span>
         </a>
         <a routerLink="/combo" routerLinkActive="mobile-tab-active" class="mobile-tab">
-          <span class="mobile-tab-icon" aria-hidden="true">⚡</span>
+          <span class="mobile-tab-icon"><app-nav-icon name="combo" /></span>
           <span class="mobile-tab-label">{{ 'nav.combo' | translate }}</span>
         </a>
         <a routerLink="/decklist" routerLinkActive="mobile-tab-active" class="mobile-tab">
-          <span class="mobile-tab-icon" aria-hidden="true">▤</span>
+          <span class="mobile-tab-icon"><app-nav-icon name="decklist" /></span>
           <span class="mobile-tab-label">{{ 'nav.decklist' | translate }}</span>
         </a>
       </nav>

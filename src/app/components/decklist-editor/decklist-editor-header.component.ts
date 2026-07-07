@@ -1,16 +1,22 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Decklist } from '../../models/decklist.model';
+import { Decklist, DecklistCard } from '../../models/decklist.model';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.component';
+import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 
 @Component({
   selector: 'app-decklist-editor-header',
   standalone: true,
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, TranslatePipe, DeckStatsStripComponent, DuelPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    class: 'deck-editor-header block',
+  },
   template: `
-    <header class="duel-panel px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-2.5">
-      <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+    <app-duel-panel panelClass="duel-panel-overflow-visible">
+      <div class="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-3">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
         <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" (click)="back.emit()">
           ←
         </button>
@@ -52,7 +58,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </button>
           <ul
             tabindex="0"
-            class="dropdown-content menu bg-base-100 rounded-box z-50 w-44 p-2 shadow-lg border border-base-300"
+            class="dropdown-content menu bg-base-100 rounded-box w-44 p-2 shadow-lg border border-base-300"
           >
             <li><button type="button" (click)="sortDeck.emit()">{{ 'decklist.editor.sort' | translate }}</button></li>
             <li>
@@ -76,7 +82,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </button>
           <ul
             tabindex="0"
-            class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow-lg border border-base-300"
+            class="dropdown-content menu bg-base-100 rounded-box w-52 p-2 shadow-lg border border-base-300"
           >
             <li class="menu-title text-xs px-2 py-1">{{ 'decklist.toolbar.listFormat' | translate }}</li>
             <li><button type="button" (click)="importText.emit()">{{ 'decklist.importText' | translate }}</button></li>
@@ -87,11 +93,18 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </ul>
         </div>
       </div>
-    </header>
+      </div>
+
+      <div class="border-t border-base-300/60 px-3 py-2 sm:px-4">
+        <app-deck-stats-strip [embedded]="true" [cards]="cards()" [mainTarget]="mainTarget()" />
+      </div>
+    </app-duel-panel>
   `,
 })
 export class DecklistEditorHeaderComponent {
   readonly deck = input.required<Decklist>();
+  readonly cards = input.required<readonly DecklistCard[]>();
+  readonly mainTarget = input(40);
   readonly renaming = input(false);
   readonly renameDraft = input('');
 
