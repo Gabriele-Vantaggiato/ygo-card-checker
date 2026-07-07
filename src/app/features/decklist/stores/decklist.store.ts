@@ -12,9 +12,17 @@ import {
 } from '../../../models/decklist.model';
 import { DecklistService } from '../../../services/decklist.service';
 import { CardLegalityFacade } from '../../../services/card-legality.facade';
-import { I18nService } from '../../../services/i18n.service';
+import { I18nService, Lang } from '../../../services/i18n.service';
 import { YgoApiService } from '../../../services/ygo-api.service';
 import { YdkeService, YdkeSections, passcodesToQuantityMap } from '../../../services/ydke.service';
+import {
+  TextDeckLine,
+  TextDeckSections,
+  countTextDeckLines,
+  formatDeckText,
+  parseDeckText,
+  resolveImportedSection,
+} from '../../../services/deck-text.service';
 import { YgoFormat } from '../../../models/ygo-format.model';
 import { YgoCard, LegalityResult } from '../../../models/ygo-card.model';
 import { DeckCompletionPlan } from '../../../models/deck-completion.model';
@@ -238,6 +246,145 @@ export class DecklistStore {
     return this.ydkeService.encodeDeck(deck);
   }
 
+  exportDeckText$(deckId?: string, lang?: Lang): Observable<string | null> {
+    const deck = deckId ? this.getDeckById(deckId) : this.activeDecklist();
+    if (!deck || deck.cards.length === 0) {
+      return of(null);
+    }
+
+    const resolvedLang = lang ?? this.i18n.lang();
+    const ids = deck.cards.map((card) => card.id);
+    return this.ygoApi.getCardsByIds$(ids, resolvedLang).pipe(
+      map((cards) => {
+        const nameById = new Map(cards.map((card) => [card.id, card.name]));
+        return formatDeckText(deck, nameById);
+      }),
+    );
+  }
+
+  importFromText(text: string, deckId: string, replace: boolean, format: YgoFormat): void {
+    this.importFromText$(text, deckId, replace, format).subscribe();
+  }
+
+  importFromText$(
+    text: string,
+    deckId: string,
+    replace: boolean,
+    format: YgoFormat,
+  ): Observable<{
+    ok: boolean;
+    total: number;
+    unique: number;
+    unresolved: string[];
+    errorKey?: string;
+  }> {
+    let sections: TextDeckSections;
+    try {
+      sections = parseDeckText(text);
+    } catch {
+      return of({
+        ok: false,
+        total: 0,
+        unique: 0,
+        unresolved: [],
+        errorKey: 'decklist.feedback.textInvalid',
+      });
+    }
+
+    const counts = countTextDeckLines(sections);
+    const total = counts.main + counts.extra + counts.side;
+    if (total === 0) {
+      return of({
+        ok: false,
+        total: 0,
+        unique: 0,
+        unresolved: [],
+        errorKey: 'decklist.feedback.textEmpty',
+      });
+    }
+
+    const deck = this.getDeckById(deckId);
+    if (!deck) {
+      return of({
+        ok: false,
+        total: 0,
+        unique: 0,
+        unresolved: [],
+        errorKey: 'decklist.feedback.noDecklist',
+      });
+    }
+
+    const lines = this.flattenTextLines(sections);
+    const primaryLang = this.i18n.lang();
+
+    return forkJoin(
+      lines.map((line) =>
+        this.ygoApi.resolveCardByName$(line.name, primaryLang).pipe(
+          map((card) => ({ line, card })),
+        ),
+      ),
+    ).pipe(
+      switchMap((resolved) => {
+        const unresolved = resolved.filter((item) => !item.card).map((item) => item.line.name);
+        const matched = resolved.filter((item): item is { line: TextDeckLine; card: YgoCard } => !!item.card);
+        if (matched.length === 0) {
+          return of({
+            ok: false,
+            total: 0,
+            unique: 0,
+            unresolved,
+            errorKey: 'decklist.feedback.textResolveFailed',
+          });
+        }
+
+        const sectionEntries = this.buildTextSectionEntries(matched);
+        const uniqueIds = [
+          ...new Set(sectionEntries.flatMap((entry) => [...entry.quantities.keys()])),
+        ];
+        const cards = matched.map((item) => item.card);
+
+        return this.cardLegality.evaluateMany$(cards, format).pipe(
+          map((legality) => {
+            const cardById = new Map(cards.map((card) => [card.id, card]));
+            const imported = this.buildImportedCards(sectionEntries, cardById, legality);
+            if (imported.length === 0) {
+              return {
+                ok: false,
+                total: 0,
+                unique: 0,
+                unresolved,
+                errorKey: 'decklist.feedback.textResolveFailed',
+              };
+            }
+
+            const updated = replace
+              ? this.decklistService.replaceCards(deck, imported)
+              : this.decklistService.mergeCards(deck, imported);
+            const sorted = this.decklistService.sortDecklist(updated);
+            this.replaceDeck(sorted);
+            this.patchStorage((s) => ({ ...s, activeId: deckId }));
+
+            return {
+              ok: true,
+              total: this.decklistService.totalCards(sorted.cards),
+              unique: sorted.cards.length,
+              unresolved,
+            };
+          }),
+        );
+      }),
+      catchError(() =>
+        of({
+          ok: false,
+          total: 0,
+          unique: 0,
+          unresolved: [],
+          errorKey: 'decklist.feedback.textResolveFailed',
+        }),
+      ),
+    );
+  }
+
   importFromYdke(text: string, deckId: string, replace: boolean, format: YgoFormat): void {
     this.importFromYdke$(text, deckId, replace, format).subscribe();
   }
@@ -393,6 +540,34 @@ export class DecklistStore {
       return;
     }
     this.decrementCard(cardId, card.banlistStatus ?? null);
+  }
+
+  private flattenTextLines(sections: TextDeckSections): TextDeckLine[] {
+    return [
+      ...sections.main.map((line) => ({ ...line, section: 'main' as const })),
+      ...sections.extra.map((line) => ({ ...line, section: 'extra' as const })),
+      ...sections.side.map((line) => ({ ...line, section: 'side' as const })),
+    ];
+  }
+
+  private buildTextSectionEntries(
+    matched: Array<{ line: TextDeckLine; card: YgoCard }>,
+  ): Array<{ section: DeckSection; quantities: Map<number, number> }> {
+    const bySection = new Map<DeckSection, Map<number, number>>([
+      ['main', new Map()],
+      ['extra', new Map()],
+      ['side', new Map()],
+    ]);
+
+    for (const { line, card } of matched) {
+      const section = resolveImportedSection(line.section, card.type);
+      const quantities = bySection.get(section)!;
+      quantities.set(card.id, (quantities.get(card.id) ?? 0) + line.quantity);
+    }
+
+    return (['main', 'extra', 'side'] as const)
+      .map((section) => ({ section, quantities: bySection.get(section)! }))
+      .filter((entry) => entry.quantities.size > 0);
   }
 
   private buildImportedCards(

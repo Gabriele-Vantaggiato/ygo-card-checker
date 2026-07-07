@@ -47,6 +47,12 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           {{ 'decklist.completeDeck' | translate }}
         </button>
         <div class="join hidden sm:inline-flex">
+          <button type="button" class="btn btn-outline btn-sm join-item" (click)="importText.emit()">
+            {{ 'decklist.importText' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline btn-sm join-item" (click)="exportText.emit()">
+            {{ 'decklist.exportText' | translate }}
+          </button>
           <button type="button" class="btn btn-outline btn-sm join-item" (click)="importYdke.emit()">
             {{ 'decklist.importYdke' | translate }}
           </button>
@@ -59,6 +65,8 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
             {{ 'decklist.toolbar.more' | translate }}
           </button>
           <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-44 p-2 shadow-lg border border-base-300">
+            <li><button type="button" (click)="importText.emit()">{{ 'decklist.importText' | translate }}</button></li>
+            <li><button type="button" (click)="exportText.emit()">{{ 'decklist.exportText' | translate }}</button></li>
             <li><button type="button" (click)="importYdke.emit()">{{ 'decklist.importYdke' | translate }}</button></li>
             <li><button type="button" (click)="exportYdke.emit()">{{ 'decklist.exportYdke' | translate }}</button></li>
             <li><button type="button" (click)="sortDeck.emit()">{{ 'decklist.editor.sort' | translate }}</button></li>
@@ -90,6 +98,8 @@ export class DecklistEditorHeaderComponent {
   readonly renameCommit = output<void>();
   readonly renameCancel = output<void>();
   readonly completeDeck = output<void>();
+  readonly importText = output<void>();
+  readonly exportText = output<void>();
   readonly importYdke = output<void>();
   readonly exportYdke = output<void>();
   readonly sortDeck = output<void>();

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
-import { catchError, map, shareReplay } from 'rxjs/operators';
+import { catchError, map, shareReplay, switchMap } from 'rxjs/operators';
 import { CardInfoResponse, YgoCard } from '../models/ygo-card.model';
 import { Lang } from './i18n.service';
 
@@ -87,6 +87,26 @@ export class YgoApiService {
     return this.fetchCardsByIds$(ids, lang);
   }
 
+  resolveCardByName$(name: string, primaryLang: Lang): Observable<YgoCard | null> {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return of(null);
+    }
+
+    const secondaryLang: Lang = primaryLang === 'it' ? 'en' : 'it';
+    return this.searchCards$(trimmed, primaryLang, 20).pipe(
+      switchMap((cards) => {
+        const match = findExactNameMatch(cards, trimmed);
+        if (match) {
+          return of(match);
+        }
+        return this.searchCards$(trimmed, secondaryLang, 20).pipe(
+          map((fallbackCards) => findExactNameMatch(fallbackCards, trimmed)),
+        );
+      }),
+    );
+  }
+
   private fetchCardsByIds$(ids: readonly number[], lang: Lang): Observable<YgoCard[]> {
     const uniqueIds = [...new Set(ids.filter((id) => id > 0))];
     if (uniqueIds.length === 0) {
@@ -123,4 +143,10 @@ export class YgoApiService {
 
     return forkJoin(requests).pipe(map((pages) => pages.flat()));
   }
+}
+
+function findExactNameMatch(cards: readonly YgoCard[], name: string): YgoCard | null {
+  const normalized = name.trim().toLowerCase();
+  const matches = cards.filter((card) => card.name.trim().toLowerCase() === normalized);
+  return matches[0] ?? null;
 }

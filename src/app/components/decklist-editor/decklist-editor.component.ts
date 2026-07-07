@@ -20,6 +20,7 @@ import { CardLegalityFacade } from '../../services/card-legality.facade';
 import { I18nService } from '../../services/i18n.service';
 import { YgoApiService } from '../../services/ygo-api.service';
 import { splitDeckIntoYdkeSections, parseYdkeUrl } from '../../services/ydke.service';
+import { countTextDeckLines, parseDeckText } from '../../services/deck-text.service';
 import { DecklistStore } from '../../features/decklist/stores/decklist.store';
 import { FormatStore } from '../../core/stores/format.store';
 import {
@@ -51,6 +52,7 @@ import {
 } from './deck-card-inspect-panel.component';
 import { CompleteDeckDialogComponent } from './complete-deck-dialog.component';
 import { YdkeExportDialogComponent, YdkeImportDialogComponent } from './ydke-dialogs.component';
+import { TextDeckExportDialogComponent, TextDeckImportDialogComponent } from './text-deck-dialogs.component';
 import {
   DeckCardInspectViewModel,
   DeckSectionViewModel,
@@ -75,6 +77,8 @@ import {
     CompleteDeckDialogComponent,
     YdkeExportDialogComponent,
     YdkeImportDialogComponent,
+    TextDeckExportDialogComponent,
+    TextDeckImportDialogComponent,
   ],
   template: `
     @if (deck(); as activeDeck) {
@@ -89,6 +93,8 @@ import {
           (renameCommit)="commitRename()"
           (renameCancel)="cancelRename()"
           (completeDeck)="openCompleteDeckDialog()"
+          (importText)="openImportTextDialog()"
+          (exportText)="openTextExportDialog(activeDeck)"
           (importYdke)="openImportYdkeDialog()"
           (exportYdke)="openYdkeDialog(activeDeck)"
           (sortDeck)="decklistStore.sortActiveDeck()"
@@ -235,6 +241,28 @@ import {
       (apply)="confirmCompleteDeck()"
     />
 
+    <app-text-deck-import-dialog
+      [open]="importTextDialogOpen()"
+      [draft]="importTextDraft()"
+      [replace]="importTextReplace()"
+      [importing]="importTextImporting()"
+      [preview]="importTextPreview()"
+      [unresolved]="importTextUnresolved()"
+      (draftChange)="onImportTextDraftChange($event)"
+      (replaceChange)="importTextReplace.set($event)"
+      (closed)="closeImportTextDialog()"
+      (confirm)="confirmImportText()"
+    />
+
+    <app-text-deck-export-dialog
+      [open]="textExportDialogOpen()"
+      [text]="textExportContent()"
+      [hint]="textExportHint()"
+      (closed)="closeTextExportDialog()"
+      (copy)="copyTextExport()"
+      (selectText)="selectTextExport($event)"
+    />
+
     <app-ydke-import-dialog
       [open]="importYdkeDialogOpen()"
       [draft]="importYdkeDraft()"
@@ -289,6 +317,15 @@ export class DecklistEditorComponent {
   readonly importYdkeReplace = signal(true);
   readonly importYdkeImporting = signal(false);
   readonly importYdkePreview = signal<{ main: string; extra: string; side: string } | null>(null);
+  readonly importTextDialogOpen = signal(false);
+  readonly importTextDraft = signal('');
+  readonly importTextReplace = signal(true);
+  readonly importTextImporting = signal(false);
+  readonly importTextPreview = signal<{ main: string; extra: string; side: string } | null>(null);
+  readonly importTextUnresolved = signal<string[]>([]);
+  readonly textExportDialogOpen = signal(false);
+  readonly textExportContent = signal('');
+  readonly textExportHint = signal('');
   readonly deckSuggestionsLoading = signal(false);
   readonly deckSuggestions = signal<DeckRelatedResult>({
     suggestions: [],
@@ -666,6 +703,116 @@ export class DecklistEditorComponent {
         },
         error: () => this.importYdkeImporting.set(false),
       });
+  }
+
+  openImportTextDialog(): void {
+    this.importTextDraft.set('');
+    this.importTextReplace.set(true);
+    this.importTextPreview.set(null);
+    this.importTextUnresolved.set([]);
+    this.importTextDialogOpen.set(true);
+  }
+
+  closeImportTextDialog(): void {
+    this.importTextDialogOpen.set(false);
+    this.importTextDraft.set('');
+    this.importTextPreview.set(null);
+    this.importTextUnresolved.set([]);
+  }
+
+  onImportTextDraftChange(value: string): void {
+    this.importTextDraft.set(value);
+    try {
+      const sections = parseDeckText(value);
+      const counts = countTextDeckLines(sections);
+      this.importTextPreview.set({
+        main: `${counts.main}`,
+        extra: `${counts.extra}`,
+        side: `${counts.side}`,
+      });
+    } catch {
+      this.importTextPreview.set(null);
+    }
+  }
+
+  confirmImportText(): void {
+    const deck = this.deck();
+    const format = this.formatStore.selectedFormat();
+    const draft = this.importTextDraft().trim();
+    if (!draft || !format || this.importTextImporting()) {
+      return;
+    }
+    this.importTextImporting.set(true);
+    this.importTextUnresolved.set([]);
+    this.decklistStore
+      .importFromText$(draft, deck.id, this.importTextReplace(), format)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.importTextImporting.set(false);
+          if (result.unresolved.length > 0) {
+            this.importTextUnresolved.set(result.unresolved);
+          }
+          if (result.ok) {
+            this.closeImportTextDialog();
+          }
+        },
+        error: () => this.importTextImporting.set(false),
+      });
+  }
+
+  openTextExportDialog(deck: Decklist): void {
+    if (deck.cards.length === 0) {
+      return;
+    }
+    this.textExportContent.set('');
+    this.textExportHint.set('');
+    this.textExportDialogOpen.set(true);
+    this.decklistStore
+      .exportDeckText$(deck.id, this.i18n.lang())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((text) => {
+        if (!text) {
+          this.closeTextExportDialog();
+          return;
+        }
+        const sections = parseDeckText(text);
+        const counts = countTextDeckLines(sections);
+        this.textExportContent.set(text);
+        this.textExportHint.set(
+          this.i18n.translate('decklist.text.hint', {
+            main: `${counts.main}`,
+            extra: `${counts.extra}`,
+            side: `${counts.side}`,
+          }),
+        );
+      });
+  }
+
+  closeTextExportDialog(): void {
+    this.textExportDialogOpen.set(false);
+    this.textExportContent.set('');
+    this.textExportHint.set('');
+  }
+
+  selectTextExport(event: FocusEvent): void {
+    const target = event.target;
+    if (target instanceof HTMLTextAreaElement) {
+      target.select();
+    }
+  }
+
+  async copyTextExport(): Promise<void> {
+    const text = this.textExportContent();
+    if (!text) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      this.closeTextExportDialog();
+    } catch {
+      // Clipboard blocked: textarea remains selectable for manual copy.
+    }
   }
 
   addSuggestion(suggestion: CardRelatedSuggestion): void {
