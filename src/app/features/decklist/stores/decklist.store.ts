@@ -26,16 +26,19 @@ import {
 import { YgoFormat } from '../../../models/ygo-format.model';
 import { YgoCard, LegalityResult } from '../../../models/ygo-card.model';
 import { DeckCompletionPlan } from '../../../models/deck-completion.model';
+import { DeckSyncService } from '../../community/services/deck-sync.service';
 
 @Injectable({ providedIn: 'root' })
 export class DecklistStore {
   private readonly decklistService = inject(DecklistService);
+  private readonly deckSync = inject(DeckSyncService);
   private readonly i18n = inject(I18nService);
   private readonly ydkeService = inject(YdkeService);
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
 
   private readonly storage = signal(this.decklistService.load());
+  private readonly remoteSyncPaused = signal(false);
 
   readonly decklists = computed(() => this.storage().decklists);
   readonly activeDecklistId = computed(() => this.storage().activeId);
@@ -202,6 +205,21 @@ export class DecklistStore {
 
   uniqueCardsForDeck(deckId: string): number {
     return this.getDeckById(deckId)?.cards.length ?? 0;
+  }
+
+  snapshot(): DecklistStorage {
+    return this.storage();
+  }
+
+  syncPaused(): boolean {
+    return this.remoteSyncPaused();
+  }
+
+  applyRemoteStorage(storage: DecklistStorage): void {
+    this.remoteSyncPaused.set(true);
+    this.storage.set(storage);
+    this.decklistService.save(storage);
+    this.remoteSyncPaused.set(false);
   }
 
   getDeckById(deckId: string): Decklist | null {
@@ -628,5 +646,6 @@ export class DecklistStore {
 
   private persist(): void {
     this.decklistService.save(this.storage());
+    this.deckSync.schedulePush();
   }
 }

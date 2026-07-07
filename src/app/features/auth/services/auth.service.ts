@@ -3,6 +3,7 @@ import type { AuthChangeEvent, Provider, Session } from '@supabase/supabase-js';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { UserProfile } from '../models/user-profile.model';
 import { AuthStore } from '../stores/auth.store';
+import { DeckSyncService } from '../../community/services/deck-sync.service';
 
 type OAuthProvider = Extract<Provider, 'google' | 'discord'>;
 
@@ -10,6 +11,7 @@ type OAuthProvider = Extract<Provider, 'google' | 'discord'>;
 export class AuthService {
   private readonly supabase = inject(SupabaseService);
   private readonly store = inject(AuthStore);
+  private readonly deckSync = inject(DeckSyncService);
 
   enabled(): boolean {
     return this.supabase.enabled();
@@ -95,6 +97,7 @@ export class AuthService {
 
     await this.ensureProfile(session.user.id, session.user.user_metadata);
     await this.loadProfile(session.user.id);
+    await this.deckSync.pullAndMerge();
   }
 
   private async ensureProfile(
