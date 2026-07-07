@@ -13,12 +13,17 @@ import { firstValueFrom } from 'rxjs';
 import { routes } from './app.routes';
 import { FormatConfigService } from './services/format-config.service';
 import { I18nService } from './services/i18n.service';
+import { AuthService } from './features/auth/services/auth.service';
 
-function initApp(i18n: I18nService, formatConfig: FormatConfigService): () => Promise<void> {
+function initApp(
+  i18n: I18nService,
+  formatConfig: FormatConfigService,
+  auth: AuthService,
+): () => Promise<void> {
   return () =>
     firstValueFrom(
       forkJoin([i18n.init$(), formatConfig.loadFormats$()]).pipe(map(() => undefined)),
-    );
+    ).then(() => auth.init());
 }
 
 export const appConfig: ApplicationConfig = {
@@ -30,7 +35,7 @@ export const appConfig: ApplicationConfig = {
     {
       provide: APP_INITIALIZER,
       useFactory: initApp,
-      deps: [I18nService, FormatConfigService],
+      deps: [I18nService, FormatConfigService, AuthService],
       multi: true,
     },
   ],

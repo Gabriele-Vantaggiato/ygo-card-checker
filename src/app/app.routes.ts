@@ -20,6 +20,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/decklist/pages/decklist.page').then((m) => m.DecklistPage),
       },
+      {
+        path: 'auth/callback',
+        loadComponent: () =>
+          import('./features/auth/pages/auth-callback.page').then((m) => m.AuthCallbackPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

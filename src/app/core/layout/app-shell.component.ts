@@ -10,6 +10,7 @@ import { FormatStore } from '../stores/format.store';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { NavIconComponent } from '../../shared/ui/nav-icon/nav-icon.component';
 import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel-field-bg.component';
+import { AuthMenuComponent } from '../../components/auth-menu/auth-menu.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,6 +27,7 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
     TranslatePipe,
     NavIconComponent,
     DuelFieldBackgroundComponent,
+    AuthMenuComponent,
   ],
   template: `
     <app-duel-field-bg />
@@ -70,7 +72,8 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
           />
         </div>
 
-        <div class="flex-none">
+        <div class="flex-none flex items-center gap-1">
+          <app-auth-menu />
           <app-language-toggle />
         </div>
       </header>
