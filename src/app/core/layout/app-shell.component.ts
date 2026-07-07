@@ -59,6 +59,9 @@ import { AuthMenuComponent } from '../../components/auth-menu/auth-menu.componen
             <a role="tab" routerLink="/decklist" routerLinkActive="tab-active" class="tab text-sm px-3">
               {{ 'nav.decklist' | translate }}
             </a>
+            <a role="tab" routerLink="/community" routerLinkActive="tab-active" class="tab text-sm px-3">
+              {{ 'nav.community' | translate }}
+            </a>
           </div>
         </nav>
 
@@ -102,6 +105,10 @@ import { AuthMenuComponent } from '../../components/auth-menu/auth-menu.componen
         <a routerLink="/decklist" routerLinkActive="mobile-tab-active" class="mobile-tab">
           <span class="mobile-tab-icon"><app-nav-icon name="decklist" /></span>
           <span class="mobile-tab-label">{{ 'nav.decklist' | translate }}</span>
+        </a>
+        <a routerLink="/community" routerLinkActive="mobile-tab-active" class="mobile-tab">
+          <span class="mobile-tab-icon"><app-nav-icon name="community" /></span>
+          <span class="mobile-tab-label">{{ 'nav.community' | translate }}</span>
         </a>
       </nav>
 

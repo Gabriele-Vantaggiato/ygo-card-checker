@@ -19,6 +19,7 @@ export interface Decklist {
   name: string;
   updatedAt: string;
   cards: DecklistCard[];
+  isPublic?: boolean;
 }
 
 export interface DecklistStorage {

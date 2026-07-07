@@ -2,8 +2,11 @@ import { Injectable, inject } from '@angular/core';
 import type { AuthChangeEvent, Provider, Session } from '@supabase/supabase-js';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { UserProfile } from '../models/user-profile.model';
+import { LocalProfile } from '../models/local-profile.model';
 import { AuthStore } from '../stores/auth.store';
+import { LocalProfileService } from './local-profile.service';
 import { DeckSyncService } from '../../community/services/deck-sync.service';
+import { CommunityIndexService } from '../../community/services/community-index.service';
 
 type OAuthProvider = Extract<Provider, 'google' | 'discord'>;
 
@@ -11,7 +14,9 @@ type OAuthProvider = Extract<Provider, 'google' | 'discord'>;
 export class AuthService {
   private readonly supabase = inject(SupabaseService);
   private readonly store = inject(AuthStore);
+  private readonly localProfiles = inject(LocalProfileService);
   private readonly deckSync = inject(DeckSyncService);
+  private readonly communityIndex = inject(CommunityIndexService);
 
   enabled(): boolean {
     return this.supabase.enabled();
@@ -19,6 +24,7 @@ export class AuthService {
 
   async init(): Promise<void> {
     if (!this.enabled()) {
+      this.store.setLocalProfile(this.localProfiles.load());
       this.store.initialized.set(true);
       return;
     }
@@ -59,20 +65,31 @@ export class AuthService {
   }
 
   async signOut(): Promise<void> {
-    const client = this.supabase.getClient();
-    if (!client) {
-      return;
+    if (this.enabled()) {
+      const client = this.supabase.getClient();
+      if (client) {
+        this.store.loading.set(true);
+        const { error } = await client.auth.signOut();
+        this.store.loading.set(false);
+        if (error) {
+          throw error;
+        }
+      }
     }
 
-    this.store.loading.set(true);
-    const { error } = await client.auth.signOut();
-    this.store.loading.set(false);
-
-    if (error) {
-      throw error;
-    }
-
+    this.localProfiles.clear();
     this.store.clear();
+  }
+
+  saveLocalProfile(profile: LocalProfile): void {
+    this.localProfiles.save(profile);
+    this.store.setLocalProfile(this.localProfiles.load());
+    this.communityIndex.rebuildFromLocal();
+  }
+
+  clearLocalProfile(): void {
+    this.localProfiles.clear();
+    this.store.clearLocal();
   }
 
   async handleAuthCallback(): Promise<void> {

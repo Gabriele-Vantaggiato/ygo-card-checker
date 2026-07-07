@@ -25,6 +25,21 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/auth/pages/auth-callback.page').then((m) => m.AuthCallbackPage),
       },
+      {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/profile/pages/profile.page').then((m) => m.ProfilePage),
+      },
+      {
+        path: 'community',
+        loadComponent: () =>
+          import('./features/community/pages/explore.page').then((m) => m.ExplorePage),
+      },
+      {
+        path: 'community/u/:handle',
+        loadComponent: () =>
+          import('./features/community/pages/public-profile.page').then((m) => m.PublicProfilePage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -585,6 +585,97 @@
     text-shadow: 0 1px 6px oklch(0% 0 0 / 0.85);
   }
 
+  .profile-layout {
+    @apply grid grid-cols-1 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] gap-4 items-start;
+  }
+
+  .profile-sidebar {
+    @apply p-4 sm:p-5 text-center;
+  }
+
+  .profile-favorite-card {
+    @apply mx-auto mb-3 w-28 sm:w-32 aspect-[3/4] rounded-lg overflow-hidden border border-primary/30 shadow-lg;
+    box-shadow: 0 0 24px oklch(72% 0.14 100 / 0.25);
+  }
+
+  .profile-favorite-img {
+    @apply h-full w-full object-cover;
+  }
+
+  .profile-favorite-fallback {
+    @apply h-full w-full flex items-center justify-center text-3xl bg-base-300/30 text-primary;
+  }
+
+  .profile-display-name {
+    @apply text-lg sm:text-xl font-semibold tracking-tight;
+  }
+
+  .profile-handle {
+    @apply text-sm text-primary mt-0.5;
+  }
+
+  .profile-bio {
+    @apply text-xs text-base-content/65 mt-2 leading-relaxed;
+  }
+
+  .profile-stats-list {
+    @apply divide-y divide-base-300/40;
+  }
+
+  .profile-stats-list li {
+    @apply flex items-center justify-between gap-3 px-3 sm:px-4 py-2.5 text-sm;
+  }
+
+  .profile-stat-value {
+    @apply text-primary font-semibold tabular-nums;
+  }
+
+  .profile-tournament-row + .profile-tournament-row {
+    @apply mt-2 pt-2 border-t border-base-300/40;
+  }
+
+  .public-deck-card {
+    border: 1px solid oklch(72% 0.14 100 / 0.35);
+    border-radius: 0.75rem;
+    background: oklch(11% 0.02 265);
+    box-shadow:
+      0 0 0 1px oklch(72% 0.14 100 / 0.1),
+      0 0 16px oklch(72% 0.14 100 / 0.18),
+      inset 0 0 28px oklch(0% 0 0 / 0.55);
+  }
+
+  .public-deck-card-cover {
+    @apply absolute inset-0 h-full w-full object-cover;
+    transform: scale(1.1);
+    filter: blur(8px) brightness(0.4) saturate(1.1);
+  }
+
+  .public-deck-card-fallback {
+    @apply absolute inset-0 bg-gradient-to-br from-base-300/30 to-base-100/10;
+  }
+
+  .public-deck-card-vignette {
+    @apply absolute inset-0;
+    background: linear-gradient(to top, oklch(0% 0 0 / 0.92) 0%, oklch(0% 0 0 / 0.35) 55%, oklch(0% 0 0 / 0.25) 100%);
+  }
+
+  .public-deck-card-footer {
+    @apply absolute inset-x-0 bottom-0 z-[1] p-2.5;
+  }
+
+  .public-deck-card-name {
+    @apply text-sm font-semibold truncate;
+    text-shadow: 0 1px 8px oklch(0% 0 0 / 0.9);
+  }
+
+  .public-deck-card-meta {
+    @apply text-[11px] text-primary/90 mt-0.5 tabular-nums;
+  }
+
+  .public-deck-card-owner {
+    @apply text-[10px] text-base-content/70 mt-0.5;
+  }
+
   @keyframes duel-grid-drift {
     from {
       transform: translate3d(0, 0, 0);

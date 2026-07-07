@@ -27,11 +27,13 @@ import { YgoFormat } from '../../../models/ygo-format.model';
 import { YgoCard, LegalityResult } from '../../../models/ygo-card.model';
 import { DeckCompletionPlan } from '../../../models/deck-completion.model';
 import { DeckSyncService } from '../../community/services/deck-sync.service';
+import { CommunityIndexService } from '../../community/services/community-index.service';
 
 @Injectable({ providedIn: 'root' })
 export class DecklistStore {
   private readonly decklistService = inject(DecklistService);
   private readonly deckSync = inject(DeckSyncService);
+  private readonly communityIndex = inject(CommunityIndexService);
   private readonly i18n = inject(I18nService);
   private readonly ydkeService = inject(YdkeService);
   private readonly ygoApi = inject(YgoApiService);
@@ -205,6 +207,19 @@ export class DecklistStore {
 
   uniqueCardsForDeck(deckId: string): number {
     return this.getDeckById(deckId)?.cards.length ?? 0;
+  }
+
+  setDeckPublic(deckId: string, isPublic: boolean): void {
+    this.patchStorage((storage) => ({
+      ...storage,
+      decklists: storage.decklists.map((deck) =>
+        deck.id === deckId ? { ...deck, isPublic, updatedAt: new Date().toISOString() } : deck,
+      ),
+    }));
+  }
+
+  isDeckPublic(deckId: string): boolean {
+    return this.getDeckById(deckId)?.isPublic ?? false;
   }
 
   snapshot(): DecklistStorage {
@@ -646,6 +661,7 @@ export class DecklistStore {
 
   private persist(): void {
     this.decklistService.save(this.storage());
+    this.communityIndex.rebuildFromLocal();
     this.deckSync.schedulePush();
   }
 }
