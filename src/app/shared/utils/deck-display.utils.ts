@@ -36,6 +36,43 @@ export function deckCoverImage(deck: Decklist): string | null {
   return deckCoverCard(deck)?.imageUrlSmall ?? null;
 }
 
+export type DeckTileFanSlot = 'left' | 'center' | 'right';
+
+export interface DeckTileFanCard {
+  slot: DeckTileFanSlot;
+  card: DecklistCard;
+}
+
+/** MDPro-style fan: up to 2 Main + 1 Extra preview cards. */
+export function deckTileFanCards(deck: Decklist): DeckTileFanCard[] {
+  const { main, extra } = splitDeckSections(deck.cards);
+  const mainCards = main.filter((card) => card.imageUrlSmall).slice(0, 2);
+  const extraCard = extra.find((card) => card.imageUrlSmall) ?? null;
+  const fan: DeckTileFanCard[] = [];
+
+  if (mainCards.length >= 2) {
+    fan.push({ slot: 'left', card: mainCards[0]! });
+    fan.push({ slot: 'center', card: mainCards[1]! });
+  } else if (mainCards.length === 1) {
+    fan.push({ slot: 'center', card: mainCards[0]! });
+  }
+
+  if (extraCard) {
+    fan.push({ slot: 'right', card: extraCard });
+  }
+
+  return fan;
+}
+
+export function deckTileCoverImage(deck: Decklist): string | null {
+  const { extra, main } = splitDeckSections(deck.cards);
+  return (
+    extra.find((card) => card.imageUrlSmall)?.imageUrlSmall ??
+    main.find((card) => card.imageUrlSmall)?.imageUrlSmall ??
+    null
+  );
+}
+
 /** @deprecated Use deckCoverCard — kept for callers migrating from preview fan. */
 export function deckLeadCard(deck: Decklist): DecklistCard | null {
   return deckCoverCard(deck);

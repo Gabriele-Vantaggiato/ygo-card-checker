@@ -68,6 +68,7 @@
   "decklist.editor.emptySide": "No cards in Side Deck",
   "decklist.decksTitle": "Your decks",
   "decklist.deckCardCount": "{total} cards · {unique} unique",
+  "decklist.tile.subtitle": "{count} cards · {format}",
   "decklist.renameSave": "Save name",
   "decklist.stats.total": "{count} total cards",
   "decklist.stats.unique": "{count} unique cards",

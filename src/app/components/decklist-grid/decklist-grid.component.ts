@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { Decklist } from '../../models/decklist.model';
 import { I18nService } from '../../services/i18n.service';
 import { DecklistStore } from '../../features/decklist/stores/decklist.store';
+import { FormatStore } from '../../core/stores/format.store';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DecklistTileComponent } from './decklist-tile.component';
 
@@ -26,14 +27,15 @@ import { DecklistTileComponent } from './decklist-tile.component';
         @for (deck of decklistStore.decklists(); track deck.id) {
           <button
             type="button"
-            class="aspect-[4/5] rounded-xl border transition-all duration-200 hover:shadow-lg hover:shadow-black/30 hover:-translate-y-0.5"
-            [class.border-primary]="deck.id === decklistStore.activeDecklistId()"
-            [class.ring-2]="deck.id === decklistStore.activeDecklistId()"
-            [class.ring-primary/50]="deck.id === decklistStore.activeDecklistId()"
-            [class.border-base-300/80]="deck.id !== decklistStore.activeDecklistId()"
+            class="deck-grid-item aspect-[4/5] rounded-xl transition-all duration-200 hover:-translate-y-0.5"
+            [class.deck-grid-item-active]="deck.id === decklistStore.activeDecklistId()"
             (click)="deckSelected.emit(deck.id)"
           >
-            <app-decklist-tile [deck]="deck" [meta]="deckCountLabel(deck)" />
+            <app-decklist-tile
+              [deck]="deck"
+              [cardCount]="decklistStore.totalCardsForDeck(deck.id)"
+              [formatLabel]="selectedFormatLabel()"
+            />
           </button>
         }
       </div>
@@ -45,12 +47,11 @@ export class DecklistGridComponent {
   readonly createRequested = output<void>();
 
   protected readonly decklistStore = inject(DecklistStore);
+  protected readonly formatStore = inject(FormatStore);
   protected readonly i18n = inject(I18nService);
 
-  deckCountLabel(deck: Decklist): string {
-    return this.i18n.t('decklist.deckCardCount', {
-      total: `${this.decklistStore.totalCardsForDeck(deck.id)}`,
-      unique: `${this.decklistStore.uniqueCardsForDeck(deck.id)}`,
-    });
-  }
+  readonly selectedFormatLabel = computed(() => {
+    const format = this.formatStore.selectedFormat();
+    return format ? format.name[this.i18n.lang()] : '—';
+  });
 }

@@ -413,69 +413,176 @@
     @apply relative z-[2] flex flex-col min-h-screen bg-transparent;
   }
 
+  .deck-grid-item {
+    @apply p-0 border-0 bg-transparent shadow-none;
+  }
+
+  .deck-grid-item-active .deck-tile-mdpro {
+    border-color: oklch(78% 0.16 95 / 0.85);
+    box-shadow:
+      0 0 0 2px oklch(78% 0.16 95 / 0.35),
+      0 0 28px oklch(78% 0.16 95 / 0.45),
+      inset 0 0 32px oklch(0% 0 0 / 0.55);
+  }
+
+  .deck-tile-mdpro {
+    border: 1px solid oklch(72% 0.14 100 / 0.42);
+    border-radius: 0.75rem;
+    background: oklch(11% 0.02 265);
+    box-shadow:
+      0 0 0 1px oklch(72% 0.14 100 / 0.12),
+      0 0 18px oklch(72% 0.14 100 / 0.22),
+      inset 0 0 36px oklch(0% 0 0 / 0.62);
+    transition:
+      box-shadow 220ms ease,
+      border-color 220ms ease,
+      transform 220ms ease;
+  }
+
+  .deck-tile-mdpro:hover {
+    border-color: oklch(78% 0.16 95 / 0.72);
+    box-shadow:
+      0 0 0 1px oklch(78% 0.16 95 / 0.28),
+      0 0 26px oklch(78% 0.16 95 / 0.38),
+      inset 0 0 36px oklch(0% 0 0 / 0.55);
+  }
+
   .deck-tile-bg {
     @apply absolute inset-0;
   }
 
   .deck-tile-cover {
-    @apply absolute inset-0 h-full w-full object-cover scale-110;
-    filter: blur(2px) brightness(0.45) saturate(1.1);
+    @apply absolute inset-0 h-full w-full object-cover;
+    transform: scale(1.12);
+    filter: blur(10px) brightness(0.38) saturate(1.15);
   }
 
   .deck-tile-vignette {
     @apply absolute inset-0;
     background:
-      linear-gradient(to top, oklch(0% 0 0 / 0.92) 0%, oklch(0% 0 0 / 0.35) 45%, oklch(0% 0 0 / 0.15) 100%),
-      radial-gradient(ellipse 80% 60% at 50% 35%, transparent 30%, oklch(0% 0 0 / 0.4) 100%);
+      linear-gradient(to top, oklch(0% 0 0 / 0.95) 0%, oklch(0% 0 0 / 0.5) 38%, oklch(0% 0 0 / 0.2) 68%, oklch(0% 0 0 / 0.35) 100%),
+      radial-gradient(ellipse 90% 70% at 50% 42%, transparent 25%, oklch(0% 0 0 / 0.45) 100%);
   }
 
-  .deck-tile-hero-frame {
-    @apply absolute inset-x-0 top-[10%] z-[1] flex justify-center pointer-events-none;
+  .deck-tile-stage {
+    @apply absolute inset-x-0 top-0 z-[1] pointer-events-none;
+    height: 66%;
   }
 
-  .deck-tile-hero-card {
-    width: 4.75rem;
-    height: 6.9rem;
-    object-fit: cover;
-    border-radius: 0.4rem;
-    border: 2px solid oklch(100% 0 0 / 0.22);
+  .deck-tile-box {
+    position: absolute;
+    left: 50%;
+    bottom: 8%;
+    width: 52%;
+    height: 36%;
+    transform: translateX(-50%);
+    border-radius: 0.4rem 0.4rem 0.25rem 0.25rem;
+    background: linear-gradient(
+      165deg,
+      oklch(32% 0.1 295) 0%,
+      oklch(20% 0.06 275) 55%,
+      oklch(14% 0.04 265) 100%
+    );
+    border: 1px solid oklch(58% 0.12 290 / 0.55);
     box-shadow:
-      0 16px 32px oklch(0% 0 0 / 0.55),
-      0 0 0 1px oklch(78% 0.14 85 / 0.25);
-    transform: rotate(-3deg);
-    transition: transform 220ms ease, box-shadow 220ms ease;
+      0 10px 24px oklch(0% 0 0 / 0.65),
+      inset 0 1px 0 oklch(100% 0 0 / 0.08);
+  }
+
+  .deck-tile-box::before {
+    content: "";
+    position: absolute;
+    inset: 12% 14% 42%;
+    border-radius: 0.2rem;
+    background: linear-gradient(180deg, oklch(48% 0.14 305 / 0.55) 0%, oklch(28% 0.08 285 / 0.35) 100%);
+    border: 1px solid oklch(70% 0.1 300 / 0.25);
+  }
+
+  .deck-tile-fan {
+    @apply absolute inset-0;
+  }
+
+  .deck-tile-fan-card {
+    position: absolute;
+    bottom: 22%;
+    width: 3.1rem;
+    height: 4.55rem;
+    object-fit: cover;
+    border-radius: 0.32rem;
+    border: 1.5px solid oklch(100% 0 0 / 0.22);
+    box-shadow: 0 10px 22px oklch(0% 0 0 / 0.58);
+    transition:
+      transform 220ms ease,
+      box-shadow 220ms ease;
+  }
+
+  .deck-tile-fan-card-left {
+    left: 14%;
+    transform: rotate(-15deg) translateY(4px);
+    z-index: 2;
+  }
+
+  .deck-tile-fan-card-center {
+    left: 50%;
+    width: 3.35rem;
+    height: 4.9rem;
+    transform: translateX(-50%) rotate(-3deg);
+    z-index: 4;
+  }
+
+  .deck-tile-fan-card-right {
+    right: 14%;
+    transform: rotate(15deg) translateY(4px);
+    z-index: 3;
+    border-color: oklch(92% 0.02 95 / 0.38);
+    box-shadow:
+      0 10px 22px oklch(0% 0 0 / 0.58),
+      0 0 12px oklch(88% 0.04 95 / 0.15);
   }
 
   .deck-tile-empty-mark {
-    @apply absolute inset-x-0 top-[22%] flex items-center justify-center text-5xl font-bold text-white/25 pointer-events-none select-none;
+    @apply absolute inset-x-0 top-[28%] z-[1] flex items-center justify-center text-5xl font-bold text-white/20 pointer-events-none select-none;
   }
 
-  .deck-tile:hover .deck-tile-hero-card {
-    transform: rotate(0deg) translateY(-6px) scale(1.04);
-    box-shadow:
-      0 22px 40px oklch(0% 0 0 / 0.6),
-      0 0 24px oklch(78% 0.14 85 / 0.2);
+  .deck-tile-mdpro:hover .deck-tile-fan-card-left {
+    transform: rotate(-12deg) translateY(-2px);
   }
 
-  .deck-tile-initial {
-    @apply absolute top-2.5 left-2.5 z-10 flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold;
-    background: oklch(0% 0 0 / 0.45);
-    border: 1px solid oklch(100% 0 0 / 0.15);
-    color: oklch(92% 0.02 85);
-    backdrop-filter: blur(4px);
+  .deck-tile-mdpro:hover .deck-tile-fan-card-center {
+    transform: translateX(-50%) rotate(0deg) translateY(-6px) scale(1.03);
+    box-shadow: 0 16px 28px oklch(0% 0 0 / 0.62);
   }
 
-  .deck-tile-footer {
-    @apply absolute inset-x-0 bottom-0 z-10 px-2.5 py-2.5;
-    background: linear-gradient(to top, oklch(0% 0 0 / 0.88) 0%, oklch(0% 0 0 / 0.55) 70%, transparent 100%);
+  .deck-tile-mdpro:hover .deck-tile-fan-card-right {
+    transform: rotate(12deg) translateY(-2px);
+  }
+
+  .deck-tile-caption {
+    @apply absolute inset-x-0 z-10 px-2.5 pt-3 pb-2.5 text-center;
+    bottom: 11%;
+    background: linear-gradient(
+      to top,
+      oklch(0% 0 0 / 0.96) 0%,
+      oklch(0% 0 0 / 0.88) 55%,
+      oklch(0% 0 0 / 0.45) 85%,
+      transparent 100%
+    );
   }
 
   .deck-tile-name {
-    @apply font-display font-semibold text-sm leading-tight truncate text-white;
+    @apply font-display font-bold text-[0.95rem] sm:text-base leading-snug text-white px-0.5;
+    text-shadow:
+      0 1px 2px oklch(0% 0 0 / 0.95),
+      0 2px 12px oklch(0% 0 0 / 0.75);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .deck-tile-meta {
-    @apply text-[11px] text-white/75 mt-0.5 tabular-nums;
+    @apply text-[11px] sm:text-xs text-primary/90 mt-1 tabular-nums font-medium tracking-wide;
+    text-shadow: 0 1px 6px oklch(0% 0 0 / 0.85);
   }
 
   @keyframes duel-grid-drift {
@@ -563,7 +670,7 @@
     animation: none !important;
   }
 
-  .deck-tile:hover .deck-tile-hero-card {
-    transform: rotate(-3deg);
+  .deck-tile-mdpro:hover .deck-tile-fan-card-center {
+    transform: translateX(-50%) rotate(-3deg);
   }
 }

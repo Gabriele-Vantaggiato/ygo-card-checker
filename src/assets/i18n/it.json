@@ -68,6 +68,7 @@
   "decklist.editor.emptySide": "Nessuna carta nel Side Deck",
   "decklist.decksTitle": "I tuoi mazzi",
   "decklist.deckCardCount": "{total} carte · {unique} diverse",
+  "decklist.tile.subtitle": "{count} carte · {format}",
   "decklist.renameSave": "Salva nome",
   "decklist.stats.total": "{count} carte totali",
   "decklist.stats.unique": "{count} carte diverse",
