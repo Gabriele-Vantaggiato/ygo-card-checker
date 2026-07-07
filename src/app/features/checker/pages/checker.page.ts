@@ -31,6 +31,11 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
   providers: [CheckerStore],
   template: `
     <main class="page-main page-stack lg:max-w-7xl">
+      <header class="page-header">
+        <h1 class="page-title">{{ 'checker.pageTitle' | translate }}</h1>
+        <p class="page-subtitle">{{ 'checker.pageSubtitle' | translate }}</p>
+      </header>
+
       @if (deckReturn(); as ctx) {
         <div
           class="sticky top-14 z-20 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 sm:px-4 backdrop-blur-sm"
@@ -52,23 +57,22 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
       }
 
       @if (store.error()) {
-        <div class="alert alert-error">
+        <div class="alert alert-error alert-sm py-2">
           <span>{{ store.error() }}</span>
         </div>
       }
 
-      <div class="deck-context-strip">
-        <div class="deck-context-format">
-          <app-format-selector
-            [compact]="true"
-            [formats]="store.formats()"
-            [selectedId]="store.selectedFormatId()"
-            (selectedChange)="store.setFormatId($event)"
-          />
-        </div>
+      <div class="sm:hidden deck-context-bar">
+        <app-format-selector
+          [inline]="true"
+          [showLabel]="true"
+          [formats]="store.formats()"
+          [selectedId]="store.selectedFormatId()"
+          (selectedChange)="store.setFormatId($event)"
+        />
       </div>
 
-      <div class="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
+      <div class="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
         <aside class="context-panel lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto lg:overscroll-y-contain">
           <div class="context-panel-section">
             <app-card-search

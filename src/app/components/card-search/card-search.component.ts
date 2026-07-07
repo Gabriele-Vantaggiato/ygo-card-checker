@@ -13,22 +13,18 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   host: { class: 'block lg:flex lg:flex-col lg:min-h-0 lg:flex-1' },
   template: `
     <div class="form-control w-full relative lg:flex lg:flex-col lg:min-h-0 lg:flex-1">
-      <div class="label">
-        <span class="label-text font-medium">{{ 'search.label' | translate }}</span>
-      </div>
       <input
         type="text"
-        class="input input-bordered input-lg w-full text-base"
+        class="input input-bordered input-sm sm:input-md w-full"
         [placeholder]="'search.placeholder' | translate"
+        [attr.aria-label]="'search.label' | translate"
         [value]="query()"
         (input)="onInput($event)"
         autocomplete="off"
       />
 
       @if (loading() || legalityLoading()) {
-        <div class="label">
-          <span class="label-text-alt">{{ 'search.loading' | translate }}</span>
-        </div>
+        <p class="text-[11px] text-base-content/50 mt-1.5 px-0.5">{{ 'search.loading' | translate }}</p>
       }
 
       @if (showDropdown()) {

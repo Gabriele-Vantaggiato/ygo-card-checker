@@ -39,13 +39,14 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
     TranslatePipe],
   template: `
     @if (card()) {
-      <div class="card bg-base-100 shadow-xl border border-base-300 overflow-hidden">
-        <div class="tabs tabs-boxed bg-base-200/50 p-1 mx-4 mt-4 sm:mx-6 sm:mt-6">
+      <div class="duel-panel overflow-hidden">
+        <div role="tablist" class="workspace-tabs mx-3 mt-3 sm:mx-4 sm:mt-4">
           <button
             type="button"
             role="tab"
-            class="tab tab-sm sm:tab-md"
+            class="workspace-tab"
             [class.tab-active]="activeTab() === 'legality'"
+            [attr.aria-selected]="activeTab() === 'legality'"
             (click)="activeTab.set('legality')"
           >
             {{ 'detail.tab.legality' | translate }}
@@ -53,8 +54,9 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           <button
             type="button"
             role="tab"
-            class="tab tab-sm sm:tab-md"
+            class="workspace-tab"
             [class.tab-active]="activeTab() === 'related'"
+            [attr.aria-selected]="activeTab() === 'related'"
             (click)="activeTab.set('related')"
           >
             {{ 'detail.tab.related' | translate }}
@@ -62,8 +64,9 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           <button
             type="button"
             role="tab"
-            class="tab tab-sm sm:tab-md"
+            class="workspace-tab"
             [class.tab-active]="activeTab() === 'combo'"
+            [attr.aria-selected]="activeTab() === 'combo'"
             (click)="activeTab.set('combo')"
           >
             {{ 'detail.tab.combo' | translate }}

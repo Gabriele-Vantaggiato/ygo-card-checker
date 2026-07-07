@@ -16,11 +16,11 @@ import { DeckSectionViewModel } from './decklist-editor.model';
         @for (section of sections(); track section.key) {
           <div>
             <div
-              class="flex flex-wrap items-center gap-2 sm:gap-3 mb-2 px-2 py-1.5 rounded-lg bg-base-200/80 border border-base-300"
+              class="flex flex-wrap items-center gap-2 mb-2 px-2 py-1.5 rounded-lg bg-base-200/50 border border-base-300/70"
             >
               <span class="font-semibold text-sm">{{ section.titleKey | translate }}</span>
-              <span class="text-xs text-base-content/60 tabular-nums">{{ section.count }}</span>
-              <div class="flex gap-1.5 ml-auto text-[11px] font-medium">
+              <span class="text-xs text-base-content/55 tabular-nums">{{ section.count }}</span>
+              <div class="hidden sm:flex gap-1.5 ml-auto text-[11px] font-medium">
                 <span
                   class="duel-section-chip bg-warning/15 text-warning"
                   [title]="'decklist.editor.type.monsters' | translate"
@@ -50,7 +50,7 @@ import { DeckSectionViewModel } from './decklist-editor.model';
               <div class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-1">
                 @for (cell of section.expandedCards; track cell.card.id + '-' + $index) {
                   <div
-                    class="group relative aspect-[59/86] rounded transition-transform duration-200 ease-out hover:scale-[1.35] hover:z-30"
+                    class="group relative aspect-[59/86] rounded transition-transform duration-200 ease-out hover:scale-[1.12] hover:z-20"
                   >
                     <button
                       type="button"

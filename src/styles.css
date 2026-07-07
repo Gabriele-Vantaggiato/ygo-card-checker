@@ -68,11 +68,27 @@
   }
 
   .page-main {
-    @apply container mx-auto w-full max-w-7xl px-4 py-5 sm:py-7 flex-1;
+    @apply container mx-auto w-full max-w-7xl px-4 py-4 sm:py-6 flex-1;
   }
 
   .page-stack {
-    @apply flex flex-col gap-4 sm:gap-5;
+    @apply flex flex-col gap-3 sm:gap-4;
+  }
+
+  .page-header {
+    @apply space-y-0.5;
+  }
+
+  .page-title {
+    @apply text-xl sm:text-2xl font-bold tracking-tight text-base-content;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-base-content/55 max-w-2xl;
+  }
+
+  .section-title {
+    @apply text-sm font-semibold text-base-content/75;
   }
 
   .deck-context-strip {

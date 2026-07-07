@@ -15,24 +15,28 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   imports: [NgClass,
     TranslatePipe],
   template: `
-  <section class="flex flex-col min-h-0 min-w-0 w-full overflow-hidden" [class.mt-auto]="pinned()">
-    <div class="flex items-center justify-between gap-2 mb-2">
-      <h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/80">
+  <details class="group" [attr.open]="entries().length > 0 ? true : null">
+    <summary class="flex items-center justify-between gap-2 mb-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-base-content/60 flex items-center gap-1.5">
+        <span class="text-primary/70 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
         {{ 'history.title' | translate }}
+        @if (entries().length > 0) {
+          <span class="badge badge-ghost badge-xs font-normal">{{ entries().length }}</span>
+        }
       </h3>
       @if (entries().length > 0) {
         <button
           type="button"
           class="btn btn-ghost btn-xs text-base-content/60"
-          (click)="clear.emit()"
+          (click)="onClear($event)"
         >
           {{ 'history.clear' | translate }}
         </button>
       }
-    </div>
+    </summary>
 
     @if (entries().length === 0) {
-      <p class="text-xs text-base-content/50 py-2">{{ 'history.empty' | translate }}</p>
+      <p class="text-xs text-base-content/50 py-1">{{ 'history.empty' | translate }}</p>
     } @else {
       <ul
         class="flex flex-col gap-0.5 w-full min-w-0 bg-base-200/60 rounded-box border border-base-300 p-1 overflow-y-auto overflow-x-hidden overscroll-y-contain"
@@ -95,7 +99,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
         }
       </ul>
     }
-  </section>
+  </details>
   `,
 })
 export class SearchHistoryComponent {
@@ -122,6 +126,12 @@ export class SearchHistoryComponent {
   onRemove(event: Event, cardId: number): void {
     event.stopPropagation();
     this.remove.emit(cardId);
+  }
+
+  onClear(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.clear.emit();
   }
 
   hasLegality(entry: SearchHistoryEntry): boolean {

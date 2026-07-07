@@ -18,7 +18,9 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
     TranslatePipe],
   template: `
     <div
-      class="flex items-stretch gap-1.5 rounded-xl transition-colors w-full min-h-[4.75rem]"
+      class="flex items-stretch gap-1 rounded-lg transition-colors w-full"
+      [class.min-h-[3.5rem]]="compact()"
+      [class.min-h-[4.25rem]]="!compact()"
       [class.bg-primary/10]="active()"
       [class.ring-1]="active()"
       [class.ring-primary/30]="active()"
@@ -34,7 +36,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 
       <button
         type="button"
-        class="flex-1 min-w-0 flex items-center gap-3 p-3 rounded-xl hover:bg-base-200/80 text-left transition-colors"
+        class="flex-1 min-w-0 flex items-center gap-2.5 p-2 sm:p-2.5 rounded-lg hover:bg-base-200/80 text-left transition-colors"
         [class.opacity-50]="legality()?.banlistStatus === 'Forbidden'"
         (click)="cardSelect.emit(card())"
       >
@@ -42,20 +44,22 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           <img
             [src]="src"
             [alt]=""
-            class="w-11 h-[3.75rem] sm:w-12 sm:h-[4.25rem] object-cover rounded-md shadow-sm shrink-0"
+            class="w-9 h-12 sm:w-10 sm:h-14 object-cover rounded-md shadow-sm shrink-0"
             loading="lazy"
           />
         } @else {
-          <span class="w-11 h-[3.75rem] sm:w-12 sm:h-[4.25rem] rounded-md bg-base-300 shrink-0"></span>
+          <span class="w-9 h-12 sm:w-10 sm:h-14 rounded-md bg-base-300 shrink-0"></span>
         }
 
         <div class="flex-1 min-w-0 py-0.5">
-          <p class="text-sm sm:text-base font-semibold leading-snug line-clamp-2">{{ card().name }}</p>
-          <p class="text-xs sm:text-sm text-base-content/60 truncate mt-0.5">{{ card().type }}</p>
+          <p class="text-sm font-semibold leading-snug line-clamp-2">{{ card().name }}</p>
+          @if (!compact()) {
+            <p class="text-xs text-base-content/60 truncate mt-0.5">{{ card().type }}</p>
+          }
           @if (legality(); as result) {
-            <span class="mt-2 inline-flex">
+            <span class="mt-1 inline-flex">
               <span
-                class="badge badge-sm duel-verdict-badge"
+                class="badge badge-xs duel-verdict-badge"
                 [ngClass]="verdictBadgeClass(result.verdict)"
                 [title]="'history.playability' | translate"
               >
@@ -63,7 +67,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               </span>
             </span>
           } @else if (legalityLoading()) {
-            <span class="loading loading-dots loading-sm mt-2 text-base-content/40"></span>
+            <span class="loading loading-dots loading-xs mt-1 text-base-content/40"></span>
           }
         </div>
 
@@ -81,6 +85,7 @@ export class CardSearchResultRowComponent {
   readonly active = input(false);
   readonly qtyInDeck = input(0);
   readonly showAddButton = input(false);
+  readonly compact = input(false);
 
   readonly cardSelect = output<YgoCard>();
 

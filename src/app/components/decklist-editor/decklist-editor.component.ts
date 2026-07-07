@@ -101,21 +101,22 @@ import {
           (deleteDeck)="decklistStore.deleteActiveDecklist(); back.emit()"
         />
 
+        <div class="deck-context-bar sm:hidden">
+          <app-format-selector
+            [inline]="true"
+            [showLabel]="true"
+            [formats]="formatStore.formats()"
+            [selectedId]="formatStore.formatId()"
+            (selectedChange)="formatStore.setFormatId($event)"
+          />
+        </div>
+
         <div class="deck-context-bar">
           <app-deck-stats-strip
             [embedded]="true"
             [cards]="liveDeck().cards"
             [mainTarget]="completeDeckTarget()"
           />
-          <div class="deck-context-divider hidden sm:block" aria-hidden="true"></div>
-          <div class="deck-context-format-inline min-w-0 flex-1 sm:flex-none">
-            <app-format-selector
-              [compact]="true"
-              [formats]="formatStore.formats()"
-              [selectedId]="formatStore.formatId()"
-              (selectedChange)="formatStore.setFormatId($event)"
-            />
-          </div>
         </div>
 
         @defer (on viewport) {

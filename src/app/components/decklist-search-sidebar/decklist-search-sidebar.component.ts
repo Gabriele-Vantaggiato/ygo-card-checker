@@ -26,40 +26,31 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-search-sidebar',
   standalone: true,
-  imports: [FormsModule, CardSearchResultRowComponent,
-    TranslatePipe],
+  imports: [FormsModule, CardSearchResultRowComponent, TranslatePipe],
   template: `
     <aside class="duel-panel flex flex-col overflow-hidden min-w-0 w-full">
-      <div class="duel-panel-header shrink-0 space-y-2">
-        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">
-          {{ 'decklist.editor.search' | translate }}
-        </p>
-        <div class="flex gap-2">
-          <input
-            type="text"
-            class="input input-bordered input-sm flex-1 min-w-0"
-            [placeholder]="'search.placeholder' | translate"
-            [ngModel]="searchQuery()"
-            (ngModelChange)="onSearchInput($event)"
-          />
-          <button type="button" class="btn btn-primary btn-sm" (click)="triggerSearch()">
-            {{ 'decklist.editor.searchBtn' | translate }}
-          </button>
-        </div>
+      <div class="duel-panel-header shrink-0">
+        <input
+          type="text"
+          class="input input-bordered input-sm w-full"
+          [placeholder]="'search.placeholder' | translate"
+          [attr.aria-label]="'decklist.editor.search' | translate"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="onSearchInput($event)"
+        />
         @if (searchTotalRows() > 0) {
-          <p class="text-[11px] text-base-content/50 mt-2 px-0.5">
+          <p class="text-[11px] text-base-content/50 mt-2 font-normal normal-case tracking-normal">
             {{ searchResultsLabel() }}
           </p>
         }
-        <p class="text-[10px] text-base-content/45 mt-1 px-0.5">{{ 'decklist.editor.searchRowHint' | translate }}</p>
       </div>
 
-      <div class="overflow-y-auto overscroll-y-contain p-2 min-h-[10rem] max-h-[min(45vh,20rem)] lg:max-h-[min(28vh,14rem)]">
+      <div class="overflow-y-auto overscroll-y-contain p-2 min-h-[8rem] max-h-[min(45vh,20rem)] lg:max-h-[min(28vh,14rem)]">
         @if (searchLoading() || legalityLoading()) {
           <p class="text-xs text-base-content/60 px-2 py-4">{{ 'search.loading' | translate }}</p>
         } @else {
           @for (row of enrichedSearchRows(); track row.card.id) {
-            <div class="flex items-center gap-1 rounded-lg">
+            <div class="group flex items-center gap-1 rounded-lg">
               <app-card-search-result-row
                 class="flex-1 min-w-0"
                 [card]="row.card"
@@ -67,11 +58,12 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                 [legalityLoading]="legalityLoading()"
                 [active]="inspectedCardId() === row.card.id"
                 [qtyInDeck]="row.qtyInDeck"
+                [compact]="true"
                 (cardSelect)="cardInspect.emit($event)"
               />
               <button
                 type="button"
-                class="btn btn-primary btn-xs btn-square shrink-0 mr-1"
+                class="btn btn-primary btn-xs btn-square shrink-0 mr-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100 transition-opacity"
                 [class.btn-disabled]="row.isForbidden || !row.canAdd"
                 [attr.aria-label]="'decklist.editor.quickAdd' | translate"
                 (click)="onQuickAdd(row.card, $event)"
@@ -189,10 +181,6 @@ export class DecklistSearchSidebarComponent {
   onSearchInput(value: string): void {
     this.searchQuery.set(value);
     this.search$.next(value);
-  }
-
-  triggerSearch(): void {
-    this.search$.next(this.searchQuery());
   }
 
   loadMore(): void {

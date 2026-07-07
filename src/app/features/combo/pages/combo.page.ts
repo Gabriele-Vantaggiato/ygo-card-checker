@@ -1,10 +1,8 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, of } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
-import { DeckStrategyPanelComponent } from '../../../components/deck-strategy-panel/deck-strategy-panel.component';
-import { FormatSelectorComponent } from '../../../components/format-selector/format-selector.component';
 import { ComboPayoff, ComboRequirement, ComboResult } from '../../../models/card-combo.model';
 import { CardKnowledgeEffect } from '../../../models/card-knowledge.model';
 import { YgoCard } from '../../../models/ygo-card.model';
@@ -32,54 +30,40 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-combo-page',
   standalone: true,
-  imports: [RouterLink, FormatSelectorComponent, DeckStrategyPanelComponent,
-    TranslatePipe],
+  imports: [RouterLink, TranslatePipe],
   template: `
     <main class="page-main page-stack max-w-3xl lg:max-w-4xl">
-      <div class="flex flex-wrap items-center gap-2">
+      <header class="page-header flex flex-wrap items-start justify-between gap-3">
+        <div class="space-y-1 min-w-0">
+          <h1 class="page-title">{{ 'combo.title' | translate }}</h1>
+          <p class="page-subtitle">{{ 'combo.subtitle' | translate }}</p>
+        </div>
         <a
           routerLink="/"
           [queryParams]="card() ? { cardId: card()!.id } : null"
-          class="btn btn-ghost btn-sm gap-1.5"
+          class="btn btn-ghost btn-sm gap-1.5 shrink-0"
         >
           <span aria-hidden="true">←</span>
           {{ 'combo.backToSearch' | translate }}
         </a>
-      </div>
-
-      <header class="space-y-1">
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">{{ 'combo.title' | translate }}</h1>
-        <p class="text-sm text-base-content/60">{{ 'combo.subtitle' | translate }}</p>
       </header>
-
-      <div class="deck-context-strip">
-        <div class="deck-context-format">
-          <app-format-selector
-            [compact]="true"
-            [formats]="formatStore.formats()"
-            [selectedId]="formatStore.formatId()"
-            (selectedChange)="formatStore.setFormatId($event)"
-          />
-        </div>
-        <app-deck-strategy-panel class="min-w-0" />
-      </div>
 
       @if (loading()) {
         <p class="text-sm text-base-content/60">{{ 'combo.loading' | translate }}</p>
       } @else if (!card()) {
-        <div class="alert alert-warning">
-          <span>{{ 'combo.noCard' | translate }}</span>
+        <div class="empty-state py-10">
+          <p class="empty-state-title">{{ 'combo.noCard' | translate }}</p>
         </div>
       } @else {
         <section class="duel-panel">
-          <div class="p-4 sm:p-6">
+          <div class="p-4 sm:p-5">
             <div class="flex gap-4 items-start">
               @if (card()!.card_images[0].image_url_small; as img) {
-                <img [src]="img" [alt]="" class="w-16 sm:w-20 rounded shrink-0" />
+                <img [src]="img" [alt]="" class="w-14 sm:w-16 rounded shrink-0" />
               }
-              <div class="min-w-0 space-y-2">
-                <h2 class="text-lg font-bold">{{ card()!.name }}</h2>
-                <p class="text-xs sm:text-sm text-base-content/70 line-clamp-4">{{ card()!.desc }}</p>
+              <div class="min-w-0 space-y-1">
+                <h2 class="text-lg font-bold leading-tight">{{ card()!.name }}</h2>
+                <p class="text-xs sm:text-sm text-base-content/60 line-clamp-3">{{ card()!.desc }}</p>
               </div>
             </div>
           </div>
@@ -94,50 +78,12 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
         ) {
           <p class="text-sm text-base-content/60">{{ 'combo.unparsed' | translate }}</p>
         } @else {
-          @if (combo().displayTags.length > 0) {
-            <section class="card bg-base-100 shadow-xl border border-base-300">
-              <div class="card-body p-4 sm:p-6 space-y-2">
-                <h3 class="font-semibold text-sm">{{ 'knowledge.mechanics' | translate }}</h3>
-                <div class="flex flex-wrap gap-1">
-                  @for (tag of combo().displayTags; track tag.id) {
-                    <span class="badge badge-secondary badge-sm badge-outline">{{ (tag.labelKey) | translate }}</span>
-                  }
-                </div>
-              </div>
-            </section>
-          }
-
-          @if (combo().requirements.length > 0 || combo().payoffs.length > 0 || combo().effects.length > 0) {
-            <section class="card bg-base-100 shadow-xl border border-base-300">
-              <div class="card-body p-4 sm:p-6 space-y-3">
-                <h3 class="font-semibold">{{ 'combo.parsedEffects' | translate }}</h3>
-                <div class="flex flex-wrap gap-2">
-                  @for (req of combo().requirements; track $index) {
-                    <span class="badge badge-outline badge-primary">
-                      {{ requirementLabel(req) }}
-                    </span>
-                  }
-                  @for (pay of combo().payoffs; track $index) {
-                    <span class="badge badge-outline badge-secondary">
-                      {{ payoffLabel(pay) }}
-                    </span>
-                  }
-                  @for (effect of combo().effects; track effect.kind) {
-                    <span class="badge badge-outline badge-info">
-                      {{ effectLabel(effect) }}
-                    </span>
-                  }
-                </div>
-              </div>
-            </section>
-          }
-
           @if (combo().lines.length > 0) {
-            <section class="space-y-3">
-              <h3 class="font-semibold text-lg">{{ 'combo.linesTitle' | translate }}</h3>
+            <section class="space-y-2">
+              <h3 class="section-title">{{ 'combo.linesTitle' | translate }}</h3>
               @for (line of combo().lines; track line.id) {
                 <article class="duel-panel">
-                  <div class="p-4 space-y-3">
+                  <div class="p-4 space-y-2">
                     <ol class="space-y-2">
                       @for (step of line.steps; track step.cardId + step.role; let idx = $index) {
                         <li class="flex items-center gap-3">
@@ -164,86 +110,58 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
             </section>
           }
 
-          @if (combo().enablers.length > 0) {
-            <section class="card bg-base-100 shadow-xl border border-base-300">
-              <div class="card-body p-4 sm:p-6 space-y-3">
-                <h3 class="font-semibold">{{ 'combo.enablersTitle' | translate }}</h3>
-                <ul class="space-y-2">
-                  @for (item of combo().enablers; track item.id) {
-                    <li>
-                      <button
-                        type="button"
-                        class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/80 text-left"
-                        (click)="openCard(item.id)"
-                      >
-                        <img [src]="item.imageSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
-                        <div class="min-w-0">
-                          <p class="text-sm font-medium truncate">{{ item.name }}</p>
-                          <p class="text-[11px] text-base-content/60 truncate">
-                            {{ (item.reasonKey) | translate: item.reasonParams }}
-                          </p>
-                        </div>
-                      </button>
-                    </li>
-                  }
-                </ul>
-              </div>
+          @if (relatedCards().length > 0) {
+            <section class="duel-panel">
+              <div class="duel-panel-header">{{ 'combo.relatedTitle' | translate }}</div>
+              <ul class="divide-y divide-base-300/60">
+                @for (item of relatedCards(); track item.id + item.group) {
+                  <li>
+                    <button
+                      type="button"
+                      class="w-full flex items-center gap-3 p-3 hover:bg-base-200/50 text-left transition-colors"
+                      (click)="openCard(item.id)"
+                    >
+                      <img [src]="item.imageSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium truncate">{{ item.name }}</p>
+                        <p class="text-[11px] text-base-content/55 truncate">
+                          {{ (item.groupKey) | translate }} · {{ (item.reasonKey) | translate: item.reasonParams }}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                }
+              </ul>
             </section>
           }
 
-          @if (combo().targets.length > 0) {
-            <section class="card bg-base-100 shadow-xl border border-base-300">
-              <div class="card-body p-4 sm:p-6 space-y-3">
-                <h3 class="font-semibold">{{ 'combo.targetsTitle' | translate }}</h3>
-                <ul class="space-y-2">
-                  @for (item of combo().targets; track item.id) {
-                    <li>
-                      <button
-                        type="button"
-                        class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/80 text-left"
-                        (click)="openCard(item.id)"
-                      >
-                        <img [src]="item.imageSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
-                        <div class="min-w-0">
-                          <p class="text-sm font-medium truncate">{{ item.name }}</p>
-                          <p class="text-[11px] text-base-content/60 truncate">
-                            {{ (item.reasonKey) | translate: item.reasonParams }}
-                          </p>
-                        </div>
-                      </button>
-                    </li>
+          @if (combo().displayTags.length > 0 || combo().requirements.length > 0 || combo().payoffs.length > 0 || combo().effects.length > 0) {
+            <details class="duel-panel group">
+              <summary class="duel-panel-header cursor-pointer list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
+                <span class="text-primary/80 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+                {{ 'combo.technicalDetails' | translate }}
+              </summary>
+              <div class="p-4 space-y-3">
+                @if (combo().displayTags.length > 0) {
+                  <div class="flex flex-wrap gap-1">
+                    @for (tag of combo().displayTags; track tag.id) {
+                      <span class="badge badge-secondary badge-sm badge-outline">{{ (tag.labelKey) | translate }}</span>
+                    }
+                  </div>
+                }
+                <div class="flex flex-wrap gap-2">
+                  @for (req of combo().requirements; track $index) {
+                    <span class="badge badge-outline badge-primary badge-sm">{{ requirementLabel(req) }}</span>
                   }
-                </ul>
-              </div>
-            </section>
-          }
-
-          @if (combo().synergies.length > 0) {
-            <section class="card bg-base-100 shadow-xl border border-primary/30">
-              <div class="card-body p-4 sm:p-6 space-y-3">
-                <h3 class="font-semibold">{{ 'combo.synergiesTitle' | translate }}</h3>
-                <p class="text-xs text-base-content/60">{{ 'combo.synergiesHint' | translate }}</p>
-                <ul class="space-y-2">
-                  @for (item of combo().synergies; track item.id) {
-                    <li>
-                      <button
-                        type="button"
-                        class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/80 text-left"
-                        (click)="openCard(item.id)"
-                      >
-                        <img [src]="item.imageSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />
-                        <div class="min-w-0">
-                          <p class="text-sm font-medium truncate">{{ item.name }}</p>
-                          <p class="text-[11px] text-base-content/60 truncate">
-                            {{ (item.reasonKey) | translate: item.reasonParams }}
-                          </p>
-                        </div>
-                      </button>
-                    </li>
+                  @for (pay of combo().payoffs; track $index) {
+                    <span class="badge badge-outline badge-secondary badge-sm">{{ payoffLabel(pay) }}</span>
                   }
-                </ul>
+                  @for (effect of combo().effects; track effect.kind) {
+                    <span class="badge badge-outline badge-info badge-sm">{{ effectLabel(effect) }}</span>
+                  }
+                </div>
               </div>
-            </section>
+            </details>
           }
 
           @if (combo().enablers.length === 0 && combo().targets.length === 0 && combo().lines.length === 0 && combo().synergies.length === 0) {
@@ -267,6 +185,26 @@ export class ComboPage {
   readonly loading = signal(true);
   readonly card = signal<YgoCard | null>(null);
   readonly combo = signal<ComboResult>(EMPTY_COMBO);
+
+  readonly relatedCards = computed(() => {
+    const combo = this.combo();
+    const enablers = combo.enablers.map((item) => ({
+      ...item,
+      group: 'enabler' as const,
+      groupKey: 'combo.enablersTitle',
+    }));
+    const targets = combo.targets.map((item) => ({
+      ...item,
+      group: 'target' as const,
+      groupKey: 'combo.targetsTitle',
+    }));
+    const synergies = combo.synergies.map((item) => ({
+      ...item,
+      group: 'synergy' as const,
+      groupKey: 'combo.synergiesTitle',
+    }));
+    return [...enablers, ...targets, ...synergies];
+  });
 
   constructor() {
     combineLatest([this.route.queryParamMap, this.formatStore.selectedFormat$, this.i18n.lang$])

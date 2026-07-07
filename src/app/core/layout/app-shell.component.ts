@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LanguageToggleComponent } from '../../components/language-toggle/language-toggle.component';
+import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { DialogHostComponent } from '../../components/dialog-host/dialog-host.component';
 import { ToastHostComponent } from '../../components/toast-host/toast-host.component';
 import { I18nService } from '../../services/i18n.service';
+import { FormatStore } from '../stores/format.store';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
@@ -15,6 +17,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
     RouterLink,
     RouterLinkActive,
     LanguageToggleComponent,
+    FormatSelectorComponent,
     DialogHostComponent,
     ToastHostComponent,
     TranslatePipe,
@@ -22,10 +25,10 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   template: `
     <div class="min-h-screen bg-base-200 flex flex-col">
       <header
-        class="navbar bg-base-100/95 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-30 shadow-sm min-h-14"
+        class="navbar bg-base-100/95 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-30 shadow-sm min-h-14 gap-2"
       >
         <div class="flex-1 min-w-0">
-          <span class="font-bold tracking-tight text-primary text-sm sm:text-base md:text-lg whitespace-nowrap">
+          <span class="font-bold tracking-tight text-primary text-sm sm:text-base whitespace-nowrap">
             <span class="md:hidden">{{ 'app.titleShort' | translate }}</span>
             <span class="hidden md:inline">{{ 'app.title' | translate }}</span>
           </span>
@@ -38,20 +41,30 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               routerLink="/"
               routerLinkActive="tab-active"
               [routerLinkActiveOptions]="{ exact: true }"
-              class="tab text-sm px-4"
+              class="tab text-sm px-3"
             >
               {{ 'nav.search' | translate }}
             </a>
-            <a role="tab" routerLink="/combo" routerLinkActive="tab-active" class="tab text-sm px-4">
+            <a role="tab" routerLink="/combo" routerLinkActive="tab-active" class="tab text-sm px-3">
               {{ 'nav.combo' | translate }}
             </a>
-            <a role="tab" routerLink="/decklist" routerLinkActive="tab-active" class="tab text-sm px-4">
+            <a role="tab" routerLink="/decklist" routerLinkActive="tab-active" class="tab text-sm px-3">
               {{ 'nav.decklist' | translate }}
             </a>
           </div>
         </nav>
 
-        <div class="flex-none pl-2">
+        <div class="hidden sm:block w-36 lg:w-44 shrink-0">
+          <app-format-selector
+            [inline]="true"
+            [showLabel]="false"
+            [formats]="formatStore.formats()"
+            [selectedId]="formatStore.formatId()"
+            (selectedChange)="formatStore.setFormatId($event)"
+          />
+        </div>
+
+        <div class="flex-none">
           <app-language-toggle />
         </div>
       </header>
@@ -90,4 +103,5 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 })
 export class AppShellComponent {
   protected readonly i18n = inject(I18nService);
+  protected readonly formatStore = inject(FormatStore);
 }

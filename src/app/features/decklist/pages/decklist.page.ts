@@ -11,11 +11,9 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
     TranslatePipe],
   template: `
     <main class="page-main page-stack">
-      <header class="space-y-1">
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">{{ 'decklist.pageTitle' | translate }}</h1>
-        <p class="text-base-content/70 text-sm sm:text-base max-w-2xl">
-          {{ 'decklist.pageSubtitle' | translate }}
-        </p>
+      <header class="page-header">
+        <h1 class="page-title">{{ 'decklist.pageTitle' | translate }}</h1>
+        <p class="page-subtitle">{{ 'decklist.pageSubtitle' | translate }}</p>
       </header>
 
       <app-decklist-panel />

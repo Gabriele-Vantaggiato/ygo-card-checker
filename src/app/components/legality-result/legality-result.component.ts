@@ -22,47 +22,29 @@ import { VerdictBadgeComponent } from '../../shared/ui/verdict-badge/verdict-bad
   imports: [CardTilt3dComponent, AddToDecklistButtonComponent, TranslatePipe, VerdictBadgeComponent],
   template: `
     @if (!card()) {
-      <div
-        class="card bg-base-100 shadow-xl border border-base-300 border-dashed min-h-64 lg:min-h-[calc(100vh-12rem)]"
-      >
-        <div class="card-body items-center justify-center text-center p-6 sm:p-8 space-y-5">
-          <div class="text-4xl opacity-40" aria-hidden="true">🃏</div>
-          <div class="space-y-2 max-w-sm">
-            <h2 class="text-lg font-semibold text-base-content/80">{{ 'result.emptyTitle' | translate }}</h2>
-            <p class="text-sm text-base-content/60">{{ 'result.selectCard' | translate }}</p>
-          </div>
-          <ol class="text-sm text-left text-base-content/70 space-y-2 max-w-xs w-full">
-            <li class="flex gap-2">
-              <span class="badge badge-neutral badge-sm shrink-0">1</span>
-              <span>{{ 'result.emptyStep1' | translate }}</span>
-            </li>
-            <li class="flex gap-2">
-              <span class="badge badge-neutral badge-sm shrink-0">2</span>
-              <span>{{ 'result.emptyStep2' | translate }}</span>
-            </li>
-          </ol>
-          @if (quickPickEntry(); as entry) {
-            <button
-              type="button"
-              class="btn btn-outline btn-sm gap-2 mt-2"
-              (click)="historyPick.emit(entry)"
-            >
-              @if (entry.imageUrlSmall; as src) {
-                <img [src]="src" [alt]="" class="w-6 h-8 object-cover rounded" />
-              }
-              {{ entry.name }}
-            </button>
-          }
-        </div>
+      <div class="empty-state min-h-56 lg:min-h-[calc(100vh-12rem)]">
+        <div class="empty-state-icon" aria-hidden="true">🃏</div>
+        <h2 class="empty-state-title">{{ 'result.emptyTitle' | translate }}</h2>
+        <p class="empty-state-hint">{{ 'result.selectCard' | translate }}</p>
+        @if (quickPickEntry(); as entry) {
+          <button
+            type="button"
+            class="btn btn-outline btn-sm gap-2 mt-3"
+            (click)="historyPick.emit(entry)"
+          >
+            @if (entry.imageUrlSmall; as src) {
+              <img [src]="src" [alt]="" class="w-6 h-8 object-cover rounded" />
+            }
+            {{ entry.name }}
+          </button>
+        }
       </div>
     } @else if (result(); as res) {
       <div
         class="overflow-visible"
-        [class.card]="!embedded()"
-        [class.bg-base-100]="!embedded()"
-        [class.shadow-xl]="!embedded()"
+        [class.duel-panel]="!embedded()"
         [class.border]="!embedded()"
-        [class.border-base-300]="!embedded()"
+        [class.border-base-300/80]="!embedded()"
       >
         <div class="card-body !items-start !justify-start p-4 sm:p-6">
           <div

@@ -8,14 +8,32 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-format-selector',
   standalone: true,
-  imports: [FormsModule,
-    TranslatePipe],
+  imports: [FormsModule, TranslatePipe],
   template: `
-    @if (compact()) {
+    @if (inline()) {
       <label class="form-control w-full min-w-0">
-        <span class="label py-0 pb-1.5">
-          <span class="label-text text-xs font-semibold text-base-content/70">{{ 'format.label' | translate }}</span>
-        </span>
+        @if (showLabel()) {
+          <span class="label py-0 pb-1">
+            <span class="label-text text-[11px] font-medium text-base-content/60">{{ 'format.label' | translate }}</span>
+          </span>
+        }
+        <select
+          class="select select-bordered select-xs sm:select-sm w-full"
+          [ngModel]="selectedId()"
+          (ngModelChange)="onSelect($event)"
+        >
+          @for (format of formats(); track format.id) {
+            <option [ngValue]="format.id">{{ format.name[i18n.lang()] }}</option>
+          }
+        </select>
+      </label>
+    } @else if (compact()) {
+      <label class="form-control w-full min-w-0">
+        @if (showLabel()) {
+          <span class="label py-0 pb-1.5">
+            <span class="label-text text-xs font-semibold text-base-content/70">{{ 'format.label' | translate }}</span>
+          </span>
+        }
         <select
           class="select select-bordered select-sm w-full"
           [ngModel]="selectedId()"
@@ -57,6 +75,8 @@ export class FormatSelectorComponent {
   readonly formats = input.required<YgoFormat[]>();
   readonly selectedId = input.required<string>();
   readonly compact = input(false);
+  readonly inline = input(false);
+  readonly showLabel = input(true);
   readonly selectedChange = output<string>();
 
   readonly selectedFormat = computed(() =>
