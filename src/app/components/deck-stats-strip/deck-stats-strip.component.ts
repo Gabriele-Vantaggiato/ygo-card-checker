@@ -18,7 +18,13 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   standalone: true,
   imports: [TranslatePipe],
   template: `
-    <div class="duel-panel px-3 py-2.5 sm:px-4 flex flex-wrap items-center gap-3 sm:gap-4">
+    <div
+      class="flex flex-wrap items-center gap-3 sm:gap-4"
+      [class.duel-panel]="!embedded()"
+      [class.px-3]="!embedded()"
+      [class.py-2.5]="!embedded()"
+      [class.sm:px-4]="!embedded()"
+    >
       @for (stat of stats(); track stat.key) {
         <div class="flex items-center gap-2">
           <span class="duel-section-chip bg-base-200/80 text-base-content/80">
@@ -46,6 +52,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 export class DeckStatsStripComponent {
   readonly cards = input.required<readonly DecklistCard[]>();
   readonly mainTarget = input(40);
+  readonly embedded = input(false);
 
   protected readonly i18n = inject(I18nService);
 

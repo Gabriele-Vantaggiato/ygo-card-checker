@@ -82,7 +82,7 @@ import {
   ],
   template: `
     @if (deck(); as activeDeck) {
-      <section class="flex flex-col min-h-0 gap-4">
+      <section class="flex flex-col min-h-0 gap-3">
         <app-decklist-editor-header
           [deck]="activeDeck"
           [renaming]="renaming()"
@@ -101,10 +101,14 @@ import {
           (deleteDeck)="decklistStore.deleteActiveDecklist(); back.emit()"
         />
 
-        <app-deck-stats-strip [cards]="liveDeck().cards" [mainTarget]="completeDeckTarget()" />
-
-        <div class="deck-context-strip">
-          <div class="deck-context-format">
+        <div class="deck-context-bar">
+          <app-deck-stats-strip
+            [embedded]="true"
+            [cards]="liveDeck().cards"
+            [mainTarget]="completeDeckTarget()"
+          />
+          <div class="deck-context-divider hidden sm:block" aria-hidden="true"></div>
+          <div class="deck-context-format-inline min-w-0 flex-1 sm:flex-none">
             <app-format-selector
               [compact]="true"
               [formats]="formatStore.formats()"
@@ -112,12 +116,13 @@ import {
               (selectedChange)="formatStore.setFormatId($event)"
             />
           </div>
-          @defer (on viewport) {
-            <app-deck-strategy-panel class="min-w-0" />
-          } @placeholder {
-            <div class="deck-context-format min-h-12"></div>
-          }
         </div>
+
+        @defer (on viewport) {
+          <app-deck-strategy-panel class="min-w-0" />
+        } @placeholder {
+          <div class="duel-panel min-h-10"></div>
+        }
 
         <div role="tablist" class="workspace-tabs lg:hidden" [attr.aria-label]="'decklist.editor.workspace' | translate">
           <button

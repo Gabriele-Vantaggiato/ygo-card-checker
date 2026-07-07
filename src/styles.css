@@ -79,6 +79,18 @@
     @apply flex flex-col gap-3 w-full md:grid md:grid-cols-2 md:items-stretch md:gap-4;
   }
 
+  .deck-context-bar {
+    @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3;
+  }
+
+  .deck-context-divider {
+    @apply w-px self-stretch bg-base-300/70 min-h-8;
+  }
+
+  .deck-context-format-inline {
+    @apply w-full sm:w-auto;
+  }
+
   .deck-context-format {
     @apply rounded-xl border border-base-300/80 bg-base-100 shadow-sm px-3 py-2.5 sm:px-4 sm:py-3 w-full min-w-0;
   }
