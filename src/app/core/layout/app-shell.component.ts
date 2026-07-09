@@ -28,11 +28,12 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
     DuelFieldBackgroundComponent,
   ],
   template: `
-    <app-duel-field-bg />
-    <div class="app-shell-content">
-      <header
-        class="navbar bg-base-100/90 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-40 shadow-sm shadow-black/10 min-h-14 gap-2"
-      >
+    <div class="app-shell">
+      <app-duel-field-bg />
+      <div class="app-shell-content">
+        <header
+          class="navbar bg-base-100/90 backdrop-blur-md border-b border-base-300/60 px-3 sm:px-4 sticky top-0 z-10 shadow-sm shadow-black/10 min-h-14 gap-2"
+        >
         <div class="flex-1 min-w-0">
           <span class="app-brand whitespace-nowrap">
             <span class="md:hidden">{{ 'app.titleShort' | translate }}</span>
@@ -103,8 +104,9 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
       </a>
     </nav>
 
-    <app-dialog-host />
-    <app-toast-host />
+      <app-dialog-host />
+      <app-toast-host />
+    </div>
   `,
 })
 export class AppShellComponent {

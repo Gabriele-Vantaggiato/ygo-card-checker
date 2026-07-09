@@ -37,11 +37,11 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    background-color: oklch(16% 0.035 265);
   }
 
   body {
-    @apply antialiased font-sans text-base-content;
-    background-color: oklch(16% 0.035 265);
+    @apply antialiased font-sans text-base-content bg-transparent;
   }
 
   :where(button, a, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
@@ -50,20 +50,8 @@
 }
 
 @layer components {
-  .duel-app-bg {
-    background-color: transparent;
-  }
-
-  .dropdown {
-    @apply relative z-20;
-  }
-
-  .dropdown-content {
-    z-index: 80 !important;
-  }
-
-  .deck-editor-header {
-    @apply relative z-10;
+  .app-shell {
+    @apply relative isolate min-h-screen;
   }
 
   .deck-copy-capacity {
@@ -182,7 +170,7 @@
   }
 
   .mobile-tab-bar {
-    @apply fixed bottom-0 inset-x-0 z-50 isolate flex items-stretch gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-base-100 border-t border-base-300/80 shadow-[0_-4px_24px_oklch(0%_0_0/0.4)] overflow-hidden;
+    @apply fixed bottom-0 inset-x-0 flex items-stretch gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-base-100 border-t border-base-300/80 shadow-[0_-4px_24px_oklch(0%_0_0/0.4)] overflow-hidden;
   }
 
   .mobile-tab {
@@ -206,20 +194,12 @@
     @apply text-[11px] leading-tight font-medium truncate max-w-full;
   }
 
-  .modal {
-    z-index: 60;
-  }
-
-  .modal-backdrop {
-    z-index: 60;
-  }
-
   .dialog-layer {
-    @apply fixed inset-0 z-[60] flex items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/65 backdrop-blur-sm;
+    @apply fixed inset-0 flex items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/65 backdrop-blur-sm;
   }
 
   .toast-host {
-    @apply fixed top-4 right-4 left-4 sm:left-auto z-[110] flex flex-col gap-2 max-w-sm sm:max-w-md ml-auto pointer-events-none;
+    @apply fixed top-4 right-4 left-4 sm:left-auto flex flex-col gap-2 max-w-sm sm:max-w-md ml-auto pointer-events-none;
   }
 
   .deck-workspace {
@@ -227,11 +207,11 @@
   }
 
   .deck-workspace-editor {
-    @apply grid grid-cols-1 gap-4 min-h-0 relative z-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,17.5rem)] lg:items-start;
+    @apply grid grid-cols-1 gap-4 min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,17.5rem)] lg:items-start;
   }
 
   .deck-editor-main {
-    @apply min-w-0 min-h-0 relative z-0;
+    @apply min-w-0 min-h-0;
   }
 
   .deck-editor-rail {
@@ -279,7 +259,7 @@
   }
 
   .deck-card-tile:hover {
-    @apply scale-[1.05] z-20 shadow-lg shadow-primary/15;
+    @apply scale-[1.05] shadow-lg shadow-primary/15;
   }
 
   .deck-create-tile {
@@ -352,7 +332,7 @@
   }
 
   .duel-field-bg {
-    @apply pointer-events-none fixed inset-0 -z-10 overflow-hidden;
+    @apply pointer-events-none fixed inset-0 overflow-hidden;
   }
 
   .duel-field-grid {
@@ -477,7 +457,7 @@
   }
 
   .deck-tile-stage {
-    @apply absolute inset-x-0 top-0 z-[1] pointer-events-none;
+    @apply absolute inset-x-0 top-0 pointer-events-none;
     height: 66%;
   }
 
@@ -531,7 +511,6 @@
   .deck-tile-fan-card-left {
     left: 14%;
     transform: rotate(-15deg) translateY(4px);
-    z-index: 2;
   }
 
   .deck-tile-fan-card-center {
@@ -539,13 +518,11 @@
     width: 3.35rem;
     height: 4.9rem;
     transform: translateX(-50%) rotate(-3deg);
-    z-index: 4;
   }
 
   .deck-tile-fan-card-right {
     right: 14%;
     transform: rotate(15deg) translateY(4px);
-    z-index: 3;
     border-color: oklch(92% 0.02 95 / 0.38);
     box-shadow:
       0 10px 22px oklch(0% 0 0 / 0.58),
@@ -553,7 +530,7 @@
   }
 
   .deck-tile-empty-mark {
-    @apply absolute inset-x-0 top-[28%] z-[1] flex items-center justify-center text-5xl font-bold text-white/20 pointer-events-none select-none;
+    @apply absolute inset-x-0 top-[28%] flex items-center justify-center text-5xl font-bold text-white/20 pointer-events-none select-none;
   }
 
   .deck-tile-mdpro:hover .deck-tile-fan-card-left {
@@ -570,7 +547,7 @@
   }
 
   .deck-tile-caption {
-    @apply absolute inset-x-0 z-10 px-2.5 pt-3 pb-2.5 text-center;
+    @apply absolute inset-x-0 px-2.5 pt-3 pb-2.5 text-center;
     bottom: 11%;
     background: linear-gradient(
       to top,

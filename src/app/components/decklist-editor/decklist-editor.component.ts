@@ -33,7 +33,6 @@ import {
 } from '../../utils/deck-card.utils';
 import { DECK_SECTION_I18N_KEYS } from '../../utils/deck-section.utils';
 import { verdictShortKey } from '../../utils/legality-display.utils';
-import { FormatSelectorComponent } from '../format-selector/format-selector.component';
 import { DeckAssistPanelComponent } from './deck-assist-panel.component';
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckCompletionService } from '../../services/deck-completion.service';
@@ -63,7 +62,6 @@ import {
   standalone: true,
   imports: [
     TranslatePipe,
-    FormatSelectorComponent,
     DeckAssistPanelComponent,
     DecklistSearchSidebarComponent,
     DecklistEditorHeaderComponent,
@@ -98,16 +96,6 @@ import {
           (sortDeck)="decklistStore.sortActiveDeck()"
           (deleteDeck)="decklistStore.deleteActiveDecklist(); back.emit()"
         />
-
-        <div class="deck-context-bar sm:hidden">
-          <app-format-selector
-            [inline]="true"
-            [showLabel]="true"
-            [formats]="formatStore.formats()"
-            [selectedId]="formatStore.formatId()"
-            (selectedChange)="formatStore.setFormatId($event)"
-          />
-        </div>
 
         <div class="px-1 lg:px-0">
           <div role="tablist" class="workspace-tabs lg:hidden" [attr.aria-label]="'decklist.editor.workspace' | translate">

@@ -1,22 +1,27 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Decklist, DecklistCard } from '../../models/decklist.model';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.component';
 import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
+import { FormatSelectorComponent } from '../format-selector/format-selector.component';
+import { FormatStore } from '../../core/stores/format.store';
 
 @Component({
   selector: 'app-decklist-editor-header',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, DeckStatsStripComponent, DuelPanelComponent],
+  imports: [
+    FormsModule,
+    TranslatePipe,
+    DeckStatsStripComponent,
+    DuelPanelComponent,
+    FormatSelectorComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    class: 'deck-editor-header block',
-  },
   template: `
     <app-duel-panel panelClass="duel-panel-overflow-visible">
       <div class="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-3">
-        <div class="flex items-center gap-2 sm:gap-3 min-w-0 relative z-50">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
         <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" (click)="back.emit()">
           ←
         </button>
@@ -58,7 +63,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
           </button>
           <ul
             tabindex="0"
-            class="dropdown-content menu bg-base-100 rounded-box w-44 p-2 shadow-lg border border-base-300"
+            class="dropdown-content z-10 menu bg-base-100 rounded-box w-44 p-2 shadow-lg border border-base-300 mt-1"
           >
             <li><button type="button" (click)="sortDeck.emit()">{{ 'decklist.editor.sort' | translate }}</button></li>
             <li>
@@ -70,7 +75,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 relative z-20">
+      <div class="flex flex-wrap items-center gap-2">
         <button type="button" class="btn btn-primary btn-sm" (click)="completeDeck.emit()">
           {{ 'decklist.completeDeck' | translate }}
         </button>
@@ -82,7 +87,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
           </button>
           <ul
             tabindex="0"
-            class="dropdown-content menu bg-base-100 rounded-box w-52 p-2 shadow-lg border border-base-300"
+            class="dropdown-content z-10 menu bg-base-100 rounded-box w-52 p-2 shadow-lg border border-base-300 mt-1"
           >
             <li class="menu-title text-xs px-2 py-1">{{ 'decklist.toolbar.listFormat' | translate }}</li>
             <li><button type="button" (click)="importText.emit()">{{ 'decklist.importText' | translate }}</button></li>
@@ -98,10 +103,22 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
       <div class="border-t border-base-300/60 px-3 py-2 sm:px-4">
         <app-deck-stats-strip [embedded]="true" [cards]="cards()" [mainTarget]="mainTarget()" />
       </div>
+
+      <div class="sm:hidden border-t border-base-300/60 px-3 py-2.5 sm:px-4">
+        <app-format-selector
+          [inline]="true"
+          [showLabel]="true"
+          [formats]="formatStore.formats()"
+          [selectedId]="formatStore.formatId()"
+          (selectedChange)="formatStore.setFormatId($event)"
+        />
+      </div>
     </app-duel-panel>
   `,
 })
 export class DecklistEditorHeaderComponent {
+  protected readonly formatStore = inject(FormatStore);
+
   readonly deck = input.required<Decklist>();
   readonly cards = input.required<readonly DecklistCard[]>();
   readonly mainTarget = input(40);

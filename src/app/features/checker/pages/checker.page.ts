@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
@@ -19,6 +19,8 @@ interface DeckReturnContext {
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { ContextPanelComponent } from '../../../shared/ui/context-panel/context-panel.component';
+import { YgoCard } from '../../../models/ygo-card.model';
+import { SearchHistoryEntry } from '../../../models/search-history.model';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-checker-page',
@@ -42,7 +44,7 @@ import { ContextPanelComponent } from '../../../shared/ui/context-panel/context-
 
       @if (deckReturn(); as ctx) {
         <div
-          class="sticky top-14 z-20 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 sm:px-4 backdrop-blur-sm"
+          class="sticky top-14 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 sm:px-4 backdrop-blur-sm"
           role="navigation"
           [attr.aria-label]="'search.backToDeck' | translate"
         >
@@ -88,17 +90,18 @@ import { ContextPanelComponent } from '../../../shared/ui/context-panel/context-
               [selectedCardId]="store.selectedCard()?.id ?? null"
               [selectedCard]="store.selectedCard()"
               (queryChange)="store.setSearchQuery($event)"
-              (cardSelected)="store.selectCard($event)"
+              (cardSelected)="onSearchCardSelected($event)"
             />
           </div>
 
           <div class="context-panel-section">
             <app-search-history
+              #searchHistory
               [pinned]="true"
               [entries]="store.searchHistory()"
               [selectedCardId]="store.selectedCard()?.id ?? null"
               [formatId]="store.selectedFormatId()"
-              (cardSelected)="store.selectFromHistory($event)"
+              (cardSelected)="onHistoryCardSelected($event)"
               (remove)="store.removeSearchHistoryEntry($event)"
               (clear)="store.clearSearchHistory()"
             />
@@ -136,6 +139,8 @@ export class CheckerPage {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly decklistStore = inject(DecklistStore);
+
+  private readonly searchHistoryPanel = viewChild<SearchHistoryComponent>('searchHistory');
 
   readonly deckReturn = signal<DeckReturnContext | null>(null);
 
@@ -200,5 +205,14 @@ export class CheckerPage {
         editor: '1',
       },
     });
+  }
+
+  onSearchCardSelected(card: YgoCard): void {
+    this.store.selectCard(card);
+    this.searchHistoryPanel()?.collapse();
+  }
+
+  onHistoryCardSelected(entry: SearchHistoryEntry): void {
+    this.store.selectFromHistory(entry);
   }
 }

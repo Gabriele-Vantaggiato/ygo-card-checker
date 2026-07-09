@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { SearchHistoryEntry } from '../../models/search-history.model';
 import { I18nService } from '../../services/i18n.service';
 import {
@@ -15,7 +15,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   imports: [NgClass,
     TranslatePipe],
   template: `
-  <details class="group" [attr.open]="entries().length > 0 ? true : null">
+  <details class="group" [open]="expanded()" (toggle)="onDetailsToggle($event)">
     <summary class="flex items-center justify-between gap-2 mb-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
       <h3 class="text-xs font-semibold uppercase tracking-wide text-base-content/60 flex items-center gap-1.5">
         <span class="text-primary/70 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
@@ -51,7 +51,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               <button
                 type="button"
                 class="flex flex-1 items-start gap-2 py-2 px-2 h-auto min-h-0 min-w-0 overflow-hidden whitespace-normal rounded-lg text-left"
-                (click)="cardSelected.emit(entry)"
+                (click)="onSelectEntry(entry)"
               >
                 @if (entry.imageUrlSmall; as src) {
                   <img
@@ -116,7 +116,23 @@ export class SearchHistoryComponent {
   readonly remove = output<number>();
   readonly clear = output<void>();
 
+  protected readonly expanded = signal(true);
+
   constructor(protected readonly i18n: I18nService) {}
+
+  collapse(): void {
+    this.expanded.set(false);
+  }
+
+  onSelectEntry(entry: SearchHistoryEntry): void {
+    this.expanded.set(false);
+    this.cardSelected.emit(entry);
+  }
+
+  onDetailsToggle(event: Event): void {
+    const details = event.target as HTMLDetailsElement;
+    this.expanded.set(details.open);
+  }
 
   listMaxHeight(): string {
     const visible = Math.min(this.entries().length, SearchHistoryComponent.MAX_VISIBLE);

@@ -70,7 +70,7 @@ import { verdictBannerClass } from '../../utils/legality-display.utils';
                       @if (cell.card.legalityVerdict; as verdict) {
                         @if (verdict !== 'legal' && cell.verdictShortKey; as shortKey) {
                           <span
-                            class="absolute bottom-0 inset-x-0 z-10 text-[8px] sm:text-[9px] font-bold text-center py-0.5 leading-tight truncate px-0.5"
+                            class="absolute bottom-0 inset-x-0 text-[8px] sm:text-[9px] font-bold text-center py-0.5 leading-tight truncate px-0.5"
                             [class]="verdictBannerClass(verdict)"
                           >
                             {{ shortKey | translate }}
@@ -80,7 +80,7 @@ import { verdictBannerClass } from '../../utils/legality-display.utils';
                     </button>
                     <button
                       type="button"
-                      class="absolute -top-1 -right-1 z-20 btn btn-error btn-circle shadow-md transition-opacity h-6 w-6 min-h-6 min-w-6 text-[10px] p-0 opacity-95 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                      class="absolute -top-1 -right-1 btn btn-error btn-circle shadow-md transition-opacity h-6 w-6 min-h-6 min-w-6 text-[10px] p-0 opacity-95 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
                       [attr.aria-label]="'decklist.editor.removeCopy' | translate"
                       (click)="cardRemove.emit({ cardId: cell.card.id, event: $event })"
                     >

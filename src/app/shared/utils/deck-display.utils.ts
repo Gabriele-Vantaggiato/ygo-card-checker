@@ -52,12 +52,15 @@ export function deckTileFanCards(deck: Decklist): DeckTileFanCard[] {
 
   if (mainCards.length >= 2) {
     fan.push({ slot: 'left', card: mainCards[0]! });
+    if (extraCard) {
+      fan.push({ slot: 'right', card: extraCard });
+    }
     fan.push({ slot: 'center', card: mainCards[1]! });
   } else if (mainCards.length === 1) {
     fan.push({ slot: 'center', card: mainCards[0]! });
   }
 
-  if (extraCard) {
+  if (extraCard && mainCards.length < 2) {
     fan.push({ slot: 'right', card: extraCard });
   }
 
