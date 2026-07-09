@@ -5,8 +5,8 @@ import { AddToDecklistPayload, maxCopiesForStatus } from '../../models/decklist.
 import { AddToDecklistButtonComponent } from '../add-to-decklist-btn/add-to-decklist-btn.component';
 import { I18nService } from '../../services/i18n.service';
 import {
+  playabilityChipLabelKey,
   verdictBadgeClass,
-  verdictLabelKey,
 } from '../../utils/legality-display.utils';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
@@ -63,7 +63,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                 [ngClass]="verdictBadgeClass(result.verdict)"
                 [title]="'history.playability' | translate"
               >
-                {{ (verdictLabelKey(result.verdict)) | translate }}
+                {{ (playabilityChipLabelKey(result.banlistStatus, result.verdict)) | translate }}
               </span>
               @if (result.banlistStatus !== 'Forbidden') {
                 <span
@@ -107,7 +107,7 @@ export class CardSearchResultRowComponent {
 
   protected readonly i18n = inject(I18nService);
   protected readonly verdictBadgeClass = verdictBadgeClass;
-  protected readonly verdictLabelKey = verdictLabelKey;
+  protected readonly playabilityChipLabelKey = playabilityChipLabelKey;
 
   readonly maxAllowedCopies = computed(() =>
     maxCopiesForStatus(this.legality()?.banlistStatus),

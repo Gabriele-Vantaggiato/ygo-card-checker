@@ -195,7 +195,8 @@
   }
 
   .toast-host {
-    @apply fixed top-4 right-4 left-4 sm:left-auto flex flex-col gap-2 max-w-sm sm:max-w-md ml-auto pointer-events-none;
+    @apply fixed z-50 right-4 left-4 sm:left-auto flex flex-col gap-2 max-w-sm sm:max-w-md ml-auto pointer-events-none;
+    top: calc(3.5rem + 0.75rem + env(safe-area-inset-top, 0px));
   }
 
   .deck-workspace {

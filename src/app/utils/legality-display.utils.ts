@@ -61,6 +61,24 @@ export function verdictLabelKey(verdict: LegalityVerdict): string {
   }
 }
 
+/** Compact playability label for search result chips (banlist-aware). */
+export function playabilityChipLabelKey(
+  banlistStatus: BanlistStatus | null | undefined,
+  verdict: LegalityVerdict | null | undefined,
+): string {
+  if (!verdict || verdict === 'not-legal' || banlistStatus === 'Forbidden') {
+    return 'playability.notPlayable';
+  }
+  switch (banlistStatus) {
+    case 'Limited':
+      return 'playability.limited';
+    case 'Semi-Limited':
+      return 'playability.semiLimited';
+    default:
+      return 'playability.playable';
+  }
+}
+
 export function verdictPlayabilityRank(verdict: LegalityVerdict | null | undefined): number {
   switch (verdict) {
     case 'legal':
