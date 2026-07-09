@@ -74,10 +74,6 @@
     @apply ml-0.5 min-w-[0.85rem] text-center text-[10px] font-semibold text-base-content/75 leading-none;
   }
 
-  .duel-panel-overflow-visible {
-    overflow: visible !important;
-  }
-
   .surface-default,
   .duel-panel {
     @apply rounded-xl border border-base-300/70 bg-base-100/95 shadow-sm shadow-black/15 backdrop-blur-[2px];

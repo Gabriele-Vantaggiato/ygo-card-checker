@@ -4,6 +4,7 @@ import { Decklist, DecklistCard } from '../../models/decklist.model';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DeckStatsStripComponent } from '../deck-stats-strip/deck-stats-strip.component';
 import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
+import { DuelDropdownComponent } from '../../shared/ui/duel-dropdown/duel-dropdown.component';
 import { FormatSelectorComponent } from '../format-selector/format-selector.component';
 import { FormatStore } from '../../core/stores/format.store';
 
@@ -15,11 +16,12 @@ import { FormatStore } from '../../core/stores/format.store';
     TranslatePipe,
     DeckStatsStripComponent,
     DuelPanelComponent,
+    DuelDropdownComponent,
     FormatSelectorComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-duel-panel panelClass="duel-panel-overflow-visible">
+    <app-duel-panel>
       <div class="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-3">
         <div class="flex items-center gap-2 sm:gap-3 min-w-0">
         <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" (click)="back.emit()">
@@ -52,27 +54,22 @@ import { FormatStore } from '../../core/stores/format.store';
           }
         </div>
 
-        <div class="dropdown dropdown-end shrink-0">
-          <button
-            type="button"
-            tabindex="0"
-            class="btn btn-ghost btn-sm btn-square"
-            [attr.aria-label]="'decklist.toolbar.actions' | translate"
-          >
-            ⋯
-          </button>
-          <ul
-            tabindex="0"
-            class="dropdown-content z-10 menu bg-base-100 rounded-box w-44 p-2 shadow-lg border border-base-300 mt-1"
-          >
-            <li><button type="button" (click)="sortDeck.emit()">{{ 'decklist.editor.sort' | translate }}</button></li>
-            <li>
-              <button type="button" class="text-error" (click)="deleteDeck.emit()">
-                {{ 'decklist.delete' | translate }}
-              </button>
-            </li>
-          </ul>
-        </div>
+        <app-duel-dropdown
+          popoverId="deck-header-actions"
+          anchorName="--deck-header-actions"
+          align="end"
+          triggerClass="btn btn-ghost btn-sm btn-square shrink-0"
+          menuClass="w-44"
+          [ariaLabel]="'decklist.toolbar.actions' | translate"
+        >
+          <span duelDropdownTrigger aria-hidden="true">⋯</span>
+          <li><button type="button" (click)="sortDeck.emit()">{{ 'decklist.editor.sort' | translate }}</button></li>
+          <li>
+            <button type="button" class="text-error" (click)="deleteDeck.emit()">
+              {{ 'decklist.delete' | translate }}
+            </button>
+          </li>
+        </app-duel-dropdown>
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
@@ -80,23 +77,24 @@ import { FormatStore } from '../../core/stores/format.store';
           {{ 'decklist.completeDeck' | translate }}
         </button>
 
-        <div class="dropdown dropdown-end">
-          <button type="button" tabindex="0" class="btn btn-outline btn-sm gap-1.5">
+        <app-duel-dropdown
+          popoverId="deck-header-import-export"
+          anchorName="--deck-header-import-export"
+          align="end"
+          triggerClass="btn btn-outline btn-sm gap-1.5"
+          menuClass="w-52"
+        >
+          <span duelDropdownTrigger class="inline-flex items-center gap-1.5">
             {{ 'decklist.toolbar.importExport' | translate }}
             <span class="text-base-content/40 text-xs" aria-hidden="true">▾</span>
-          </button>
-          <ul
-            tabindex="0"
-            class="dropdown-content z-10 menu bg-base-100 rounded-box w-52 p-2 shadow-lg border border-base-300 mt-1"
-          >
-            <li class="menu-title text-xs px-2 py-1">{{ 'decklist.toolbar.listFormat' | translate }}</li>
-            <li><button type="button" (click)="importText.emit()">{{ 'decklist.importText' | translate }}</button></li>
-            <li><button type="button" (click)="exportText.emit()">{{ 'decklist.exportText' | translate }}</button></li>
-            <li class="menu-title text-xs px-2 py-1 mt-1">{{ 'decklist.toolbar.ydkeFormat' | translate }}</li>
-            <li><button type="button" (click)="importYdke.emit()">{{ 'decklist.importYdke' | translate }}</button></li>
-            <li><button type="button" (click)="exportYdke.emit()">{{ 'decklist.exportYdke' | translate }}</button></li>
-          </ul>
-        </div>
+          </span>
+          <li class="menu-title text-xs px-2 py-1">{{ 'decklist.toolbar.listFormat' | translate }}</li>
+          <li><button type="button" (click)="importText.emit()">{{ 'decklist.importText' | translate }}</button></li>
+          <li><button type="button" (click)="exportText.emit()">{{ 'decklist.exportText' | translate }}</button></li>
+          <li class="menu-title text-xs px-2 py-1 mt-1">{{ 'decklist.toolbar.ydkeFormat' | translate }}</li>
+          <li><button type="button" (click)="importYdke.emit()">{{ 'decklist.importYdke' | translate }}</button></li>
+          <li><button type="button" (click)="exportYdke.emit()">{{ 'decklist.exportYdke' | translate }}</button></li>
+        </app-duel-dropdown>
       </div>
       </div>
 

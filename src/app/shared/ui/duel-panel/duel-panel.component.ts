@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="duel-panel flex flex-col overflow-hidden min-w-0" [class]="panelClass()">
+    <section [class]="'duel-panel flex flex-col overflow-hidden min-w-0 ' + panelClass()">
       @if (title()) {
         <header class="duel-panel-header shrink-0">
           {{ title() }}
