@@ -29,7 +29,7 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
 
       @if (showDropdown()) {
         <ul
-          class="bg-base-100 rounded-box border border-base-300 absolute z-20 w-full top-full mt-1 max-h-[min(70vh,28rem)] overflow-y-auto shadow-xl p-1.5 space-y-1 lg:hidden"
+          class="bg-base-100 rounded-box border border-base-300 w-full mt-1.5 min-h-[14rem] max-h-[min(62vh,30rem)] overflow-y-auto overscroll-y-contain shadow-xl p-1.5 space-y-1 lg:hidden"
         >
           @if (loading() && listCards().length === 0) {
             <li class="px-1 py-1">

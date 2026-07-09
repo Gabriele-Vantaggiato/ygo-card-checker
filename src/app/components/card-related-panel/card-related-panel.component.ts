@@ -89,7 +89,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                 <div class="space-y-2">
                   <h4 class="text-sm font-semibold text-base-content/80">
                     {{ (group.labelKey) | translate }}
-                    <span class="badge badge-ghost badge-xs ml-1">{{ group.suggestions.length }}</span>
+                    <span class="badge badge-ghost badge-sm min-w-[1.5rem] px-2 tabular-nums ml-1">{{ group.suggestions.length }}</span>
                   </h4>
                   <ul class="space-y-2">
                     @for (item of group.suggestions; track item.cardId) {
@@ -106,7 +106,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                               {{ (item.reasonKey) | translate: item.reasonParams }}
                             </p>
                           </div>
-                          <span class="badge badge-xs shrink-0 badge-ghost">{{ relationLabel(item.relation) }}</span>
+                          <span class="badge badge-sm badge-ghost shrink-0 px-2.5 max-w-[9rem] truncate font-medium">{{ relationLabel(item.relation) }}</span>
                           @if (item.maxCopies !== undefined && item.maxCopies < 3) {
                             <span class="badge badge-xs shrink-0 badge-warning">
                               {{ 'knowledge.maxCopies' | translate: { count: '' + item.maxCopies } }}

@@ -63,7 +63,7 @@
   }
 
   .deck-editor-header {
-    @apply relative z-40;
+    @apply relative z-10;
   }
 
   .deck-copy-capacity {
@@ -105,6 +105,10 @@
     @apply rounded-xl border border-base-300/50 bg-base-200/35 shadow-none divide-y divide-base-300/50 overflow-hidden;
   }
 
+  .quick-pick-btn {
+    @apply px-3.5 py-2.5 min-h-10 ring-offset-4 ring-offset-base-100;
+  }
+
   .duel-panel-header {
     @apply px-3 py-2 sm:px-4 sm:py-2.5 border-b border-base-300/60 text-xs font-semibold uppercase tracking-wider text-base-content/65;
   }
@@ -126,7 +130,7 @@
   }
 
   .duel-modal {
-    @apply modal-box border border-base-300/80 bg-base-100 shadow-2xl shadow-black/40;
+    @apply modal-box border border-base-300/80 bg-base-100 shadow-2xl shadow-black/40 p-4 sm:p-6;
   }
 
   .page-main {
@@ -178,11 +182,11 @@
   }
 
   .mobile-tab-bar {
-    @apply fixed bottom-0 inset-x-0 z-40 flex items-stretch gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-base-100/95 backdrop-blur-md border-t border-base-300/80 shadow-[0_-4px_24px_oklch(0%_0_0/0.4)];
+    @apply fixed bottom-0 inset-x-0 z-50 isolate flex items-stretch gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-base-100 border-t border-base-300/80 shadow-[0_-4px_24px_oklch(0%_0_0/0.4)] overflow-hidden;
   }
 
   .mobile-tab {
-    @apply relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-14 rounded-xl px-1 py-1.5 text-base-content/55 transition-colors duration-200;
+    @apply relative flex flex-1 min-w-0 flex-col items-center justify-center gap-0.5 min-h-14 rounded-xl px-1 py-1.5 text-base-content/55 transition-colors duration-200;
   }
 
   .mobile-tab-active {
@@ -199,11 +203,19 @@
   }
 
   .mobile-tab-label {
-    @apply text-[11px] leading-tight font-medium;
+    @apply text-[11px] leading-tight font-medium truncate max-w-full;
+  }
+
+  .modal {
+    z-index: 60;
+  }
+
+  .modal-backdrop {
+    z-index: 60;
   }
 
   .dialog-layer {
-    @apply fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/65 backdrop-blur-sm;
+    @apply fixed inset-0 z-[60] flex items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/65 backdrop-blur-sm;
   }
 
   .toast-host {
@@ -239,11 +251,11 @@
   }
 
   .workspace-tabs {
-    @apply tabs tabs-box tabs-sm w-full bg-base-200/70 p-0.5 rounded-lg border border-base-300/40;
+    @apply tabs tabs-box tabs-sm w-full bg-base-200/70 p-1 rounded-lg border border-base-300/40;
   }
 
   .workspace-tab {
-    @apply tab flex-1 text-xs sm:text-sm min-h-9 transition-colors duration-150;
+    @apply tab flex-1 min-w-0 text-xs sm:text-sm min-h-9 px-1.5 sm:px-2 transition-colors duration-150;
   }
 
   .empty-state {
@@ -340,7 +352,7 @@
   }
 
   .duel-field-bg {
-    @apply pointer-events-none fixed inset-0 z-[1] overflow-hidden;
+    @apply pointer-events-none fixed inset-0 -z-10 overflow-hidden;
   }
 
   .duel-field-grid {
@@ -410,7 +422,7 @@
   }
 
   .app-shell-content {
-    @apply relative z-[2] flex flex-col min-h-screen bg-transparent;
+    @apply relative flex flex-col min-h-screen bg-transparent;
   }
 
   .deck-grid-item {

@@ -33,7 +33,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
         @if (quickPickEntry(); as entry) {
           <button
             type="button"
-            class="btn btn-outline btn-sm gap-2 mt-3"
+            class="btn btn-outline btn-sm gap-2.5 mt-3 quick-pick-btn"
             (click)="historyPick.emit(entry)"
           >
             @if (entry.imageUrlSmall; as src) {

@@ -16,7 +16,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
   template: `
     <app-duel-panel panelClass="duel-panel-overflow-visible">
       <div class="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-3">
-        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0 relative z-50">
         <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" (click)="back.emit()">
           ←
         </button>
@@ -70,7 +70,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2 relative z-20">
         <button type="button" class="btn btn-primary btn-sm" (click)="completeDeck.emit()">
           {{ 'decklist.completeDeck' | translate }}
         </button>

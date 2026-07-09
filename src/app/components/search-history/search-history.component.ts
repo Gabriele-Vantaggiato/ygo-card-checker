@@ -21,7 +21,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
         <span class="text-primary/70 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
         {{ 'history.title' | translate }}
         @if (entries().length > 0) {
-          <span class="badge badge-ghost badge-xs font-normal">{{ entries().length }}</span>
+          <span class="badge badge-ghost badge-sm min-w-[1.5rem] px-2 font-normal tabular-nums">{{ entries().length }}</span>
         }
       </h3>
       @if (entries().length > 0) {

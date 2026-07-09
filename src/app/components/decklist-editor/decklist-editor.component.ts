@@ -109,7 +109,8 @@ import {
           />
         </div>
 
-        <div role="tablist" class="workspace-tabs lg:hidden" [attr.aria-label]="'decklist.editor.workspace' | translate">
+        <div class="px-1 lg:px-0">
+          <div role="tablist" class="workspace-tabs lg:hidden" [attr.aria-label]="'decklist.editor.workspace' | translate">
           <button
             type="button"
             role="tab"
@@ -140,6 +141,7 @@ import {
           >
             {{ 'decklist.editor.tab.assist' | translate }}
           </button>
+          </div>
         </div>
 
         <div class="deck-workspace deck-workspace-editor">

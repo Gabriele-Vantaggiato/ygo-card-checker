@@ -48,7 +48,7 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
         }
       </div>
 
-      <div class="overflow-y-auto overscroll-y-contain p-2 min-h-[8rem] max-h-[min(45vh,20rem)] lg:max-h-[min(28vh,14rem)]">
+      <div class="overflow-y-auto overscroll-y-contain p-2 min-h-[14rem] max-h-[min(62vh,30rem)] lg:max-h-[min(28vh,14rem)]">
         @if (searchLoading() || legalityLoading()) {
           <app-loading-skeleton [rows]="4" rowClass="h-10 w-full" />
         } @else {

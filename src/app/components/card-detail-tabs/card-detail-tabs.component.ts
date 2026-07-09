@@ -48,7 +48,8 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
   template: `
     @if (card()) {
       <app-duel-panel panelClass="surface-elevated detail-hero-panel fade-in-panel">
-        <div role="tablist" class="workspace-tabs mx-3 mt-3 sm:mx-4 sm:mt-4">
+        <div class="px-3 pt-3 sm:px-4 sm:pt-4">
+          <div role="tablist" class="workspace-tabs">
           <button
             type="button"
             role="tab"
@@ -79,6 +80,7 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
           >
             {{ 'detail.tab.combo' | translate }}
           </button>
+          </div>
         </div>
 
         <div class="p-0">

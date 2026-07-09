@@ -88,7 +88,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
         </div>
 
         @if (qtyInDeck() > 0) {
-          <span class="badge badge-sm badge-primary shrink-0 self-center tabular-nums">×{{ qtyInDeck() }}</span>
+          <span class="badge badge-sm badge-primary px-2.5 min-w-[2.25rem] shrink-0 self-center tabular-nums font-semibold">×{{ qtyInDeck() }}</span>
         }
       </button>
     </div>

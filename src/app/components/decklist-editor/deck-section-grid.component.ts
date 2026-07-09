@@ -13,7 +13,7 @@ import { verdictBannerClass } from '../../utils/legality-display.utils';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-duel-panel panelClass="overflow-hidden flex flex-col min-h-[24rem]">
-      <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-4 max-h-[min(70vh,48rem)]">
+      <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 pb-6 max-lg:pb-8 space-y-4 max-h-[min(70vh,48rem)]">
         @for (section of sections(); track section.key) {
           <div>
             <div

@@ -13,7 +13,7 @@ import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy
   template: `
     @if (open()) {
       <dialog class="modal modal-open" open>
-        <div class="modal-box duel-modal max-w-2xl max-h-[90vh] flex flex-col">
+        <div class="modal-box duel-modal w-[calc(100%-2rem)] max-w-2xl max-h-[min(90vh,calc(100dvh-5.5rem))] flex flex-col">
           <h3 class="font-bold text-lg">{{ 'decklist.completion.title' | translate }}</h3>
           <p class="text-sm text-base-content/60 mt-1">{{ 'decklist.completion.hint' | translate }}</p>
 
@@ -120,7 +120,7 @@ import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy
             }
           }
 
-          <div class="modal-action shrink-0">
+          <div class="modal-action shrink-0 flex-wrap gap-2 mt-4">
             <button type="button" class="btn btn-ghost" (click)="closed.emit()">
               {{ 'decklist.dialog.cancel' | translate }}
             </button>
