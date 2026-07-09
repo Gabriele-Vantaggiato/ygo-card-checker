@@ -17,6 +17,7 @@ import { I18nService } from './services/i18n.service';
 function initApp(i18n: I18nService, formatConfig: FormatConfigService): () => Promise<void> {
   return () =>
     firstValueFrom(
+      
       forkJoin([i18n.init$(), formatConfig.loadFormats$()]).pipe(map(() => undefined)),
     );
 }
