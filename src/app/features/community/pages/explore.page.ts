@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommunityIndexService } from '../services/community-index.service';
@@ -11,6 +11,8 @@ import { DecklistStore } from '../../decklist/stores/decklist.store';
 import { ToastService } from '../../../services/toast.service';
 import { I18nService } from '../../../services/i18n.service';
 import { normalizeHandle } from '../services/community-index.service';
+import { YdkeExportDialogComponent } from '../../../components/decklist-editor/ydke-dialogs.component';
+import { splitDeckIntoYdkeSections } from '../../../services/ydke.service';
 
 type ExploreTab = 'profiles' | 'decks';
 
@@ -23,11 +25,15 @@ type ExploreTab = 'profiles' | 'decks';
     TranslatePipe,
     PageHeaderComponent,
     PublicDeckCardComponent,
+    YdkeExportDialogComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page-main page-stack">
-      <app-page-header titleKey="community.explore.title" subtitleKey="community.explore.subtitle" />
+      <app-page-header
+        titleKey="community.explore.title"
+        [subtitleKey]="subtitleKey()"
+      />
 
       <div class="duel-panel p-3 sm:p-4 space-y-3">
         <label class="form-control">
@@ -93,7 +99,7 @@ type ExploreTab = 'profiles' | 'decks';
         </div>
       } @else {
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          @for (deck of deckResults(); track deck.deckId + deck.ownerHandle) {
+          @for (deck of deckResults(); track deck.cloudId ?? (deck.ownerHandle + deck.deckId)) {
             <app-public-deck-card [deck]="deck" (selected)="openDeck($event)" />
           } @empty {
             <p class="text-sm text-base-content/60 col-span-full p-4">{{ 'community.explore.decksEmpty' | translate }}</p>
@@ -101,6 +107,14 @@ type ExploreTab = 'profiles' | 'decks';
         </div>
       }
     </main>
+
+    <app-ydke-export-dialog
+      [open]="ydkeDialogOpen()"
+      [url]="ydkeUrl()"
+      [hint]="ydkeHint()"
+      (closed)="closeYdkeDialog()"
+      (copy)="copyYdke()"
+    />
   `,
 })
 export class ExplorePage {
@@ -116,15 +130,29 @@ export class ExplorePage {
   readonly tab = signal<ExploreTab>('profiles');
   readonly profileResults = signal<CommunityProfileEntry[]>([]);
   readonly deckResults = signal<CommunityPublicDeckEntry[]>([]);
+  readonly ydkeDialogOpen = signal(false);
+  readonly ydkeUrl = signal('');
+  readonly ydkeHint = signal('');
+
+  readonly subtitleKey = computed(() =>
+    this.community.cloudEnabled()
+      ? 'community.explore.subtitleCloud'
+      : 'community.explore.subtitle',
+  );
 
   constructor() {
-    this.community.rebuildFromLocal();
+    void this.loadIndex();
     const params = this.route.snapshot.queryParamMap;
     const tab = params.get('tab');
     if (tab === 'decks') {
       this.tab.set('decks');
     }
     this.query = params.get('q') ?? '';
+  }
+
+  private async loadIndex(): Promise<void> {
+    this.community.rebuildFromLocal();
+    await this.community.refreshFromCloud();
     this.onSearch();
   }
 
@@ -140,11 +168,47 @@ export class ExplorePage {
 
   openDeck(deck: CommunityPublicDeckEntry): void {
     const localHandle = this.authStore.handle();
-    if (!localHandle || normalizeHandle(localHandle) !== deck.ownerHandle) {
-      this.toast.info(this.i18n.t('community.explore.deckLocalOnly'));
+    const isOwnDeck = localHandle && normalizeHandle(localHandle) === deck.ownerHandle && !deck.isRemote;
+
+    if (isOwnDeck) {
+      this.decklistStore.setActiveDecklist(deck.deckId);
+      void this.router.navigateByUrl('/decklist');
       return;
     }
-    this.decklistStore.setActiveDecklist(deck.deckId);
-    void this.router.navigateByUrl('/decklist');
+
+    const ydke = deck.ydkeUrl ?? this.decklistStore.encodeYdke(deck.deckId);
+    if (!ydke) {
+      this.toast.info(this.i18n.t('community.explore.deckYdkeMissing'));
+      return;
+    }
+
+    const sections = splitDeckIntoYdkeSections(
+      this.decklistStore.getDeckById(deck.deckId)?.cards ?? [],
+    );
+    this.ydkeUrl.set(ydke);
+    this.ydkeHint.set(
+      this.i18n.translate('decklist.ydke.hint', {
+        main: `${sections.main.length}`,
+        extra: `${sections.extra.length}`,
+        side: `${sections.side.length}`,
+      }),
+    );
+    this.ydkeDialogOpen.set(true);
+  }
+
+  closeYdkeDialog(): void {
+    this.ydkeDialogOpen.set(false);
+    this.ydkeUrl.set('');
+    this.ydkeHint.set('');
+  }
+
+  copyYdke(): void {
+    const url = this.ydkeUrl();
+    if (!url) {
+      return;
+    }
+    void navigator.clipboard.writeText(url).then(() => {
+      this.toast.success(this.i18n.t('decklist.feedback.ydkeCopied'));
+    });
   }
 }

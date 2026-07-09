@@ -71,6 +71,16 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
+        <label class="label cursor-pointer gap-1.5 py-0 shrink-0">
+          <span class="label-text text-xs">{{ 'profile.deckPublic' | translate }}</span>
+          <input
+            type="checkbox"
+            class="toggle toggle-primary toggle-xs"
+            [checked]="isPublic()"
+            (change)="publicChange.emit($any($event.target).checked)"
+          />
+        </label>
+
         <button type="button" class="btn btn-primary btn-sm" (click)="completeDeck.emit()">
           {{ 'decklist.completeDeck' | translate }}
         </button>
@@ -107,6 +117,7 @@ export class DecklistEditorHeaderComponent {
   readonly mainTarget = input(40);
   readonly renaming = input(false);
   readonly renameDraft = input('');
+  readonly isPublic = input(false);
 
   readonly back = output<void>();
   readonly renameStart = output<string>();
@@ -120,4 +131,5 @@ export class DecklistEditorHeaderComponent {
   readonly exportYdke = output<void>();
   readonly sortDeck = output<void>();
   readonly deleteDeck = output<void>();
+  readonly publicChange = output<boolean>();
 }

@@ -7,15 +7,15 @@
  * 4. Authentication → URL Configuration → Site URL + Redirect URLs:
  *    - http://localhost:4200/auth/callback
  *    - https://YOUR_VERCEL_DOMAIN/auth/callback
- * 5. Project Settings → API → copy URL + anon public key
- * 6. Vercel → Environment Variables:
- *    - SUPABASE_URL
- *    - SUPABASE_ANON_KEY
- *    (build runs scripts/write-community-config.mjs automatically)
+ * 5. Project Settings → API → copy URL + publishable (or anon) key
+ * 6. Copy .env.local.example → .env.local and fill in values
+ *    (build/start runs scripts/write-community-config.mjs automatically)
  *
- * Local dev with auth:
- *   set SUPABASE_URL=https://xxx.supabase.co
- *   set SUPABASE_ANON_KEY=eyJ...
+ * Env var names supported (Angular SPA — no @supabase/ssr needed):
+ *   NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL
+ *   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY / SUPABASE_ANON_KEY
+ *
+ * Local dev:
  *   npm start
  */
 export const communityConfigExample = {

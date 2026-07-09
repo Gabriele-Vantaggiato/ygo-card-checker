@@ -11,6 +11,7 @@ import {
   CommunityProfileEntry,
   CommunityPublicDeckEntry,
 } from '../models/community.model';
+import { CommunityCloudService } from './community-cloud.service';
 
 const STORAGE_KEY = 'ygo-checker-community-index';
 
@@ -20,11 +21,62 @@ export class CommunityIndexService {
   private readonly decklists = inject(DecklistService);
   private readonly formatStore = inject(FormatStore);
   private readonly i18n = inject(I18nService);
+  private readonly cloud = inject(CommunityCloudService);
 
   private readonly index = signal<CommunityIndex>(this.load());
 
   readonly profilesIndex = () => this.index().profiles;
   readonly publicDecksIndex = () => this.index().publicDecks;
+
+  cloudEnabled(): boolean {
+    return this.cloud.enabled();
+  }
+
+  async refreshFromCloud(): Promise<void> {
+    if (!this.cloud.enabled()) {
+      return;
+    }
+
+    try {
+      const [cloudProfiles, cloudDecks] = await Promise.all([
+        this.cloud.fetchProfiles(),
+        this.cloud.fetchPublicDecks(),
+      ]);
+
+      const current = this.index();
+      const profileByHandle = new Map<string, CommunityProfileEntry>();
+      for (const profile of cloudProfiles) {
+        profileByHandle.set(profile.handle, profile);
+      }
+      for (const profile of current.profiles) {
+        profileByHandle.set(profile.handle, profile);
+      }
+
+      const localHandle = this.profiles.load()?.handle.trim()
+        ? normalizeHandle(this.profiles.load()!.handle)
+        : null;
+
+      const deckKey = (deck: CommunityPublicDeckEntry) =>
+        `${deck.ownerHandle}:${deck.cloudId ?? deck.deckId}`;
+
+      const deckByKey = new Map<string, CommunityPublicDeckEntry>();
+      for (const deck of cloudDecks) {
+        deckByKey.set(deckKey(deck), deck);
+      }
+      for (const deck of current.publicDecks) {
+        if (localHandle && deck.ownerHandle === localHandle) {
+          deckByKey.set(`${deck.ownerHandle}:${deck.deckId}`, { ...deck, isRemote: false });
+        }
+      }
+
+      this.save({
+        profiles: [...profileByHandle.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+        publicDecks: [...deckByKey.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      });
+    } catch {
+      // Keep the local index when cloud fetch fails.
+    }
+  }
 
   rebuildFromLocal(): void {
     const profile = this.profiles.load();

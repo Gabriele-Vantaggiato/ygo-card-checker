@@ -45,6 +45,12 @@ __screenshots__/
 # Gli export in src/assets/data/card-knowledge/*.json sono versionati
 # e serviti come static assets su Vercel (Angular assets/).
 
+# Environment (Supabase keys, local secrets)
+.env
+.env.local
+.env.*.local
+src/app/core/config/community.config.ts
+
 # System files
 .DS_Store
 Thumbs.db

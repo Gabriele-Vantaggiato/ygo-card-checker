@@ -32,6 +32,12 @@ export interface CommunityPublicDeckEntry {
   coverImage: string | null;
   formatLabel: string;
   updatedAt: string;
+  /** Supabase row id when loaded from cloud. */
+  cloudId?: string;
+  /** YDKE URL for published cloud decks. */
+  ydkeUrl?: string | null;
+  /** True when the deck belongs to another user/device. */
+  isRemote?: boolean;
 }
 
 export interface CommunityIndex {

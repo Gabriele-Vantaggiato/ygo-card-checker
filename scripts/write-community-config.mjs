@@ -1,12 +1,54 @@
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const target = join(root, 'src/app/core/config/community.config.ts');
 
-const url = process.env.SUPABASE_URL ?? process.env.NG_APP_SUPABASE_URL ?? '';
-const key = process.env.SUPABASE_ANON_KEY ?? process.env.NG_APP_SUPABASE_ANON_KEY ?? '';
+/** @param {string} filePath */
+function loadEnvFile(filePath) {
+  if (!existsSync(filePath)) {
+    return;
+  }
+  for (const line of readFileSync(filePath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) {
+      continue;
+    }
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile(join(root, '.env'));
+loadEnvFile(join(root, '.env.local'));
+
+const url =
+  process.env.SUPABASE_URL ??
+  process.env.NG_APP_SUPABASE_URL ??
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  '';
+
+const key =
+  process.env.SUPABASE_ANON_KEY ??
+  process.env.SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NG_APP_SUPABASE_ANON_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  '';
 
 const escape = (value) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 

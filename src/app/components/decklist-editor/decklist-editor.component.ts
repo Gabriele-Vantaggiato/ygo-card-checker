@@ -85,6 +85,7 @@ import {
           [mainTarget]="completeDeckTarget()"
           [renaming]="renaming()"
           [renameDraft]="renameDraft()"
+          [isPublic]="decklistStore.isDeckPublic(activeDeck.id)"
           (back)="back.emit()"
           (renameStart)="startRename($event)"
           (renameDraftChange)="renameDraft.set($event)"
@@ -97,6 +98,7 @@ import {
           (exportYdke)="openYdkeDialog(activeDeck)"
           (sortDeck)="decklistStore.sortActiveDeck()"
           (deleteDeck)="decklistStore.deleteActiveDecklist(); back.emit()"
+          (publicChange)="decklistStore.setDeckPublic(activeDeck.id, $event)"
         />
 
         <div class="deck-context-bar sm:hidden">

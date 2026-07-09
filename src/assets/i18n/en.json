@@ -58,6 +58,8 @@
   "profile.openExplore": "Explore profiles and public decks",
   "community.explore.title": "Community",
   "community.explore.subtitle": "Search profiles and public decklists on this device.",
+  "community.explore.subtitleCloud": "Browse public profiles and decklists shared via Supabase.",
+  "community.explore.deckYdkeMissing": "No YDKE code available for this deck.",
   "community.explore.search": "Search",
   "community.explore.searchPlaceholder": "Nickname, handle or deck name...",
   "community.explore.tabProfiles": "Profiles",

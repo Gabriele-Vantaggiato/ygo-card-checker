@@ -6,7 +6,7 @@ import { LocalProfile } from '../models/local-profile.model';
 import { AuthStore } from '../stores/auth.store';
 import { LocalProfileService } from './local-profile.service';
 import { DeckSyncService } from '../../community/services/deck-sync.service';
-import { CommunityIndexService } from '../../community/services/community-index.service';
+import { CommunityIndexService, normalizeHandle } from '../../community/services/community-index.service';
 
 type OAuthProvider = Extract<Provider, 'google' | 'discord'>;
 
@@ -85,6 +85,7 @@ export class AuthService {
     this.localProfiles.save(profile);
     this.store.setLocalProfile(this.localProfiles.load());
     this.communityIndex.rebuildFromLocal();
+    void this.syncCloudProfile(profile);
   }
 
   clearLocalProfile(): void {
@@ -115,6 +116,7 @@ export class AuthService {
     await this.ensureProfile(session.user.id, session.user.user_metadata);
     await this.loadProfile(session.user.id);
     await this.deckSync.pullAndMerge();
+    void this.communityIndex.refreshFromCloud();
   }
 
   private async ensureProfile(
@@ -159,6 +161,32 @@ export class AuthService {
     }
 
     this.store.setProfile(mapProfileRow(data));
+  }
+
+  private async syncCloudProfile(profile: LocalProfile): Promise<void> {
+    const userId = this.store.user()?.id;
+    const client = this.supabase.getClient();
+    if (!this.enabled() || !userId || !client || !profile.handle.trim()) {
+      return;
+    }
+
+    const { error } = await client.from('profiles').upsert(
+      {
+        id: userId,
+        handle: normalizeHandle(profile.handle),
+        display_name: profile.displayName.trim(),
+        bio: profile.bio.trim() || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    );
+
+    if (error) {
+      return;
+    }
+
+    await this.loadProfile(userId);
+    void this.communityIndex.refreshFromCloud();
   }
 }
 
