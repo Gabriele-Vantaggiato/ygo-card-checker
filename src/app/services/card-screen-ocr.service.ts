@@ -21,7 +21,10 @@ export interface OcrFailure {
 
 export type OcrResult = OcrSuccess | OcrFailure;
 
-type TesseractModule = typeof import('tesseract.js');
+type TesseractApi = {
+  createWorker: typeof import('tesseract.js').createWorker;
+  PSM: typeof import('tesseract.js').PSM;
+};
 
 /** Same-origin paths — CDN defaults break on Vercel / Document PiP. */
 function tesseractAsset(relativePath: string): string {
@@ -32,6 +35,24 @@ function tesseractAsset(relativePath: string): string {
 function tesseractDir(relativePath: string): string {
   const href = tesseractAsset(relativePath.replace(/\/?$/, '/'));
   return href.endsWith('/') ? href : `${href}/`;
+}
+
+/**
+ * Angular/esbuild wraps CJS tesseract as `export default { createWorker, PSM, ... }`.
+ * Named imports work in types/dev; dynamic `import()` in prod needs `.default`.
+ */
+function resolveTesseractApi(mod: unknown): TesseractApi {
+  const root = mod as Record<string, unknown>;
+  const candidate =
+    typeof root['createWorker'] === 'function'
+      ? root
+      : root['default'] && typeof root['default'] === 'object'
+        ? (root['default'] as Record<string, unknown>)
+        : null;
+  if (!candidate || typeof candidate['createWorker'] !== 'function') {
+    throw new Error('tesseract.js: createWorker missing after dynamic import');
+  }
+  return candidate as unknown as TesseractApi;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -88,10 +109,9 @@ export class CardScreenOcrService {
   }
 
   private async createWorker(): Promise<import('tesseract.js').Worker> {
-    const tesseract = (await import('tesseract.js')) as TesseractModule;
+    const tesseract = resolveTesseractApi(await import('tesseract.js'));
     // OEM 1 = LSTM only. Self-host worker/core/lang so prod does not hit jsDelivr.
     // corePath must be a directory with all 4 core builds (simd/lstm variants).
-    // Missing files → Vercel SPA fallback HTML → createWorker throws.
     const worker = await tesseract.createWorker('eng', 1, {
       workerPath: tesseractAsset('worker.min.js'),
       langPath: tesseractAsset('lang').replace(/\/$/, ''),
