@@ -2,6 +2,7 @@ import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core'
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { combineLatest, defaultIfEmpty, forkJoin, of, Subject } from 'rxjs';
 import {
+  catchError,
   debounceTime,
   distinctUntilChanged,
   filter,
@@ -288,6 +289,13 @@ export class CheckerStore {
             suggestions: sortYgoCardsByPlayability(suggestions, suggestionLegality),
             suggestionLegality,
           })),
+          // Keep search hits even if banlist evaluation fails for one/all cards.
+          catchError(() =>
+            of({
+              suggestions,
+              suggestionLegality: new Map<number, LegalityResult>(),
+            }),
+          ),
         );
       }),
     );

@@ -12,6 +12,7 @@ import {
   map,
   skip,
   switchMap,
+  takeUntil,
   tap,
 } from 'rxjs/operators';
 import { LegalityResult, YgoCard } from '../../../models/ygo-card.model';
@@ -31,6 +32,8 @@ import {
   looksLikeDetailClosed,
   looksLikeDetailModal,
   MDPRO_MODAL_PROBE_CROP,
+  MDPRO_OCR_CROP,
+  MDPRO_PASSCODE_CROP,
   toProbeSample,
 } from '../../../utils/mdpro-detail-probe';
 import { OverlayPipShell } from '../overlay-pip-shell';
@@ -79,6 +82,8 @@ export class OverlayStore {
     parsed: MdproOcrParseResult;
     identityKey: string;
   }>();
+  /** Cancels in-flight OCR when detail closes or Scan is pressed again. */
+  private readonly ocrCancel$ = new Subject<void>();
 
   private liveStream: MediaStream | null = null;
   private liveVideo: HTMLVideoElement | null = null;
@@ -286,6 +291,9 @@ export class OverlayStore {
     if (this.pipCollapsed()) {
       this.expandPip();
     }
+    // Always recoverable: cancel stuck OCR/resolve and rescan.
+    this.cancelOcr();
+    this.phase.set('ready');
     this.runOcrOnce(true);
   }
 
@@ -329,6 +337,7 @@ export class OverlayStore {
 
   stopLive(): void {
     this.stopProbing();
+    this.cancelOcr();
     this.capture.stopStream(this.liveStream);
     this.liveStream = null;
     this.liveVideo = null;
@@ -393,9 +402,9 @@ export class OverlayStore {
     }
   }
 
-  /** Cheap tick: pixelmatch only. Never runs OCR. */
+  /** Cheap tick: pixelmatch only. Never runs OCR. Close detection runs even during OCR. */
   private probeTick(): void {
-    if (!this.liveActive() || this.scanBusy) {
+    if (!this.liveActive()) {
       return;
     }
     const video = this.liveVideo;
@@ -418,6 +427,10 @@ export class OverlayStore {
     }
 
     if (!this.detailOpen) {
+      // Don't start a second OCR while one is already running.
+      if (this.scanBusy) {
+        return;
+      }
       if (looksLikeDetailModal(sample, this.baseline)) {
         this.openStreak += 1;
         this.closeStreak = 0;
@@ -466,7 +479,7 @@ export class OverlayStore {
     this.openStreak = 0;
     this.closeStreak = 0;
     this.lastResolvedIdentity = '';
-    this.scanBusy = false;
+    this.cancelOcr();
     this.baseline = sample;
     this.baselineCollected = BASELINE_FRAMES;
     this.selectedCard.set(null);
@@ -476,6 +489,13 @@ export class OverlayStore {
     this.phase.set('ready');
     this.statusKey.set('overlay.status.waitingDetail');
     this.statusParams.set(undefined);
+    this.errorKey.set(null);
+    this.syncPip();
+  }
+
+  private cancelOcr(): void {
+    this.ocrCancel$.next();
+    this.scanBusy = false;
   }
 
   private parkPipDock(): void {
@@ -501,20 +521,13 @@ export class OverlayStore {
 
   private runOcrOnce(forced: boolean): void {
     if (this.scanBusy) {
-      return;
+      if (!forced) {
+        return;
+      }
+      this.cancelOcr();
     }
     const video = this.liveVideo;
     if (!video) {
-      return;
-    }
-    // Full frame worked reliably; tight title-crop missed passcode/name too often.
-    const raw =
-      this.capture.grabFullFrame(video) ?? this.capture.grabScaledFrame(video, OCR_MAX_WIDTH);
-    if (!raw) {
-      if (forced) {
-        this.statusKey.set('overlay.status.noFrame');
-        this.syncPip();
-      }
       return;
     }
 
@@ -524,12 +537,74 @@ export class OverlayStore {
     this.statusKey.set('overlay.status.reading');
     this.syncPip();
 
-    const canvas = downscaleCanvas(raw.canvas, OCR_MAX_WIDTH);
+    // 1) Passcode panel → 2) wider strip → 3) full frame.
+    // Truncated titles ("ost Sleeper") are ignored when `[99370594]` is found.
+    const passcodeFrame = this.capture.grabCroppedFrame(video, MDPRO_PASSCODE_CROP);
+    const wideFrame =
+      this.capture.grabCroppedFrame(video, MDPRO_OCR_CROP) ??
+      this.capture.grabScaledFrame(video, OCR_MAX_WIDTH);
+
+    if (!passcodeFrame && !wideFrame) {
+      this.scanBusy = false;
+      this.phase.set('ready');
+      if (forced) {
+        this.statusKey.set('overlay.status.noFrame');
+        this.syncPip();
+      }
+      return;
+    }
+
+    const firstCanvas = downscaleCanvas((passcodeFrame ?? wideFrame)!.canvas, OCR_MAX_WIDTH);
     this.ocr
-      .recognize$(canvas)
+      .recognize$(firstCanvas)
       .pipe(
+        switchMap((result) => {
+          if (result.ok && result.parsed.passcodes.length > 0) {
+            return of(result);
+          }
+          if (wideFrame && passcodeFrame) {
+            return this.ocr.recognize$(downscaleCanvas(wideFrame.canvas, OCR_MAX_WIDTH)).pipe(
+              map((wide) => {
+                if (wide.ok && wide.parsed.passcodes.length > 0) {
+                  return wide;
+                }
+                if (result.ok) {
+                  return result;
+                }
+                return wide;
+              }),
+              switchMap((best) => {
+                if (best.ok && (best.parsed.passcodes.length > 0 || best.parsed.candidateName)) {
+                  return of(best);
+                }
+                const full =
+                  this.capture.grabFullFrame(video) ??
+                  this.capture.grabScaledFrame(video, OCR_MAX_WIDTH);
+                if (!full) {
+                  return of(best);
+                }
+                return this.ocr.recognize$(downscaleCanvas(full.canvas, OCR_MAX_WIDTH));
+              }),
+            );
+          }
+          if (result.ok) {
+            return of(result);
+          }
+          const full =
+            this.capture.grabFullFrame(video) ??
+            this.capture.grabScaledFrame(video, OCR_MAX_WIDTH);
+          if (!full) {
+            return of(result);
+          }
+          return this.ocr.recognize$(downscaleCanvas(full.canvas, OCR_MAX_WIDTH));
+        }),
+        takeUntil(this.ocrCancel$),
         finalize(() => {
           this.scanBusy = false;
+          if (this.phase() === 'ocr') {
+            this.phase.set('ready');
+          }
+          this.syncPip();
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -546,8 +621,11 @@ export class OverlayStore {
     }
 
     this.ocrPreview.set(result.text.slice(0, 240));
-    if (result.parsed.candidateName) {
+    // Prefer passcode identity; only surface name when no id (names truncate often).
+    if (result.parsed.passcodes.length === 0 && result.parsed.candidateName) {
       this.manualQuery.set(result.parsed.candidateName);
+    } else if (result.parsed.passcodes[0]) {
+      this.manualQuery.set(String(result.parsed.passcodes[0]));
     }
 
     const identityKey = result.identityKey;
@@ -572,11 +650,12 @@ export class OverlayStore {
       return;
     }
 
-    // Do NOT lock identity until selectCard — failed lookups must remain retryable.
+    const lookupLabel =
+      result.parsed.passcodes[0] != null
+        ? String(result.parsed.passcodes[0])
+        : (result.parsed.candidateName ?? '');
     this.statusKey.set('overlay.status.lookingUp');
-    this.statusParams.set({
-      name: result.parsed.candidateName ?? String(result.parsed.passcodes[0] ?? ''),
-    });
+    this.statusParams.set({ name: lookupLabel });
     this.resolveIntent$.next({ parsed: result.parsed, identityKey });
     this.syncPip();
   }
@@ -600,7 +679,7 @@ export class OverlayStore {
       related: this.relatedResult(),
       formatName: this.selectedFormat()?.name[this.i18n.lang()] ?? '',
       statusText,
-      scanning: this.scanBusy || this.phase() === 'ocr' || this.phase() === 'resolving',
+      scanning: this.scanBusy,
       collapsed: this.pipCollapsed(),
       t: (k, params) => this.i18n.translate(k, params),
     });
@@ -621,11 +700,29 @@ export class OverlayStore {
         tap(() => {
           this.phase.set('resolving');
           this.errorKey.set(null);
+          this.syncPip();
         }),
-        switchMap(({ parsed }) => this.resolveCard$(parsed)),
+        switchMap(({ parsed }) =>
+          this.resolveCard$(parsed).pipe(
+            finalize(() => {
+              // Never leave the UI stuck if resolve ends without selectCard.
+              if (this.phase() === 'resolving') {
+                this.phase.set('ready');
+                this.syncPip();
+              }
+            }),
+          ),
+        ),
         tap({
           next: (card) => {
             if (!card) {
+              this.phase.set('error');
+              this.errorKey.set('overlay.error.cardNotFound');
+              this.statusKey.set('overlay.error.cardNotFound');
+              this.syncPip();
+              return;
+            }
+            if (isIncompleteCard(card)) {
               this.phase.set('error');
               this.errorKey.set('overlay.error.cardNotFound');
               this.statusKey.set('overlay.error.cardNotFound');
@@ -654,9 +751,8 @@ export class OverlayStore {
   }
 
   /**
-   * Passcode path: prefer IDs present in the local catalog (MDPRO often lists
-   * multiple numbers; the first may not be the Konami id YGOPRODeck knows).
-   * IndexedDB → catalog stub → API (try each id) → name fallback.
+   * Same lookups as the checker: getCardById$ / resolveCardByName$ / searchCards$.
+   * Catalog only reorders passcodes. Never selectCard() a stub (no tcg_date).
    */
   private resolveByPasscodeFast$(
     passcodes: number[],
@@ -666,10 +762,9 @@ export class OverlayStore {
     return this.passcodes.ensureLoaded$().pipe(
       switchMap(() => {
         const ordered = this.orderPasscodes(passcodes);
-        const primary = ordered[0];
+        const primary = ordered[0] ?? passcodes[0];
         return this.idbCache.get$(primary, lang).pipe(
           switchMap((cached) => {
-            const stub = this.passcodes.toStubCard(primary, lang);
             const api$ = this.fetchFirstPasscode$(ordered, lang).pipe(
               switchMap((card) => {
                 if (card) {
@@ -680,21 +775,18 @@ export class OverlayStore {
               }),
             );
 
-            if (cached) {
+            // Instant paint only from a complete cached card (same data the site uses).
+            if (cached && !isIncompleteCard(cached)) {
               return concat(
                 of(cached),
                 api$.pipe(
                   filter(
                     (card): card is YgoCard =>
-                      !!card && (card.name !== cached.name || card.desc !== cached.desc),
+                      !!card &&
+                      !isIncompleteCard(card) &&
+                      (card.name !== cached.name || card.desc !== cached.desc),
                   ),
                 ),
-              );
-            }
-            if (stub) {
-              return concat(
-                of(stub),
-                api$.pipe(filter((card): card is YgoCard => !!card)),
               );
             }
             return api$;
@@ -726,7 +818,7 @@ export class OverlayStore {
   private fetchFirstPasscode$(ids: number[], lang: 'it' | 'en') {
     return from(ids).pipe(
       concatMap((id) => this.ygoApi.getCardById$(id, lang)),
-      first((card): card is YgoCard => !!card, null),
+      first((card): card is YgoCard => !!card && !isIncompleteCard(card), null),
     );
   }
 
@@ -758,14 +850,14 @@ export class OverlayStore {
       .pipe(
         distinctUntilChanged(
           ([cardA, formatA], [cardB, formatB]) =>
-            cardA?.id === cardB?.id && formatA?.id === formatB?.id,
+            cardFingerprint(cardA) === cardFingerprint(cardB) && formatA?.id === formatB?.id,
         ),
         tap(([card, format]) => {
           if (!card || !format) {
             this.legalityResult.set(null);
           }
         }),
-        filter(([card, format]) => !!card && !!format),
+        filter(([card, format]) => !!card && !!format && !isIncompleteCard(card!)),
         switchMap(([card, format]) => this.cardLegality.evaluate$(card!, format!)),
         tap({
           next: (result) => {
@@ -784,7 +876,7 @@ export class OverlayStore {
       .pipe(
         distinctUntilChanged(
           ([cardA, formatA], [cardB, formatB]) =>
-            cardA?.id === cardB?.id && formatA?.id === formatB?.id,
+            cardFingerprint(cardA) === cardFingerprint(cardB) && formatA?.id === formatB?.id,
         ),
         tap(([card, format]) => {
           if (!card || !format) {
@@ -792,7 +884,7 @@ export class OverlayStore {
             this.relatedLoading.set(false);
           }
         }),
-        filter(([card, format]) => !!card && !!format),
+        filter(([card, format]) => !!card && !!format && !isIncompleteCard(card!)),
         tap(() => this.relatedLoading.set(true)),
         switchMap(([card, format]) =>
           this.knowledgeService.findRelated$(card!, format!).pipe(catchError(() => of(EMPTY_RELATED))),
@@ -806,6 +898,19 @@ export class OverlayStore {
       )
       .subscribe();
   }
+}
+
+/** Incomplete = catalog stub / partial cache. Must not drive checker-equivalent legality. */
+function isIncompleteCard(card: YgoCard): boolean {
+  return !card.misc_info?.[0]?.tcg_date;
+}
+
+function cardFingerprint(card: YgoCard | null): string {
+  if (!card) {
+    return '';
+  }
+  const tcg = card.misc_info?.[0]?.tcg_date ?? '';
+  return `${card.id}|${tcg}|${card.desc?.length ?? 0}|${card.name}`;
 }
 
 function downscaleCanvas(source: HTMLCanvasElement, maxWidth = OCR_MAX_WIDTH): HTMLCanvasElement {

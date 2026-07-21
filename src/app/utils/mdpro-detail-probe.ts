@@ -9,12 +9,23 @@ export const MDPRO_MODAL_PROBE_CROP: CaptureCrop = {
   h: 0.55,
 };
 
-/** Title + passcode strip — only region sent to OCR. */
-export const MDPRO_OCR_CROP: CaptureCrop = {
-  x: 0.28,
+/**
+ * Right info panel (stats + `[Type] [passcode]`) — preferred OCR target.
+ * Passcodes are unique and far more reliable than truncated title OCR.
+ */
+export const MDPRO_PASSCODE_CROP: CaptureCrop = {
+  x: 0.46,
   y: 0.12,
   w: 0.5,
-  h: 0.28,
+  h: 0.38,
+};
+
+/** Wider title + panel strip — fallback when passcode crop finds nothing. */
+export const MDPRO_OCR_CROP: CaptureCrop = {
+  x: 0.2,
+  y: 0.08,
+  w: 0.72,
+  h: 0.45,
 };
 
 const PROBE_WIDTH = 160;

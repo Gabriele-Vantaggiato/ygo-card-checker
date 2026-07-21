@@ -4,6 +4,8 @@ export interface MdproOcrParseResult {
   rawLines: string[];
 }
 
+/** Prefer explicit `[99370594]` groups, then bare 7–8 digit tokens. */
+const BRACKET_PASSCODE_RE = /\[(\d{7,8})\]/g;
 const PASSCODE_RE = /\b(\d{7,8})\b/g;
 const BRACKET_META_RE = /^\[[^\]]+\](\s*\[[^\]]+\])*\s*$/;
 const NOISE_LINE_RE =
@@ -11,30 +13,76 @@ const NOISE_LINE_RE =
 
 /**
  * Parse MDPRO / Master Duel card-detail OCR text.
- * Prefers 8-digit passcodes; falls back to the title-like name line.
+ * Prefers unique passcodes (esp. `[99370594]`); name is fallback only.
  */
 export function parseMdproOcrText(text: string): MdproOcrParseResult {
-  const rawLines = text
+  const normalized = normalizeOcrDigitNoise(text);
+  const rawLines = normalized
     .split(/\r?\n/)
     .map((line) => line.replace(/\s+/g, ' ').trim())
     .filter((line) => line.length > 0);
 
+  const passcodes = extractPasscodes(normalized);
+  const candidateName = pickCandidateName(rawLines);
+  return { passcodes, candidateName, rawLines };
+}
+
+function extractPasscodes(text: string): number[] {
   const passcodes: number[] = [];
   const seen = new Set<number>();
-  for (const line of rawLines) {
-    PASSCODE_RE.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = PASSCODE_RE.exec(line)) !== null) {
-      const id = Number(match[1]);
-      if (!seen.has(id)) {
-        seen.add(id);
-        passcodes.push(id);
+
+  const push = (raw: string) => {
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id < 1_000_000) {
+      return;
+    }
+    if (!seen.has(id)) {
+      seen.add(id);
+      passcodes.push(id);
+    }
+  };
+
+  BRACKET_PASSCODE_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = BRACKET_PASSCODE_RE.exec(text)) !== null) {
+    push(match[1]);
+  }
+
+  // Slash groups: [89631151/89631139]
+  for (const group of text.match(/\[([\d/OoIl|]+)\]/g) ?? []) {
+    const inner = group.slice(1, -1);
+    for (const part of inner.split('/')) {
+      const digits = part.replace(/[^\d]/g, '');
+      if (digits.length >= 7 && digits.length <= 8) {
+        push(digits);
       }
     }
   }
 
-  const candidateName = pickCandidateName(rawLines);
-  return { passcodes, candidateName, rawLines };
+  PASSCODE_RE.lastIndex = 0;
+  while ((match = PASSCODE_RE.exec(text)) !== null) {
+    push(match[1]);
+  }
+
+  return passcodes;
+}
+
+/**
+ * OCR often confuses O/0 and I/l/1 inside digit-only bracket groups.
+ */
+function normalizeOcrDigitNoise(text: string): string {
+  return text.replace(/\[([^\]]+)\]/g, (full, inner: string) => {
+    if (!/^[\d/OoIl|SsBbGg\s]+$/.test(inner)) {
+      return full;
+    }
+    const fixed = inner
+      .replace(/[Oo]/g, '0')
+      .replace(/[Il|]/g, '1')
+      .replace(/[Ss]/g, '5')
+      .replace(/[Bb]/g, '8')
+      .replace(/[Gg]/g, '6');
+    return `[${fixed}]`;
+  });
 }
 
 function pickCandidateName(lines: string[]): string | null {
@@ -51,20 +99,19 @@ function pickCandidateName(lines: string[]): string | null {
     if (/^\d{1,2}$/.test(line)) {
       continue;
     }
-    // Skip type-only lines that MDPRO shows above spell/trap titles
     if (/^(normal|quick-?play|continuous|equip|field|ritual)\s+(spell|trap)$/i.test(line)) {
       continue;
     }
     if (/^(magia|trappola)\s+/i.test(line) && line.split(/\s+/).length <= 3) {
       continue;
     }
-    // Skip pure passcode / slash-separated id lines
     if (/^[\d/\s]+$/.test(line)) {
       continue;
     }
-    // Likely title: has letters, not too short
-    if (/[A-Za-zÀ-ÿ]/.test(line) && line.length >= 3) {
-      return cleanCardName(line);
+    // Strip leading OCR garbage that eats the first letter(s) of the title bar.
+    const cleaned = cleanCardName(line);
+    if (/[A-Za-zÀ-ÿ]/.test(cleaned) && cleaned.length >= 3) {
+      return cleaned;
     }
   }
   return null;
@@ -77,7 +124,7 @@ export function cleanCardName(name: string): string {
     .trim();
 }
 
-/** Stable identity key for deduping live OCR lookups. */
+/** Stable identity key for deduping live OCR lookups — passcode wins over name. */
 export function mdproIdentityKey(parsed: MdproOcrParseResult): string {
   if (parsed.passcodes.length > 0) {
     return `id:${parsed.passcodes[0]}`;

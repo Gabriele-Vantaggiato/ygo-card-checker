@@ -24,6 +24,10 @@ export class CardIdbCacheService {
   }
 
   put(card: YgoCard, lang: Lang): void {
+    // Only persist checker-equivalent payloads (need tcg_date for HAT/pool legality).
+    if (!card.misc_info?.[0]?.tcg_date) {
+      return;
+    }
     void this.write(card, lang).catch(() => undefined);
   }
 
@@ -57,7 +61,19 @@ export class CardIdbCacheService {
       const tx = db.transaction(STORE, 'readonly');
       const req = tx.objectStore(STORE).get(this.key(id, lang));
       req.onerror = () => reject(req.error ?? new Error('idb get failed'));
-      req.onsuccess = () => resolve((req.result as YgoCard | undefined) ?? null);
+      req.onsuccess = () => {
+        const card = (req.result as YgoCard | undefined) ?? null;
+        if (!card) {
+          resolve(null);
+          return;
+        }
+        // Drop incomplete entries (no tcg_date) — they break HAT/pool legality.
+        if (!card.misc_info?.[0]?.tcg_date) {
+          resolve(null);
+          return;
+        }
+        resolve(card);
+      };
     });
   }
 

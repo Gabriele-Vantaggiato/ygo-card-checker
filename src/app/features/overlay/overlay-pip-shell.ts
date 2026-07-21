@@ -22,8 +22,8 @@ export interface OverlayPipHandlers {
   onExpand: () => void;
 }
 
-/** Compact search-row layout — no nested scroll regions. */
-const EXPANDED = { width: 360, height: 420 };
+/** Compact sheet — same info density as checker search row + effect. */
+const EXPANDED = { width: 380, height: 520 };
 const COLLAPSED = { width: 44, height: 168 };
 
 const PIP_CSS = `
@@ -61,62 +61,47 @@ const PIP_CSS = `
     border: 1px dashed rgba(255,255,255,0.18); border-radius: 14px; padding: 20px; opacity: 0.75;
   }
   .sheet {
-    flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px;
+    flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px;
     border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
-    background: rgba(8,12,18,0.72); padding: 10px; overflow: hidden;
+    background: rgba(8,12,18,0.72); padding: 12px; overflow: auto;
   }
   .row {
-    display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0;
+    display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0;
   }
   .art {
-    width: 48px; height: 70px; object-fit: cover; border-radius: 6px;
-    background: #0a0e14; box-shadow: 0 4px 12px rgba(0,0,0,0.35); flex-shrink: 0;
+    width: 56px; height: 80px; object-fit: cover; border-radius: 8px;
+    background: #0a0e14; box-shadow: 0 6px 16px rgba(0,0,0,0.4); flex-shrink: 0;
   }
-  .meta { flex: 1; min-width: 0; }
+  .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
   .name {
-    margin: 0; font-size: 14px; font-weight: 800; line-height: 1.25;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    margin: 0; font-size: 15px; font-weight: 800; line-height: 1.25;
   }
-  .type { margin: 2px 0 0; font-size: 11px; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .facts { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
-  .fact {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    font-size: 11px;
-  }
-  .fact-k {
-    opacity: 0.55; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700;
-  }
+  .type { margin: 0; font-size: 12px; opacity: 0.65; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .badge {
     display: inline-flex; align-items: center; border-radius: 999px;
-    padding: 3px 9px; font-size: 11px; font-weight: 700;
+    padding: 4px 10px; font-size: 11px; font-weight: 700;
   }
   .legal { background: #1f6f4a; color: #d8ffe9; }
   .restricted { background: #8a6a12; color: #ffe9a8; }
   .banned { background: #8a2030; color: #ffd0d8; }
   .qty { background: rgba(255,255,255,0.1); color: #e8eef6; }
-  .fmt {
-    margin-top: 2px; font-size: 10px; opacity: 0.55;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .fmt { background: rgba(80,140,220,0.2); color: #b7d4ff; }
+  .muted { opacity: 0.55; }
+  .effect {
+    font-size: 12px; line-height: 1.45; opacity: 0.92;
+    white-space: pre-wrap;
+    background: rgba(255,255,255,0.04); border-radius: 10px; padding: 10px;
   }
-  .extras { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
-  details.block {
-    border-radius: 10px; background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06); overflow: hidden; flex-shrink: 1; min-height: 0;
-  }
-  details.block summary {
-    list-style: none; cursor: pointer; padding: 8px 10px;
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.05em; opacity: 0.7; user-select: none;
-  }
-  details.block summary::-webkit-details-marker { display: none; }
-  details.block[open] { display: flex; flex-direction: column; min-height: 0; }
-  details.block[open] summary { opacity: 0.9; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .block-body {
-    padding: 8px 10px 10px; font-size: 12px; line-height: 1.45;
-    white-space: pre-wrap; overflow: auto; max-height: 9rem;
+  .related h3 {
+    margin: 0 0 6px; font-size: 11px; text-transform: uppercase;
+    opacity: 0.55; letter-spacing: 0.05em;
   }
   .related ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-  .related li { font-size: 12px; opacity: 0.9; padding: 2px 0; }
+  .related li {
+    font-size: 12px; opacity: 0.9; padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
 
   body.collapsed { background: transparent; }
   .rail {
@@ -321,17 +306,24 @@ export class OverlayPipShell {
     const img =
       card.card_images?.[0]?.image_url_small ?? card.card_images?.[0]?.image_url ?? '';
     const legality = snap.legality;
-    const verdictClass =
-      legality?.verdict === 'legal'
-        ? 'legal'
-        : legality?.verdict === 'restricted'
-          ? 'restricted'
-          : 'banned';
-    const playability = legality
-      ? snap.t(verdictLabelKey(legality.verdict))
-      : snap.t('overlay.pip.loadingLegality');
-    const quantity = legality ? snap.t(quantityLabelKeyForResult(legality)) : '…';
-    const related = (snap.related.suggestions ?? []).slice(0, 5);
+    const related = (snap.related.suggestions ?? []).slice(0, 4);
+
+    let badgesHtml: string;
+    if (!legality) {
+      badgesHtml = `<span class="badge muted">${escapeHtml(snap.t('overlay.pip.loadingLegality'))}</span>`;
+    } else {
+      const verdictClass =
+        legality.verdict === 'legal'
+          ? 'legal'
+          : legality.verdict === 'restricted'
+            ? 'restricted'
+            : 'banned';
+      badgesHtml = `
+        <span class="badge ${verdictClass}">${escapeHtml(snap.t(verdictLabelKey(legality.verdict)))}</span>
+        <span class="badge qty">${escapeHtml(snap.t(quantityLabelKeyForResult(legality)))}</span>
+        ${snap.formatName ? `<span class="badge fmt">${escapeHtml(snap.formatName)}</span>` : ''}
+      `;
+    }
 
     bodyEl.className = 'sheet';
     bodyEl.innerHTML = `
@@ -340,39 +332,18 @@ export class OverlayPipShell {
         <div class="meta">
           <h2 class="name">${escapeHtml(card.name)}</h2>
           ${card.type ? `<p class="type">${escapeHtml(card.type)}</p>` : ''}
-          <div class="facts">
-            <div class="fact">
-              <span class="fact-k">${escapeHtml(snap.t('history.playability'))}</span>
-              <span class="badge ${verdictClass}">${escapeHtml(playability)}</span>
-            </div>
-            <div class="fact">
-              <span class="fact-k">${escapeHtml(snap.t('history.quantity'))}</span>
-              <span class="badge qty">${escapeHtml(quantity)}</span>
-            </div>
-          </div>
-          ${snap.formatName ? `<p class="fmt">${escapeHtml(snap.formatName)}</p>` : ''}
+          <div class="badges">${badgesHtml}</div>
         </div>
       </div>
-      <div class="extras">
-        ${
-          card.desc
-            ? `<details class="block">
-                <summary>${escapeHtml(snap.t('overlay.pip.effect'))}</summary>
-                <div class="block-body">${escapeHtml(card.desc)}</div>
-              </details>`
-            : ''
-        }
-        ${
-          related.length
-            ? `<details class="block related">
-                <summary>${escapeHtml(snap.t('overlay.pip.related'))}</summary>
-                <div class="block-body">
-                  <ul>${related.map((s) => `<li>${escapeHtml(s.name)}</li>`).join('')}</ul>
-                </div>
-              </details>`
-            : ''
-        }
-      </div>
+      ${card.desc ? `<div class="effect">${escapeHtml(card.desc)}</div>` : ''}
+      ${
+        related.length
+          ? `<div class="related">
+              <h3>${escapeHtml(snap.t('overlay.pip.related'))}</h3>
+              <ul>${related.map((s) => `<li>${escapeHtml(s.name)}</li>`).join('')}</ul>
+            </div>`
+          : ''
+      }
     `;
   }
 }

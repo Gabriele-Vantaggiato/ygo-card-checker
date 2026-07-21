@@ -72,7 +72,6 @@ import { OverlayStore } from '../stores/overlay.store';
             <button
               type="button"
               class="btn btn-primary btn-lg w-full gap-2"
-              [disabled]="store.phase() === 'ocr' || store.phase() === 'resolving'"
               (click)="store.scanNow()"
             >
               @if (store.phase() === 'ocr' || store.phase() === 'resolving') {

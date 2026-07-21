@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { forkJoin, Observable, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import { LegalityResult, YgoCard } from '../models/ygo-card.model';
 import { YgoFormat } from '../models/ygo-format.model';
 import { LegalityService } from './legality.service';
@@ -30,8 +30,21 @@ export class CardLegalityFacade {
 
     return forkJoin(
       cards.map((card) =>
-        this.evaluate$(card, format).pipe(map((result) => ({ card, result }))),
+        this.evaluate$(card, format).pipe(
+          map((result) => ({ cardId: card.id, result: result as LegalityResult | null })),
+          catchError(() => of({ cardId: card.id, result: null as LegalityResult | null })),
+        ),
       ),
-    ).pipe(map((entries) => new Map(entries.map(({ card, result }) => [card.id, result]))));
+    ).pipe(
+      map((entries) => {
+        const out = new Map<number, LegalityResult>();
+        for (const { cardId, result } of entries) {
+          if (result) {
+            out.set(cardId, result);
+          }
+        }
+        return out;
+      }),
+    );
   }
 }

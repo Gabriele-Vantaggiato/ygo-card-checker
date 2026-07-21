@@ -50,6 +50,16 @@ Pot of Prosperity
     expect(result.passcodes).toEqual([84211599]);
   });
 
+  it('prefers bracket passcode over truncated title OCR', () => {
+    const result = parseMdproOcrText(`
+ost Sleeper, the Underworld Princess
+[Zombie/Effect] [99370594]
+If this card is sent to the GY
+`);
+    expect(result.passcodes).toEqual([99370594]);
+    expect(mdproIdentityKey(result)).toBe('id:99370594');
+  });
+
   it('matches known card by passcode without re-fetch', () => {
     const result = parseMdproOcrText(blueEyesSample);
     expect(matchesKnownCard(result, 89631151, 'Blue-Eyes White Dragon')).toBeTrue();

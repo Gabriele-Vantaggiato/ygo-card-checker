@@ -32,14 +32,37 @@ export class YgoApiService {
     limit = DEFAULT_SEARCH_LIMIT,
     offset = 0,
   ): Observable<CardSearchPage> {
-    const cacheKey = `${lang}:${query.trim().toLowerCase()}:${limit}:${offset}`;
+    const trimmed = query.trim();
+    const cacheKey = `${lang}:${trimmed.toLowerCase()}:${limit}:${offset}`;
     const cached = this.searchCache.get(cacheKey);
     if (cached) {
       return cached;
     }
 
+    const request$ = this.fetchSearchPage$(trimmed, lang, limit, offset).pipe(
+      switchMap((page) => {
+        // IT fname with EN spelling often 400s → []; fall back to EN once.
+        // Do not leave a permanent empty cache for a recoverable miss.
+        if (page.cards.length > 0 || lang !== 'it' || offset > 0) {
+          return of(page);
+        }
+        return this.fetchSearchPage$(trimmed, 'en', limit, offset);
+      }),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
+
+    this.searchCache.set(cacheKey, request$);
+    return request$;
+  }
+
+  private fetchSearchPage$(
+    query: string,
+    lang: Lang,
+    limit: number,
+    offset: number,
+  ): Observable<CardSearchPage> {
     let params = new HttpParams()
-      .set('fname', query.trim())
+      .set('fname', query)
       .set('misc', 'yes')
       .set('num', String(limit))
       .set('offset', String(offset));
@@ -48,7 +71,7 @@ export class YgoApiService {
       params = params.set('language', 'it');
     }
 
-    const request$ = this.http.get<CardInfoResponse>(API_BASE, { params }).pipe(
+    return this.http.get<CardInfoResponse>(API_BASE, { params }).pipe(
       map((response) => {
         const cards = response.data ?? [];
         const totalRows = response.meta?.total_rows ?? cards.length;
@@ -58,14 +81,9 @@ export class YgoApiService {
           hasMore: offset + cards.length < totalRows,
         };
       }),
-      catchError(() =>
-        of({ cards: [] as YgoCard[], totalRows: 0, hasMore: false }),
-      ),
-      shareReplay({ bufferSize: 1, refCount: false }),
+      // Empty page on error — caller may fall back; not cached alone.
+      catchError(() => of({ cards: [] as YgoCard[], totalRows: 0, hasMore: false })),
     );
-
-    this.searchCache.set(cacheKey, request$);
-    return request$;
   }
 
   getCardById$(id: number, lang: Lang): Observable<YgoCard | null> {
