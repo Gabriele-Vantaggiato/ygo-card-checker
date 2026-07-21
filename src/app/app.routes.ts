@@ -20,6 +20,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/decklist/pages/decklist.page').then((m) => m.DecklistPage),
       },
+      {
+        path: 'overlay',
+        loadComponent: () =>
+          import('./features/overlay/pages/overlay.page').then((m) => m.OverlayPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

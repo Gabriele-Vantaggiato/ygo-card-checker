@@ -50,6 +50,19 @@ export function quantityLabelKey(status: BanlistStatus): string {
   }
 }
 
+/**
+ * Allowed copies for UI. Not playable in the format ⇒ ×0 (never show ×3).
+ */
+export function quantityLabelKeyForResult(result: {
+  verdict: LegalityVerdict;
+  banlistStatus: BanlistStatus;
+}): string {
+  if (result.verdict === 'not-legal') {
+    return quantityLabelKey('Forbidden');
+  }
+  return quantityLabelKey(result.banlistStatus);
+}
+
 export function verdictLabelKey(verdict: LegalityVerdict): string {
   switch (verdict) {
     case 'legal':
