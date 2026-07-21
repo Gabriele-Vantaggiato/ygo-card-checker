@@ -28,6 +28,12 @@ function tesseractAsset(relativePath: string): string {
   return new URL(`assets/tesseract/${relativePath}`, document.baseURI).href;
 }
 
+/** Directory URL with trailing slash (tesseract joins filenames with `/`). */
+function tesseractDir(relativePath: string): string {
+  const href = tesseractAsset(relativePath.replace(/\/?$/, '/'));
+  return href.endsWith('/') ? href : `${href}/`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CardScreenOcrService {
   private workerPromise: Promise<import('tesseract.js').Worker> | null = null;
@@ -84,11 +90,15 @@ export class CardScreenOcrService {
   private async createWorker(): Promise<import('tesseract.js').Worker> {
     const tesseract = (await import('tesseract.js')) as TesseractModule;
     // OEM 1 = LSTM only. Self-host worker/core/lang so prod does not hit jsDelivr.
+    // corePath must be a directory with all 4 core builds (simd/lstm variants).
+    // Missing files → Vercel SPA fallback HTML → createWorker throws.
     const worker = await tesseract.createWorker('eng', 1, {
       workerPath: tesseractAsset('worker.min.js'),
-      langPath: tesseractAsset('lang'),
-      corePath: tesseractAsset('core'),
+      langPath: tesseractAsset('lang').replace(/\/$/, ''),
+      corePath: tesseractDir('core'),
       workerBlobURL: false,
+      gzip: true,
+      errorHandler: (err) => console.error('[overlay-ocr:worker]', err),
     });
     await worker.setParameters({
       tessedit_pageseg_mode: tesseract.PSM.SPARSE_TEXT,
