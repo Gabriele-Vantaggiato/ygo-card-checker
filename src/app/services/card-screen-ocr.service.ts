@@ -23,6 +23,11 @@ export type OcrResult = OcrSuccess | OcrFailure;
 
 type TesseractModule = typeof import('tesseract.js');
 
+/** Same-origin paths — CDN defaults break on Vercel / Document PiP. */
+function tesseractAsset(relativePath: string): string {
+  return new URL(`assets/tesseract/${relativePath}`, document.baseURI).href;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CardScreenOcrService {
   private workerPromise: Promise<import('tesseract.js').Worker> | null = null;
@@ -39,7 +44,10 @@ export class CardScreenOcrService {
         }
         return { ok: true as const, text, parsed, identityKey, engine };
       }),
-      catchError(() => of({ ok: false as const, errorKey: 'overlay.error.ocrFailed' })),
+      catchError((err: unknown) => {
+        console.error('[overlay-ocr]', err);
+        return of({ ok: false as const, errorKey: 'overlay.error.ocrFailed' });
+      }),
     );
   }
 
@@ -65,15 +73,23 @@ export class CardScreenOcrService {
 
   private getWorker(): Promise<import('tesseract.js').Worker> {
     if (!this.workerPromise) {
-      this.workerPromise = this.createWorker();
+      this.workerPromise = this.createWorker().catch((err: unknown) => {
+        this.workerPromise = null;
+        throw err;
+      });
     }
     return this.workerPromise;
   }
 
   private async createWorker(): Promise<import('tesseract.js').Worker> {
     const tesseract = (await import('tesseract.js')) as TesseractModule;
-    // OEM 1 = LSTM only
-    const worker = await tesseract.createWorker('eng', 1);
+    // OEM 1 = LSTM only. Self-host worker/core/lang so prod does not hit jsDelivr.
+    const worker = await tesseract.createWorker('eng', 1, {
+      workerPath: tesseractAsset('worker.min.js'),
+      langPath: tesseractAsset('lang'),
+      corePath: tesseractAsset('core'),
+      workerBlobURL: false,
+    });
     await worker.setParameters({
       tessedit_pageseg_mode: tesseract.PSM.SPARSE_TEXT,
       tessedit_char_whitelist:

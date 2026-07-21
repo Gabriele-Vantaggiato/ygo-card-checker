@@ -33,8 +33,29 @@ import { OverlayStore } from '../stores/overlay.store';
       </div>
 
       <section class="surface-elevated rounded-xl border border-base-300/60 p-3 sm:p-4 space-y-3">
-        <div class="flex flex-wrap gap-2">
-          @if (store.captureSupported()) {
+        @if (!store.captureSupported()) {
+          <div class="alert alert-info alert-sm py-2">
+            <span>{{ 'overlay.liveDesktopOnly' | translate }}</span>
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="btn btn-primary btn-lg w-full cursor-pointer gap-2">
+              {{ 'overlay.camera' | translate }}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                class="hidden"
+                (change)="onFile($event)"
+              />
+            </label>
+            <label class="btn btn-outline btn-md w-full cursor-pointer">
+              {{ 'overlay.upload' | translate }}
+              <input type="file" accept="image/*" class="hidden" (change)="onFile($event)" />
+            </label>
+          </div>
+          <p class="text-xs text-base-content/70">{{ 'overlay.hintMobile' | translate }}</p>
+        } @else {
+          <div class="flex flex-wrap gap-2">
             @if (!store.liveActive()) {
               <button type="button" class="btn btn-primary btn-sm" (click)="store.startLive()">
                 {{ 'overlay.liveStart' | translate }}
@@ -47,47 +68,53 @@ import { OverlayStore } from '../stores/overlay.store';
                 'overlay.liveOn' | translate
               }}</span>
             }
+
+            <button type="button" class="btn btn-outline btn-sm" (click)="store.pasteFromClipboard()">
+              {{ 'overlay.paste' | translate }}
+            </button>
+
+            <label class="btn btn-outline btn-sm cursor-pointer">
+              {{ 'overlay.upload' | translate }}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                class="hidden"
+                (change)="onFile($event)"
+              />
+            </label>
+          </div>
+
+          @if (store.liveActive()) {
+            <div
+              class="rounded-xl border-2 border-primary/40 bg-primary/10 p-3 sm:p-4 flex flex-col gap-2"
+            >
+              <button
+                type="button"
+                class="btn btn-primary btn-lg w-full gap-2"
+                (click)="store.scanNow()"
+              >
+                @if (store.phase() === 'ocr' || store.phase() === 'resolving') {
+                  <span class="loading loading-spinner loading-sm"></span>
+                }
+                {{ 'overlay.scanNow' | translate }}
+              </button>
+              @if (store.pipSupported()) {
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm w-full"
+                  (click)="store.openPipNow()"
+                >
+                  {{ 'overlay.openPip' | translate }}
+                </button>
+              }
+              <p class="text-xs text-base-content/70 text-center">
+                {{ 'overlay.scanNowHint' | translate }}
+              </p>
+            </div>
           }
 
-          <button type="button" class="btn btn-outline btn-sm" (click)="store.pasteFromClipboard()">
-            {{ 'overlay.paste' | translate }}
-          </button>
-
-          <label class="btn btn-outline btn-sm cursor-pointer">
-            {{ 'overlay.upload' | translate }}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              class="hidden"
-              (change)="onFile($event)"
-            />
-          </label>
-        </div>
-
-        @if (store.liveActive()) {
-          <div
-            class="rounded-xl border-2 border-primary/40 bg-primary/10 p-3 sm:p-4 flex flex-col gap-2"
-          >
-            <button
-              type="button"
-              class="btn btn-primary btn-lg w-full gap-2"
-              (click)="store.scanNow()"
-            >
-              @if (store.phase() === 'ocr' || store.phase() === 'resolving') {
-                <span class="loading loading-spinner loading-sm"></span>
-              }
-              {{ 'overlay.scanNow' | translate }}
-            </button>
-            @if (store.pipSupported()) {
-              <button type="button" class="btn btn-outline btn-sm w-full" (click)="store.openPipNow()">
-                {{ 'overlay.openPip' | translate }}
-              </button>
-            }
-            <p class="text-xs text-base-content/70 text-center">
-              {{ 'overlay.scanNowHint' | translate }}
-            </p>
-          </div>
+          <p class="text-xs text-base-content/60">{{ 'overlay.hintDesktop' | translate }}</p>
         }
 
         @if (store.statusKey(); as status) {
@@ -95,10 +122,6 @@ import { OverlayStore } from '../stores/overlay.store';
             {{ status | translate: store.statusParams() }}
           </p>
         }
-
-        <p class="text-xs text-base-content/60">
-          {{ 'overlay.hintDesktop' | translate }}
-        </p>
 
         <div class="flex flex-col sm:flex-row gap-2">
           <label class="form-control flex-1 min-w-0">

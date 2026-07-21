@@ -27,6 +27,21 @@
                 "glob": "**/*",
                 "input": "src/assets",
                 "output": "assets"
+              },
+              {
+                "glob": "worker.min.js",
+                "input": "node_modules/tesseract.js/dist",
+                "output": "assets/tesseract"
+              },
+              {
+                "glob": "tesseract-core-simd-lstm.wasm*",
+                "input": "node_modules/tesseract.js-core",
+                "output": "assets/tesseract/core"
+              },
+              {
+                "glob": "tesseract-core-lstm.wasm*",
+                "input": "node_modules/tesseract.js-core",
+                "output": "assets/tesseract/core"
               }
             ],
             "styles": [
