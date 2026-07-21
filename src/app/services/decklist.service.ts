@@ -4,9 +4,12 @@ import {
   Decklist,
   DecklistCard,
   DecklistStorage,
+  DeckSection,
   maxCopiesForStatus,
 } from '../models/decklist.model';
 import { sortDeckCards } from '../utils/deck-card.utils';
+import { canPlaceCardInSection } from '../utils/deck-section.utils';
+import { resolveDeckSection } from './ydke.service';
 
 const STORAGE_KEY = 'ygo-checker-decklists';
 
@@ -120,6 +123,57 @@ export class DecklistService {
       updatedAt: new Date().toISOString(),
       cards: decklist.cards.filter((c) => c.id !== cardId),
     };
+  }
+
+  /**
+   * Moves a single copy between Main / Extra / Side.
+   * Allows the same passcode in multiple sections as separate rows.
+   */
+  moveOneCopyToSection(
+    decklist: Decklist,
+    cardId: number,
+    fromSection: DeckSection,
+    toSection: DeckSection,
+  ): Decklist {
+    if (fromSection === toSection) {
+      return decklist;
+    }
+
+    const sourceIndex = decklist.cards.findIndex(
+      (c) => c.id === cardId && resolveDeckSection(c) === fromSection,
+    );
+    if (sourceIndex < 0) {
+      return decklist;
+    }
+
+    const source = decklist.cards[sourceIndex]!;
+    if (!canPlaceCardInSection(source.type, toSection)) {
+      return decklist;
+    }
+
+    let nextCards = decklist.cards.map((c) => ({ ...c }));
+    const current = nextCards[sourceIndex]!;
+    if (current.quantity <= 1) {
+      nextCards = nextCards.filter((_, i) => i !== sourceIndex);
+    } else {
+      nextCards[sourceIndex] = { ...current, quantity: current.quantity - 1 };
+    }
+
+    const targetIndex = nextCards.findIndex(
+      (c) => c.id === cardId && resolveDeckSection(c) === toSection,
+    );
+    if (targetIndex >= 0) {
+      const target = nextCards[targetIndex]!;
+      nextCards[targetIndex] = { ...target, quantity: target.quantity + 1, section: toSection };
+    } else {
+      nextCards.push({
+        ...source,
+        quantity: 1,
+        section: toSection,
+      });
+    }
+
+    return this.replaceCards(decklist, nextCards);
   }
 
   totalCards(cards: DecklistCard[]): number {

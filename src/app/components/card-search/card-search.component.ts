@@ -12,52 +12,69 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
   imports: [CardSearchResultRowComponent, TranslatePipe, LoadingSkeletonComponent],
   host: { class: 'block lg:flex lg:flex-col lg:min-h-0 lg:flex-1' },
   template: `
-    <div class="form-control w-full relative lg:flex lg:flex-col lg:min-h-0 lg:flex-1">
-      <input
-        type="text"
-        class="input input-bordered input-sm sm:input-md w-full"
-        [placeholder]="'search.placeholder' | translate"
-        [attr.aria-label]="'search.label' | translate"
-        [value]="query()"
-        (input)="onInput($event)"
-        autocomplete="off"
-      />
+    <div class="checker-search w-full relative lg:flex lg:flex-col lg:min-h-0 lg:flex-1">
+      <label class="checker-search-field">
+        <span class="sr-only">{{ 'search.label' | translate }}</span>
+        <svg
+          class="checker-search-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3.5-3.5" />
+        </svg>
+        <input
+          type="search"
+          class="checker-search-input input input-bordered w-full"
+          [placeholder]="'search.placeholder' | translate"
+          [attr.aria-label]="'search.label' | translate"
+          [value]="query()"
+          (input)="onInput($event)"
+          autocomplete="off"
+          enterkeyhint="search"
+        />
+        @if (loading() || legalityLoading()) {
+          <span class="loading loading-spinner loading-sm checker-search-spinner text-primary"></span>
+        }
+      </label>
 
-      @if (loading() || legalityLoading()) {
-        <p class="text-[11px] text-base-content/50 mt-1.5 px-0.5">{{ 'search.loading' | translate }}</p>
+      @if (!showDropdown() && !showDesktopList() && query().trim().length < 2) {
+        <p class="checker-search-hint">{{ 'search.hint' | translate }}</p>
+      } @else if (loading() || legalityLoading()) {
+        <p class="checker-search-hint">{{ 'search.loading' | translate }}</p>
       }
 
       @if (showDropdown()) {
-        <ul
-          class="bg-base-100 rounded-box border border-base-300 w-full mt-1.5 min-h-[14rem] max-h-[min(62vh,30rem)] overflow-y-auto overscroll-y-contain shadow-xl p-1.5 space-y-1 lg:hidden"
-        >
+        <ul class="checker-search-results lg:hidden">
           @if (loading() && listCards().length === 0) {
             <li class="px-1 py-1">
               <app-loading-skeleton [rows]="3" rowClass="h-10 w-full" />
             </li>
           } @else {
             @for (card of listCards(); track card.id) {
-            <li>
-              <app-card-search-result-row
-                [card]="card"
-                [legality]="legalityFor(card.id)"
-                [legalityLoading]="legalityLoading()"
-                [active]="card.id === selectedCardId()"
-                [qtyInDeck]="qtyInDeck(card.id)"
-                (cardSelect)="selectCard($event)"
-              />
-            </li>
-          } @empty {
-            <li class="px-3 py-4 text-sm text-base-content/60">{{ 'search.noResults' | translate }}</li>
-          }
+              <li>
+                <app-card-search-result-row
+                  [card]="card"
+                  [legality]="legalityFor(card.id)"
+                  [legalityLoading]="legalityLoading()"
+                  [active]="card.id === selectedCardId()"
+                  [qtyInDeck]="qtyInDeck(card.id)"
+                  (cardSelect)="selectCard($event)"
+                />
+              </li>
+            } @empty {
+              <li class="checker-search-empty">{{ 'search.noResults' | translate }}</li>
+            }
           }
         </ul>
       }
 
       @if (showDesktopList()) {
-        <div
-          class="hidden lg:flex lg:flex-col mt-3 lg:flex-1 lg:min-h-0 max-h-[min(36rem,calc(100vh-16rem))] lg:max-h-none overflow-y-auto rounded-box border border-base-300 bg-base-100 p-1.5 space-y-1"
-        >
+        <div class="checker-search-results hidden lg:flex lg:flex-col lg:flex-1 lg:min-h-0 lg:max-h-none">
           @for (card of listCards(); track card.id) {
             <app-card-search-result-row
               [card]="card"
@@ -71,7 +88,7 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
             @if (loading()) {
               <app-loading-skeleton [rows]="4" rowClass="h-10 w-full" />
             } @else {
-              <p class="text-sm text-base-content/60 px-3 py-4">{{ 'search.noResults' | translate }}</p>
+              <p class="checker-search-empty">{{ 'search.noResults' | translate }}</p>
             }
           }
         </div>

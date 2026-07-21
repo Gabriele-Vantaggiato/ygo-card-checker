@@ -14,7 +14,7 @@ import { DecklistService } from '../../../services/decklist.service';
 import { CardLegalityFacade } from '../../../services/card-legality.facade';
 import { I18nService, Lang } from '../../../services/i18n.service';
 import { YgoApiService } from '../../../services/ygo-api.service';
-import { YdkeService, YdkeSections, passcodesToQuantityMap } from '../../../services/ydke.service';
+import { YdkeService, YdkeSections, passcodesToQuantityMap, resolveDeckSection } from '../../../services/ydke.service';
 import {
   TextDeckLine,
   TextDeckSections,
@@ -209,7 +209,65 @@ export class DecklistStore {
   }
 
   quantityInDeck(deckId: string, cardId: number): number {
-    return this.getDeckById(deckId)?.cards.find((c) => c.id === cardId)?.quantity ?? 0;
+    const deck = this.getDeckById(deckId);
+    if (!deck) {
+      return 0;
+    }
+    return deck.cards.filter((c) => c.id === cardId).reduce((sum, c) => sum + c.quantity, 0);
+  }
+
+  moveOneCopyToSection(cardId: number, fromSection: DeckSection, toSection: DeckSection): boolean {
+    const deck = this.activeDecklist();
+    if (!deck) {
+      return false;
+    }
+    const updated = this.decklistService.moveOneCopyToSection(deck, cardId, fromSection, toSection);
+    if (updated === deck) {
+      return false;
+    }
+    this.replaceDeck(this.decklistService.sortDecklist(updated));
+    return true;
+  }
+
+  removeOneCopy(cardId: number, section?: DeckSection): void {
+    const deck = this.activeDecklist();
+    if (!deck) {
+      return;
+    }
+    const card =
+      section != null
+        ? deck.cards.find((c) => c.id === cardId && resolveDeckSection(c) === section)
+        : deck.cards.find((c) => c.id === cardId);
+    if (!card) {
+      return;
+    }
+    if (card.quantity <= 1) {
+      if (section != null) {
+        this.replaceDeck(
+          this.decklistService.replaceCards(
+            deck,
+            deck.cards.filter((c) => !(c.id === cardId && resolveDeckSection(c) === section)),
+          ),
+        );
+        return;
+      }
+      this.removeCard(cardId);
+      return;
+    }
+    if (section != null) {
+      this.replaceDeck(
+        this.decklistService.replaceCards(
+          deck,
+          deck.cards.map((c) =>
+            c.id === cardId && resolveDeckSection(c) === section
+              ? { ...c, quantity: c.quantity - 1 }
+              : c,
+          ),
+        ),
+      );
+      return;
+    }
+    this.decrementCard(cardId, card.banlistStatus ?? null);
   }
 
   quantityInActive(cardId: number): number {
@@ -524,22 +582,6 @@ export class DecklistStore {
       };
       this.replaceDeck(this.decklistService.sortDecklist(updated));
     });
-  }
-
-  removeOneCopy(cardId: number): void {
-    const deck = this.activeDecklist();
-    if (!deck) {
-      return;
-    }
-    const card = deck.cards.find((c) => c.id === cardId);
-    if (!card) {
-      return;
-    }
-    if (card.quantity <= 1) {
-      this.removeCard(cardId);
-      return;
-    }
-    this.decrementCard(cardId, card.banlistStatus ?? null);
   }
 
   private flattenTextLines(sections: TextDeckSections): TextDeckLine[] {

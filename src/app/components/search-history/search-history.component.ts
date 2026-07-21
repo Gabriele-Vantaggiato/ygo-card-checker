@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, input, output, signal } from '@angular/core';
 import { SearchHistoryEntry } from '../../models/search-history.model';
 import { I18nService } from '../../services/i18n.service';
 import {
@@ -12,126 +12,149 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-search-history',
   standalone: true,
-  imports: [NgClass,
-    TranslatePipe],
+  imports: [NgClass, TranslatePipe],
   template: `
-  <details class="group" [open]="expanded()" (toggle)="onDetailsToggle($event)">
-    <summary class="flex items-center justify-between gap-2 mb-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-      <h3 class="text-xs font-semibold uppercase tracking-wide text-base-content/60 flex items-center gap-1.5">
-        <span class="text-primary/70 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
-        {{ 'history.title' | translate }}
-        @if (entries().length > 0) {
-          <span class="badge badge-ghost badge-sm min-w-[1.5rem] px-2 font-normal tabular-nums">{{ entries().length }}</span>
-        }
-      </h3>
-      @if (entries().length > 0) {
+    <section class="checker-history">
+      <header class="checker-history-header">
         <button
           type="button"
-          class="btn btn-ghost btn-xs text-base-content/60"
-          (click)="onClear($event)"
+          class="checker-history-toggle"
+          [attr.aria-expanded]="expanded()"
+          (click)="toggleExpanded()"
         >
-          {{ 'history.clear' | translate }}
+          <span class="checker-history-chevron" [class.rotate-90]="expanded()" aria-hidden="true"
+            >›</span
+          >
+          <h3 class="checker-history-title">{{ 'history.title' | translate }}</h3>
+          @if (entries().length > 0) {
+            <span class="badge badge-primary badge-outline badge-sm tabular-nums">{{
+              entries().length
+            }}</span>
+          }
         </button>
-      }
-    </summary>
-
-    @if (entries().length === 0) {
-      <p class="text-xs text-base-content/50 py-1">{{ 'history.empty' | translate }}</p>
-    } @else {
-      <ul
-        class="flex flex-col gap-0.5 w-full min-w-0 bg-base-200/60 rounded-box border border-base-300 p-1 overflow-y-auto overflow-x-hidden overscroll-y-contain"
-        [style.max-height]="listMaxHeight()"
-      >
-        @for (entry of entries(); track entry.id) {
-          <li class="w-full min-w-0 shrink-0">
-            <div
-              class="flex w-full min-w-0 items-stretch gap-0.5 rounded-lg overflow-hidden"
-              [class.bg-base-300]="entry.id === selectedCardId()"
-            >
-              <button
-                type="button"
-                class="flex flex-1 items-start gap-2 py-2 px-2 h-auto min-h-0 min-w-0 overflow-hidden whitespace-normal rounded-lg text-left"
-                (click)="onSelectEntry(entry)"
-              >
-                @if (entry.imageUrlSmall; as src) {
-                  <img
-                    [src]="src"
-                    [alt]=""
-                    class="w-7 h-10 sm:w-8 sm:h-11 object-cover rounded shrink-0 mt-0.5"
-                    loading="lazy"
-                  />
-                } @else {
-                  <span class="w-7 h-10 sm:w-8 sm:h-11 rounded bg-base-300 shrink-0 mt-0.5"></span>
-                }
-
-                <span class="flex flex-col items-start min-w-0 flex-1 gap-1 text-left">
-                  <span class="font-medium text-xs sm:text-sm leading-snug line-clamp-2 w-full pr-1">
-                    {{ entry.name }}
-                  </span>
-
-                  @if (hasLegality(entry)) {
-                    <span class="w-full">
-                      <span
-                        class="badge badge-xs sm:badge-sm duel-verdict-badge"
-                        [ngClass]="verdictBadgeClass(entry.verdict!)"
-                        [title]="'history.playability' | translate"
-                      >
-                        {{ (verdictLabelKey(entry.verdict!)) | translate }}
-                      </span>
-                    </span>
-                  } @else if (entry.formatId !== formatId()) {
-                    <span class="text-[10px] sm:text-xs opacity-50">{{ 'history.stale' | translate }}</span>
-                  }
-                </span>
-              </button>
-
-              <button
-                type="button"
-                class="btn btn-ghost btn-xs btn-square shrink-0 self-center text-base-content/40 hover:text-error"
-                [attr.aria-label]="'history.remove' | translate"
-                [title]="'history.remove' | translate"
-                (click)="onRemove($event, entry.id)"
-              >
-                ✕
-              </button>
-            </div>
-          </li>
+        @if (entries().length > 0 && expanded()) {
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs text-base-content/55 hover:text-error"
+            (click)="onClear($event)"
+          >
+            {{ 'history.clear' | translate }}
+          </button>
         }
-      </ul>
-    }
-  </details>
+      </header>
+
+      @if (expanded()) {
+        @if (entries().length === 0) {
+          <div class="checker-history-empty">
+            <p class="font-medium text-base-content/70">{{ 'history.empty' | translate }}</p>
+            <p class="text-xs text-base-content/45 leading-relaxed">{{
+              'history.emptyHint' | translate
+            }}</p>
+          </div>
+        } @else {
+          <ul class="checker-history-list" [style.max-height]="listMaxHeight()">
+            @for (entry of entries(); track entry.id) {
+              <li>
+                <div
+                  class="checker-history-row"
+                  [class.checker-history-row-active]="entry.id === selectedCardId()"
+                >
+                  <button
+                    type="button"
+                    class="checker-history-pick"
+                    (click)="onSelectEntry(entry)"
+                  >
+                    @if (entry.imageUrlSmall; as src) {
+                      <img
+                        [src]="src"
+                        [alt]=""
+                        class="checker-history-art"
+                        loading="lazy"
+                      />
+                    } @else {
+                      <span class="checker-history-art checker-history-art-fallback"></span>
+                    }
+
+                    <span class="flex flex-col items-start min-w-0 flex-1 gap-1 text-left">
+                      <span class="font-semibold text-sm leading-snug line-clamp-2 w-full">
+                        {{ entry.name }}
+                      </span>
+
+                      @if (hasLegality(entry)) {
+                        <span
+                          class="badge badge-sm duel-verdict-badge"
+                          [ngClass]="verdictBadgeClass(entry.verdict!)"
+                          [title]="'history.playability' | translate"
+                        >
+                          {{ verdictLabelKey(entry.verdict!) | translate }}
+                        </span>
+                      } @else if (entry.formatId !== formatId()) {
+                        <span class="text-[11px] text-base-content/45">{{
+                          'history.stale' | translate
+                        }}</span>
+                      }
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs btn-square shrink-0 self-center text-base-content/35 hover:text-error"
+                    [attr.aria-label]="'history.remove' | translate"
+                    [title]="'history.remove' | translate"
+                    (click)="onRemove($event, entry.id)"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      }
+    </section>
   `,
 })
 export class SearchHistoryComponent {
-  /** Row height estimate for capping visible list at 8 items. */
-  private static readonly ROW_HEIGHT_PX = 56;
-  private static readonly MAX_VISIBLE = 8;
+  private static readonly ROW_HEIGHT_PX = 60;
+  private static readonly MAX_VISIBLE = 6;
 
   readonly entries = input.required<SearchHistoryEntry[]>();
   readonly selectedCardId = input<number | null>(null);
   readonly formatId = input.required<string>();
   readonly pinned = input(false);
+  /** When true, keep the list collapsed to free space for live search results. */
+  readonly collapsed = input(false);
 
   readonly cardSelected = output<SearchHistoryEntry>();
   readonly remove = output<number>();
   readonly clear = output<void>();
 
   protected readonly expanded = signal(true);
+  private prevCollapsed = false;
 
-  constructor(protected readonly i18n: I18nService) {}
+  constructor(protected readonly i18n: I18nService) {
+    effect(() => {
+      const c = this.collapsed();
+      if (c && !this.prevCollapsed) {
+        this.expanded.set(false);
+      } else if (!c && this.prevCollapsed) {
+        this.expanded.set(true);
+      }
+      this.prevCollapsed = c;
+    });
+  }
 
   collapse(): void {
     this.expanded.set(false);
   }
 
+  toggleExpanded(): void {
+    this.expanded.update((v) => !v);
+  }
+
   onSelectEntry(entry: SearchHistoryEntry): void {
     this.expanded.set(false);
     this.cardSelected.emit(entry);
-  }
-
-  onDetailsToggle(event: Event): void {
-    const details = event.target as HTMLDetailsElement;
-    this.expanded.set(details.open);
   }
 
   listMaxHeight(): string {

@@ -28,7 +28,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
         icon="🃏"
         titleKey="result.emptyTitle"
         hintKey="result.selectCard"
-        hostClass="min-h-56 lg:min-h-[calc(100vh-12rem)]"
+        hostClass="min-h-44 lg:min-h-[calc(100vh-14rem)]"
       >
         @if (quickPickEntry(); as entry) {
           <button

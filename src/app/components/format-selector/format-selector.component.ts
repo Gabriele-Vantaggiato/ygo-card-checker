@@ -11,14 +11,12 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   imports: [FormsModule, TranslatePipe],
   template: `
     @if (inline()) {
-      <label class="form-control w-full min-w-0">
+      <label class="format-inline w-full min-w-0">
         @if (showLabel()) {
-          <span class="label py-0 pb-1">
-            <span class="label-text text-[11px] font-medium text-base-content/60">{{ 'format.label' | translate }}</span>
-          </span>
+          <span class="format-inline-label">{{ 'format.label' | translate }}</span>
         }
         <select
-          class="format-select select select-bordered select-xs sm:select-sm"
+          class="format-select select select-bordered select-sm w-full font-semibold"
           [ngModel]="selectedId()"
           (ngModelChange)="onSelect($event)"
         >
@@ -31,7 +29,9 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
       <label class="form-control w-full min-w-0">
         @if (showLabel()) {
           <span class="label py-0 pb-1.5">
-            <span class="label-text text-xs font-semibold text-base-content/70">{{ 'format.label' | translate }}</span>
+            <span class="label-text text-xs font-semibold text-base-content/70">{{
+              'format.label' | translate
+            }}</span>
           </span>
         }
         <select

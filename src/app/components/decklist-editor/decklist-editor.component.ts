@@ -31,7 +31,7 @@ import {
   sortDeckCards,
   splitDeckSections,
 } from '../../utils/deck-card.utils';
-import { DECK_SECTION_I18N_KEYS } from '../../utils/deck-section.utils';
+import { DECK_SECTION_I18N_KEYS, DeckSectionKey } from '../../utils/deck-section.utils';
 import { verdictShortKey } from '../../utils/legality-display.utils';
 import { DeckAssistPanelComponent } from './deck-assist-panel.component';
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
@@ -42,7 +42,7 @@ import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-know
 import { DeckCompletionPlan } from '../../models/deck-completion.model';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DecklistEditorHeaderComponent } from './decklist-editor-header.component';
-import { DeckSectionGridComponent } from './deck-section-grid.component';
+import { DeckCardMoveEvent, DeckSectionGridComponent } from './deck-section-grid.component';
 import {
   DeckCardInspectMobileComponent,
   DeckCardInspectPanelComponent,
@@ -138,7 +138,8 @@ import {
               [sections]="sectionViewModels()"
               [inspectedCardId]="deckInspectedCardId()"
               (cardInspect)="inspectDeckCard($event)"
-              (cardRemove)="removeOneCopy($event.cardId, $event.event)"
+              (cardRemove)="removeOneCopy($event.cardId, $event.event, $event.section)"
+              (cardMove)="moveCardCopy($event)"
             />
           </div>
 
@@ -567,13 +568,30 @@ export class DecklistEditorComponent {
     }
   }
 
-  removeOneCopy(cardId: number, event?: Event): void {
+  removeOneCopy(cardId: number, event?: Event, section?: DeckSectionKey): void {
     event?.stopPropagation();
     event?.preventDefault();
-    this.decklistStore.removeOneCopy(cardId);
+    this.decklistStore.removeOneCopy(cardId, section);
     const inspect = this.inspectCard();
     if (inspect?.card.id === cardId && inspect.kind === 'deck') {
       const fresh = this.deck().cards.find((c) => c.id === cardId);
+      if (fresh) {
+        this.inspectCard.set({ kind: 'deck', card: fresh });
+      }
+    }
+  }
+
+  moveCardCopy(event: DeckCardMoveEvent): void {
+    const ok = this.decklistStore.moveOneCopyToSection(event.cardId, event.from, event.to);
+    if (!ok) {
+      return;
+    }
+    const inspect = this.inspectCard();
+    if (inspect?.card.id === event.cardId && inspect.kind === 'deck') {
+      const fresh =
+        this.deck().cards.find(
+          (c) => c.id === event.cardId && (c.section ?? event.to) === event.to,
+        ) ?? this.deck().cards.find((c) => c.id === event.cardId);
       if (fresh) {
         this.inspectCard.set({ kind: 'deck', card: fresh });
       }

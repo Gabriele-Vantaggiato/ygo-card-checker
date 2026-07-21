@@ -48,7 +48,7 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
   template: `
     @if (card()) {
       <app-duel-panel panelClass="surface-elevated detail-hero-panel fade-in-panel">
-        <div class="px-3 pt-3 sm:px-4 sm:pt-4">
+        <div class="px-2.5 pt-2.5 sm:px-3 sm:pt-3 sticky top-0 z-[1] bg-base-100/95 backdrop-blur-sm border-b border-base-300/40">
           <div role="tablist" class="workspace-tabs">
           <button
             type="button"
