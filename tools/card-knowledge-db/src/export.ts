@@ -6,8 +6,9 @@ import { MECHANIC_ENRICHMENT_PAIRS, MECHANIC_TAGS, type MechanicTag } from './me
 import { MATCHUP_DEFINITIONS } from './matchup-index';
 
 const EXPORT_PATH = join(REPO_ROOT, 'src', 'assets', 'data', 'card-knowledge', 'related.json');
-const MAX_RELATED_PER_CARD = 18;
+const MAX_RELATED_PER_CARD = 22;
 const MAX_PER_RELATION = 5;
+const MAX_PER_RELATION_GY = 8;
 const MAX_PER_RELATION_LOW = 2;
 const MAX_MENTIONS = 10;
 const MAX_EFFECTS = 6;
@@ -31,6 +32,8 @@ interface RelatedRow {
   score: number;
   target_name: string;
   target_archetype: string | null;
+  target_race: string | null;
+  target_attribute: string | null;
   target_tcg_date: string | null;
   target_ban_tcg: string | null;
 }
@@ -41,6 +44,8 @@ interface ExportedRelated {
   relation: string;
   score: number;
   archetype: string | null;
+  race: string | null;
+  attribute: string | null;
   tcgDate: string | null;
   banTcg: string | null;
   imageSmall: string;
@@ -57,12 +62,17 @@ interface ExportedCardEntry {
   mentions: string[];
   effects: ExportedEffect[];
   related: ExportedRelated[];
+  race: string | null;
+  attribute: string | null;
+  type: string;
 }
 
 interface ExportedRosterMember {
   id: number;
   name: string;
   type: string;
+  race: string | null;
+  attribute: string | null;
   archetype: string | null;
   tcgDate: string | null;
   banTcg: string | null;
@@ -76,6 +86,7 @@ interface ExportPayload {
   entries: Record<string, ExportedCardEntry>;
   archetypes: Record<string, ExportedRosterMember[]>;
   seriesIndex: Record<string, ExportedRosterMember[]>;
+  raceIndex: Record<string, ExportedRosterMember[]>;
   mechanicIndex: Record<string, ExportedRosterMember[]>;
   mechanicSynergies: Array<{ trigger: string; response: string; relation: string }>;
   matchupIndex: Record<string, ExportedRosterMember[]>;
@@ -84,19 +95,43 @@ interface ExportPayload {
 
 const MECHANIC_TAG_SET = new Set<string>(MECHANIC_TAGS);
 const RESPONSE_TAGS = new Set<MechanicTag>(MECHANIC_ENRICHMENT_PAIRS.map((pair) => pair.response));
-const MECHANIC_INDEX_DEFAULT_CAP = 160;
+const MECHANIC_INDEX_DEFAULT_CAP = 220;
+const RACE_INDEX_CAP = 120;
 const MECHANIC_INDEX_CAPS: Partial<Record<MechanicTag, number>> = {
   draw: 240,
-  special_summons: 200,
-  ss_from_hand: 180,
-  ss_from_gy: 180,
-  ss_from_deck: 180,
-  gy_interaction: 180,
-  revives_from_gy: 160,
-  discards: 160,
+  special_summons: 220,
+  ss_from_hand: 200,
+  ss_from_gy: 320,
+  ss_from_deck: 200,
+  gy_interaction: 320,
+  gy_effect: 320,
+  revives_from_gy: 280,
+  hand_to_gy: 240,
+  sends_to_gy: 280,
+  discards: 240,
+  self_to_gy: 240,
   hand_trap: 140,
   negates: 140,
 };
+
+const MECHANIC_INDEX_STAPLES = new Set(
+  [
+    'Mezuki',
+    'Plaguespreader Zombie',
+    'Goblin Zombie',
+    'Uni-Zombie',
+    'Gozuki',
+    'Zombie Master',
+    'Foolish Burial',
+    'Armageddon Knight',
+    'Dark Grepher',
+    'Mathematician',
+    'Lonefire Blossom',
+    'Maxx "C"',
+    'Effect Veiler',
+    'Ash Blossom & Joyous Spring',
+  ].map((name) => name.toLowerCase()),
+);
 
 function pickDiversifiedRelated(rows: RelatedRow[]): ExportedRelated[] {
   const relationMap = new Map<string, RelatedRow[]>();
@@ -111,8 +146,21 @@ function pickDiversifiedRelated(rows: RelatedRow[]): ExportedRelated[] {
 
   for (const relation of RELATION_PRIORITY) {
     const bucket = relationMap.get(relation) ?? [];
-    bucket.sort((a, b) => b.score - a.score || a.target_name.localeCompare(b.target_name));
-    const limit = LOW_PRIORITY_RELATIONS.has(relation) ? MAX_PER_RELATION_LOW : MAX_PER_RELATION;
+    bucket.sort((a, b) => {
+      if (relation === 'gy_synergy') {
+        const stapleA = MECHANIC_INDEX_STAPLES.has(a.target_name.toLowerCase()) ? 1 : 0;
+        const stapleB = MECHANIC_INDEX_STAPLES.has(b.target_name.toLowerCase()) ? 1 : 0;
+        if (stapleA !== stapleB) {
+          return stapleB - stapleA;
+        }
+      }
+      return b.score - a.score || a.target_name.localeCompare(b.target_name);
+    });
+    const limit = LOW_PRIORITY_RELATIONS.has(relation)
+      ? MAX_PER_RELATION_LOW
+      : relation === 'gy_synergy'
+        ? MAX_PER_RELATION_GY
+        : MAX_PER_RELATION;
     for (const row of bucket.slice(0, limit)) {
       if (picked.length >= MAX_RELATED_PER_CARD) {
         return picked;
@@ -123,6 +171,8 @@ function pickDiversifiedRelated(rows: RelatedRow[]): ExportedRelated[] {
         relation: row.relation,
         score: row.score,
         archetype: row.target_archetype,
+        race: row.target_race,
+        attribute: row.target_attribute,
         tcgDate: row.target_tcg_date,
         banTcg: row.target_ban_tcg,
         imageSmall: `https://images.ygoprodeck.com/images/cards_small/${row.target_id}.jpg`,
@@ -144,6 +194,8 @@ function pickDiversifiedRelated(rows: RelatedRow[]): ExportedRelated[] {
         relation: row.relation,
         score: row.score,
         archetype: row.target_archetype,
+        race: row.target_race,
+        attribute: row.target_attribute,
         tcgDate: row.target_tcg_date,
         banTcg: row.target_ban_tcg,
         imageSmall: `https://images.ygoprodeck.com/images/cards_small/${row.target_id}.jpg`,
@@ -167,6 +219,8 @@ async function main(): Promise<void> {
         r.score,
         c.name AS target_name,
         c.archetype AS target_archetype,
+        c.race AS target_race,
+        c.attribute AS target_attribute,
         c.tcg_date AS target_tcg_date,
         c.ban_tcg AS target_ban_tcg
       FROM card_relations r
@@ -185,7 +239,7 @@ async function main(): Promise<void> {
 
   const seriesRows = db
     .prepare(
-      `SELECT id, name, type, archetype, tcg_date, ban_tcg
+      `SELECT id, name, type, race, attribute, archetype, tcg_date, ban_tcg
        FROM cards
        WHERE archetype IS NOT NULL AND archetype != ''`,
     )
@@ -193,17 +247,21 @@ async function main(): Promise<void> {
     id: number;
     name: string;
     type: string;
+    race: string | null;
+    attribute: string | null;
     archetype: string;
     tcg_date: string | null;
     ban_tcg: string | null;
   }>;
 
   const allCards = db
-    .prepare(`SELECT id, name, type, archetype, tcg_date, ban_tcg FROM cards`)
+    .prepare(`SELECT id, name, type, race, attribute, archetype, tcg_date, ban_tcg FROM cards`)
     .all() as Array<{
     id: number;
     name: string;
     type: string;
+    race: string | null;
+    attribute: string | null;
     archetype: string | null;
     tcg_date: string | null;
     ban_tcg: string | null;
@@ -272,6 +330,8 @@ async function main(): Promise<void> {
     id: number;
     name: string;
     type: string;
+    race?: string | null;
+    attribute?: string | null;
     archetype: string | null;
     tcg_date: string | null;
     ban_tcg: string | null;
@@ -279,6 +339,8 @@ async function main(): Promise<void> {
     id: row.id,
     name: row.name,
     type: row.type,
+    race: row.race ?? null,
+    attribute: row.attribute ?? null,
     archetype: row.archetype,
     tcgDate: row.tcg_date,
     banTcg: row.ban_tcg,
@@ -329,9 +391,69 @@ async function main(): Promise<void> {
   const mechanicIndex: Record<string, ExportedRosterMember[]> = {};
   for (const [tag, members] of mechanicBuckets) {
     const cap = MECHANIC_INDEX_CAPS[tag as MechanicTag] ?? MECHANIC_INDEX_DEFAULT_CAP;
-    mechanicIndex[tag] = [...members]
-      .sort((a, b) => a.name.localeCompare(b.name))
+    const unique = new Map<number, ExportedRosterMember>();
+    for (const member of members) {
+      unique.set(member.id, member);
+    }
+    mechanicIndex[tag] = [...unique.values()]
+      .sort((a, b) => {
+        const stapleA = MECHANIC_INDEX_STAPLES.has(a.name.toLowerCase()) ? 1 : 0;
+        const stapleB = MECHANIC_INDEX_STAPLES.has(b.name.toLowerCase()) ? 1 : 0;
+        if (stapleA !== stapleB) {
+          return stapleB - stapleA;
+        }
+        // Prefer older / classic engine pieces over alphabetical flood (Athena…).
+        return a.id - b.id || a.name.localeCompare(b.name);
+      })
       .slice(0, cap);
+  }
+
+  const raceBuckets = new Map<string, ExportedRosterMember[]>();
+  for (const card of allCards) {
+    if (!card.race || !card.type.toLowerCase().includes('monster')) {
+      continue;
+    }
+    const key = card.race;
+    const bucket = raceBuckets.get(key) ?? [];
+    bucket.push(toRosterMember(card));
+    raceBuckets.set(key, bucket);
+  }
+  const gyPartnerTagBonus = new Set([
+    'gy_effect',
+    'gy_interaction',
+    'ss_from_gy',
+    'revives_from_gy',
+    'self_to_gy',
+    'sends_to_gy',
+    'hand_to_gy',
+    'mills',
+    'discards',
+    'searches_monster',
+    'searches_deck',
+  ]);
+  const raceIndex: Record<string, ExportedRosterMember[]> = {};
+  for (const [race, members] of raceBuckets) {
+    const unique = new Map<number, ExportedRosterMember>();
+    for (const member of members) {
+      unique.set(member.id, member);
+    }
+    raceIndex[race] = [...unique.values()]
+      .sort((a, b) => {
+        const stapleA = MECHANIC_INDEX_STAPLES.has(a.name.toLowerCase()) ? 1 : 0;
+        const stapleB = MECHANIC_INDEX_STAPLES.has(b.name.toLowerCase()) ? 1 : 0;
+        if (stapleA !== stapleB) {
+          return stapleB - stapleA;
+        }
+        const tagsA = tagsByCard.get(a.id) ?? [];
+        const tagsB = tagsByCard.get(b.id) ?? [];
+        const gyA = tagsA.some((tag) => gyPartnerTagBonus.has(tag)) ? 1 : 0;
+        const gyB = tagsB.some((tag) => gyPartnerTagBonus.has(tag)) ? 1 : 0;
+        if (gyA !== gyB) {
+          return gyB - gyA;
+        }
+        return a.id - b.id || a.name.localeCompare(b.name);
+      })
+      .slice(0, RACE_INDEX_CAP);
   }
 
   const mechanicSynergies = MECHANIC_ENRICHMENT_PAIRS.map((pair) => ({
@@ -392,6 +514,8 @@ async function main(): Promise<void> {
     rowsBySource.set(row.source_id, bucket);
   }
 
+  const cardById = new Map(allCards.map((card) => [card.id, card]));
+
   const entries: Record<string, ExportedCardEntry> = {};
   const allCardIds = new Set<number>([
     ...tagsByCard.keys(),
@@ -402,22 +526,27 @@ async function main(): Promise<void> {
 
   for (const cardId of allCardIds) {
     const sourceRows = rowsBySource.get(cardId) ?? [];
+    const card = cardById.get(cardId);
     entries[String(cardId)] = {
       tags: tagsByCard.get(cardId) ?? [],
       series: seriesByCard.get(cardId) ?? [],
       mentions: (mentionsByCard.get(cardId) ?? []).slice(0, MAX_MENTIONS),
       effects: effectsByCard.get(cardId) ?? [],
       related: sourceRows.length > 0 ? pickDiversifiedRelated(sourceRows) : [],
+      race: card?.race ?? null,
+      attribute: card?.attribute ?? null,
+      type: card?.type ?? 'Card',
     };
   }
 
   const payload: ExportPayload = {
-    version: 4,
+    version: 6,
     generatedAt: new Date().toISOString(),
     cardCount: meta?.totalCards ?? Object.keys(entries).length,
     entries,
     archetypes,
     seriesIndex,
+    raceIndex,
     mechanicIndex,
     mechanicSynergies,
     matchupIndex,

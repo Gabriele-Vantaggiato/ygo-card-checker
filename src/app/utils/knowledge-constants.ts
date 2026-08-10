@@ -9,8 +9,9 @@ export const RELATION_LABEL_KEYS: Record<string, string> = {
 };
 
 export const RELATION_GROUP_KEYS: Record<string, string> = {
-  engine: 'knowledge.group.engine',
   gy_synergy: 'knowledge.group.gySynergy',
+  engine: 'knowledge.group.engine',
+  mechanic_synergy: 'knowledge.group.mechanicSynergy',
   search_target: 'knowledge.group.searchTarget',
   mentions_card: 'knowledge.group.mentionsCard',
   shared_mention: 'knowledge.group.sharedMention',

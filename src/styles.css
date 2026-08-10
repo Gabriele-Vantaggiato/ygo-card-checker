@@ -857,3 +857,31 @@
     transform: translateX(-50%) rotate(-3deg);
   }
 }
+
+@layer components {
+  .flow-canvas-surface {
+    background-image:
+      linear-gradient(rgba(103, 232, 249, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(103, 232, 249, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-color: oklch(14% 0.03 265);
+    touch-action: none;
+  }
+
+  .flow-canvas-node {
+    @apply absolute select-none rounded-lg border border-info/40 bg-base-100/95 shadow-md shadow-black/40;
+    width: 128px;
+  }
+
+  .flow-canvas-node.is-linking {
+    @apply border-info ring-2 ring-info/70;
+  }
+
+  .flow-zone-drop {
+    @apply rounded-lg border border-dashed border-base-300/70 bg-base-200/40 min-h-24 transition-colors;
+  }
+
+  .flow-zone-drop.is-drag-target {
+    @apply border-info bg-info/10;
+  }
+}

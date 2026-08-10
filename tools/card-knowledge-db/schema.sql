@@ -90,3 +90,17 @@ CREATE INDEX IF NOT EXISTS idx_card_tags_tag ON card_tags(tag);
 CREATE INDEX IF NOT EXISTS idx_card_relations_source ON card_relations(source_id, score DESC);
 CREATE INDEX IF NOT EXISTS idx_card_effects_kind ON card_effects(effect_kind);
 CREATE INDEX IF NOT EXISTS idx_card_mentions_mention ON card_mentions(mention);
+
+CREATE TABLE IF NOT EXISTS card_scripts (
+  card_id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  roles_json TEXT NOT NULL,
+  interrupts_json TEXT NOT NULL,
+  timings_json TEXT NOT NULL,
+  steps_json TEXT NOT NULL,
+  lua_source TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('manual', 'auto', 'hat')),
+  confidence REAL NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (card_id) REFERENCES cards(id)
+);

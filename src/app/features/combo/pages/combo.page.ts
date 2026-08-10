@@ -23,6 +23,7 @@ const EMPTY_COMBO: ComboResult = {
   synergies: [],
   lines: [],
   available: false,
+  script: undefined,
 };
 
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
@@ -81,10 +82,39 @@ import { LoadingSkeletonComponent } from '../../../shared/ui/loading-skeleton/lo
         } @else if (
           combo().enablers.length === 0 &&
           combo().targets.length === 0 &&
-          combo().lines.length === 0
+          combo().lines.length === 0 &&
+          !combo().script
         ) {
           <p class="text-sm text-base-content/60">{{ 'combo.unparsed' | translate }}</p>
         } @else {
+          @if (combo().script; as script) {
+            <app-duel-panel [title]="'combo.scriptTitle' | translate">
+              <div class="p-4 space-y-3">
+                <div class="flex flex-wrap gap-1.5 items-center">
+                  <span class="badge badge-info badge-sm">{{ script.source }}</span>
+                  <span class="badge badge-ghost badge-sm">{{ 'combo.scriptConfidence' | translate: { value: (script.confidence * 100).toFixed(0) } }}</span>
+                  @for (role of script.roles; track role) {
+                    <span class="badge badge-secondary badge-outline badge-sm">{{ role }}</span>
+                  }
+                </div>
+                @if (script.steps.length > 0) {
+                  <ul class="space-y-1.5">
+                    @for (step of script.steps; track step.id) {
+                      <li class="text-xs sm:text-sm">
+                        <span class="font-medium text-info">{{ step.when }}</span>
+                        <span class="text-base-content/70"> — {{ step.summary }}</span>
+                      </li>
+                    }
+                  </ul>
+                }
+                <details class="text-xs">
+                  <summary class="cursor-pointer text-base-content/60 hover:text-base-content">{{ 'combo.scriptLua' | translate }}</summary>
+                  <pre class="mt-2 p-3 rounded-lg bg-base-200/80 overflow-x-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{{ script.luaSource }}</pre>
+                </details>
+              </div>
+            </app-duel-panel>
+          }
+
           @if (combo().lines.length > 0) {
             <section class="space-y-2">
               <h3 class="section-title">{{ 'combo.linesTitle' | translate }}</h3>
@@ -264,6 +294,10 @@ export class ComboPage {
   }
 
   effectLabel(effect: CardKnowledgeEffect): string {
+    if (effect.kind.startsWith('script_role:')) {
+      const role = String(effect.payload['role'] ?? effect.kind.slice('script_role:'.length));
+      return this.i18n.t('combo.scriptRole', { role });
+    }
     const key = this.knowledge.effectLabelKey(effect);
     const translated = this.i18n.t(key, this.knowledge.effectLabelParams(effect));
     return translated === key ? effect.kind : translated;

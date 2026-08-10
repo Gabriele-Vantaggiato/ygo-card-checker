@@ -75,6 +75,23 @@ export interface ComboIndex {
   entries: Record<string, ComboEntry>;
 }
 
+export interface ComboScriptStepView {
+  id: string;
+  when: string;
+  summary: string;
+}
+
+/** Effect-script enrichment (typed AST + luaSource) attached to combo results. */
+export interface ComboScriptInfo {
+  cardId: number;
+  name: string;
+  roles: string[];
+  source: 'manual' | 'auto' | 'hat';
+  confidence: number;
+  luaSource: string;
+  steps: ComboScriptStepView[];
+}
+
 export interface ComboResult {
   tags: string[];
   displayTags: CardKnowledgeDisplayTag[];
@@ -87,4 +104,6 @@ export interface ComboResult {
   synergies: ComboPartner[];
   lines: ComboLine[];
   available: boolean;
+  /** Present when an effect script is indexed for this card. */
+  script?: ComboScriptInfo;
 }

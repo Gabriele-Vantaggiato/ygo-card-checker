@@ -17,10 +17,12 @@
     "db:export": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/export.ts",
     "db:export:passcodes": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/export-passcode-catalog.ts",
     "db:combos": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-combos.ts",
+    "db:effect-scripts": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-effect-scripts.ts",
+    "db:mdpro-scripts": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/import-mdpro-scripts.ts",
     "db:test:effects": "node --import tsx tools/card-knowledge-db/src/effect-parser.test.ts",
     "db:stats": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/stats.ts",
     "db:query": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/query-card.ts",
-    "db:build": "npm run db:sync && npm run db:parse-effects && npm run db:tag && npm run db:format-legality && npm run db:relations && npm run db:export && npm run db:export:formats && npm run db:combos"
+    "db:build": "npm run db:sync && npm run db:parse-effects && npm run db:tag && npm run db:format-legality && npm run db:relations && npm run db:export && npm run db:export:formats && npm run db:combos && npm run db:mdpro-scripts && npm run db:effect-scripts"
   },
   "prettier": {
     "printWidth": 100,

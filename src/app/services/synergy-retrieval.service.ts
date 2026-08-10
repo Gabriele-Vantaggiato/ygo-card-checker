@@ -60,11 +60,22 @@ export class SynergyRetrievalService {
 
         const precomputed = (sourceEntry.related ?? []).map((item) => ({
           ...item,
-          score: item.score * 1.05,
+          // Keep curated GY/engine partners competitive vs noisy full-dataset hits.
+          score:
+            item.score *
+            (item.relation === 'gy_synergy' ? 2.4 : item.relation === 'engine' ? 1.15 : 1.05),
         }));
 
         return mergeRelatedById(dataset, [...precomputed, ...matchup])
-          .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+          .sort((a, b) => {
+            const prio = (relation: string) =>
+              relation === 'gy_synergy' ? 3 : relation === 'engine' ? 2 : relation === 'mechanic_synergy' ? 1 : 0;
+            const d = prio(b.relation) - prio(a.relation);
+            if (d !== 0) {
+              return d;
+            }
+            return b.score - a.score || a.name.localeCompare(b.name);
+          })
           .slice(0, options?.limit ?? 64);
       }),
       catchError(() => of([])),

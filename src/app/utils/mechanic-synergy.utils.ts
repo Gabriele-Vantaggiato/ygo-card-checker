@@ -10,18 +10,32 @@ const FORMAT_TAG_PREFIXES = ['format:', 'copies:', 'mention:'] as const;
 const ENRICHMENT_TRIGGER_TAGS = new Set([
   'mills',
   'sends_to_gy',
+  'hand_to_gy',
   'self_to_gy',
   'discards',
   'gy_interaction',
+  'ss_from_gy',
   'searches_monster',
   'searches_spell',
   'searches_trap',
 ]);
 
 /** Cross-archetype only for explicit GY enablers → generic draw spells. */
-const CROSS_ARCHETYPE_TRIGGERS = new Set(['mills', 'sends_to_gy', 'self_to_gy']);
+const CROSS_ARCHETYPE_TRIGGERS = new Set(['mills', 'sends_to_gy', 'hand_to_gy', 'self_to_gy', 'discards', 'ss_from_gy']);
 
-const CROSS_ARCHETYPE_RESPONSES = new Set(['draw']);
+const CROSS_ARCHETYPE_DRAW_RESPONSES = new Set(['draw']);
+
+/** GY engine partners (Mezuki, discard fodder, revive targets) may cross archetypes. */
+const CROSS_ARCHETYPE_GY_RESPONSES = new Set([
+  'ss_from_gy',
+  'revives_from_gy',
+  'gy_interaction',
+  'gy_effect',
+  'self_to_gy',
+  'sends_to_gy',
+  'hand_to_gy',
+  'mills',
+]);
 
 /** Search payoffs stay within the same archetype/series roster. */
 const ARCHETYPE_SCOPED_TRIGGERS = new Set([
@@ -132,13 +146,18 @@ function isAllowedMechanicCandidate(
   if (ARCHETYPE_SCOPED_TRIGGERS.has(trigger)) {
     return false;
   }
-  if (!CROSS_ARCHETYPE_TRIGGERS.has(trigger) || !CROSS_ARCHETYPE_RESPONSES.has(response)) {
-    return false;
+  // Zombie Master → Mezuki style: GY enabler/payoff pairs across archetypes.
+  if (CROSS_ARCHETYPE_TRIGGERS.has(trigger) && CROSS_ARCHETYPE_GY_RESPONSES.has(response)) {
+    return true;
   }
-  return (
-    !candidate.archetype &&
-    (candidate.type === 'Spell Card' || candidate.type === 'Trap Card')
-  );
+  // Generic draw staples (Allure, etc.) without an archetype.
+  if (CROSS_ARCHETYPE_TRIGGERS.has(trigger) && CROSS_ARCHETYPE_DRAW_RESPONSES.has(response)) {
+    return (
+      !candidate.archetype &&
+      (candidate.type === 'Spell Card' || candidate.type === 'Trap Card')
+    );
+  }
+  return false;
 }
 
 export function buildMechanicSynergyRelated(

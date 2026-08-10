@@ -1,0 +1,733 @@
+[
+  {
+    "cardId": 91812341,
+    "name": "Traptrix Myrmeleo",
+    "roles": [
+      "starter",
+      "engine"
+    ],
+    "interrupts": [
+      "veiler",
+      "bottomless"
+    ],
+    "timings": [
+      "normal_summon",
+      "trigger"
+    ],
+    "steps": [
+      {
+        "id": "ns-search",
+        "when": "normal_summon",
+        "actions": [
+          {
+            "op": "search",
+            "from": "deck",
+            "to": "hand",
+            "filter": "Hole normal trap",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "hole_trap"
+        ]
+      },
+      {
+        "id": "spin",
+        "when": "flip_or_effect_destroy",
+        "actions": [
+          {
+            "op": "banish",
+            "from": "field",
+            "to": "banish",
+            "filter": "opponent set spell/trap",
+            "qty": 1
+          }
+        ]
+      }
+    ],
+    "luaSource": "-- Traptrix Myrmeleo\nfunction on_normal_summon(card)\n  search_deck(\"Hole normal trap\", 1)\nend\nfunction on_destroy_by_effect(card)\n  banish_opponent_set_st(1)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 45803070,
+    "name": "Traptrix Dionaea",
+    "roles": [
+      "extender",
+      "engine"
+    ],
+    "interrupts": [
+      "veiler",
+      "bottomless"
+    ],
+    "timings": [
+      "normal_summon",
+      "special_summon"
+    ],
+    "steps": [
+      {
+        "id": "ns-revive",
+        "when": "normal_summon",
+        "actions": [
+          {
+            "op": "ss",
+            "from": "gy",
+            "to": "monster",
+            "filter": "Traptrix",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "xyz_material"
+        ]
+      },
+      {
+        "id": "ss-set-hole",
+        "when": "special_summon",
+        "actions": [
+          {
+            "op": "set",
+            "from": "deck",
+            "to": "spellTrap",
+            "filter": "Hole normal trap",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "hole_trap"
+        ]
+      }
+    ],
+    "luaSource": "-- Traptrix Dionaea\nfunction on_normal_summon(card)\n  ss_from_gy(\"Traptrix\", 1)\nend\nfunction on_special_summon(card)\n  set_from_deck(\"Hole normal trap\", 1)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 28201945,
+    "name": "Traptrix Nepenthes",
+    "roles": [
+      "extender",
+      "engine"
+    ],
+    "interrupts": [
+      "veiler"
+    ],
+    "timings": [
+      "trigger"
+    ],
+    "steps": [
+      {
+        "id": "ss-traptrix",
+        "when": "hole_resolve",
+        "actions": [
+          {
+            "op": "ss",
+            "from": "deck",
+            "to": "monster",
+            "filter": "Traptrix except Nepenthes",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "engine_body"
+        ]
+      }
+    ],
+    "luaSource": "-- Traptrix Nepenthes\nfunction on_hole_resolve(card)\n  ss_from_deck(\"Traptrix\", 1, { exclude = \"Nepenthes\" })\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 55428242,
+    "name": "Traptrix Atrax",
+    "roles": [
+      "engine",
+      "tech"
+    ],
+    "interrupts": [
+      "none"
+    ],
+    "timings": [
+      "passive"
+    ],
+    "steps": [
+      {
+        "id": "unaffected",
+        "when": "passive",
+        "actions": [
+          {
+            "op": "note",
+            "note": "Traptrix unaffected by Hole traps; activate Hole from hand"
+          }
+        ]
+      }
+    ],
+    "luaSource": "-- Traptrix Atrax\npassive = { hole_immune = true, activate_hole_from_hand = true }",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 29616929,
+    "name": "Traptrix Trap Hole Nightmare",
+    "roles": [
+      "trap",
+      "extender"
+    ],
+    "interrupts": [
+      "nightmare"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "negate-ss",
+        "when": "opponent_ss_effect",
+        "actions": [
+          {
+            "op": "negate",
+            "filter": "that monster effect",
+            "qty": 1
+          },
+          {
+            "op": "destroy",
+            "filter": "that monster",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "interaction"
+        ]
+      }
+    ],
+    "luaSource": "-- Traptrix Trap Hole Nightmare\nfunction on_activate(card, target)\n  negate(target)\n  destroy(target)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 12444060,
+    "name": "Artifact Sanctum",
+    "roles": [
+      "starter",
+      "trap"
+    ],
+    "interrupts": [
+      "warning"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "ss-artifact",
+        "when": "activate",
+        "actions": [
+          {
+            "op": "ss",
+            "from": "deck",
+            "to": "monster",
+            "filter": "Artifact",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "artifact_body",
+          "moralltach_line"
+        ]
+      },
+      {
+        "id": "destroy-if-popped",
+        "when": "destroyed_by_opponent",
+        "actions": [
+          {
+            "op": "destroy",
+            "filter": "opponent card",
+            "qty": 1
+          }
+        ]
+      }
+    ],
+    "luaSource": "-- Artifact Sanctum\nfunction on_activate(card)\n  ss_from_deck(\"Artifact\", 1)\nend\nfunction on_destroyed_by_opponent(card)\n  destroy_opponent_card(1)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 85103922,
+    "name": "Artifact Moralltach",
+    "roles": [
+      "extender",
+      "engine"
+    ],
+    "interrupts": [
+      "veiler"
+    ],
+    "timings": [
+      "special_summon"
+    ],
+    "steps": [
+      {
+        "id": "ss-destroy",
+        "when": "ss_during_opponent_turn",
+        "actions": [
+          {
+            "op": "destroy",
+            "filter": "face-up card",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "removal"
+        ]
+      }
+    ],
+    "luaSource": "-- Artifact Moralltach\nfunction on_ss_opponent_turn(card)\n  destroy_face_up(1)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 12697630,
+    "name": "Artifact Beagalltach",
+    "roles": [
+      "extender",
+      "engine"
+    ],
+    "interrupts": [
+      "none"
+    ],
+    "timings": [
+      "special_summon"
+    ],
+    "steps": [
+      {
+        "id": "ss-destroy-artifacts",
+        "when": "ss_during_opponent_turn",
+        "actions": [
+          {
+            "op": "destroy",
+            "filter": "Artifact you control",
+            "qty": 2
+          }
+        ],
+        "produces": [
+          "artifact_triggers"
+        ]
+      }
+    ],
+    "luaSource": "-- Artifact Beagalltach\nfunction on_ss_opponent_turn(card)\n  destroy_controlled(\"Artifact\", 2)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 68535320,
+    "name": "Fire Hand",
+    "roles": [
+      "starter",
+      "engine"
+    ],
+    "interrupts": [
+      "veiler"
+    ],
+    "timings": [
+      "trigger"
+    ],
+    "steps": [
+      {
+        "id": "pop-monster",
+        "when": "destroyed_by_opponent",
+        "actions": [
+          {
+            "op": "destroy",
+            "filter": "opponent monster",
+            "qty": 1
+          },
+          {
+            "op": "ss",
+            "from": "deck",
+            "to": "monster",
+            "filter": "Ice Hand",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "hand_loop"
+        ]
+      }
+    ],
+    "luaSource": "-- Fire Hand\nfunction on_destroyed_by_opponent(card)\n  destroy_opponent_monster(1)\n  ss_from_deck(\"Ice Hand\", 1)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 95929069,
+    "name": "Ice Hand",
+    "roles": [
+      "starter",
+      "engine"
+    ],
+    "interrupts": [
+      "veiler"
+    ],
+    "timings": [
+      "trigger"
+    ],
+    "steps": [
+      {
+        "id": "pop-st",
+        "when": "destroyed_by_opponent",
+        "actions": [
+          {
+            "op": "destroy",
+            "filter": "opponent spell/trap",
+            "qty": 1
+          },
+          {
+            "op": "ss",
+            "from": "deck",
+            "to": "monster",
+            "filter": "Fire Hand",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "hand_loop"
+        ]
+      }
+    ],
+    "luaSource": "-- Ice Hand\nfunction on_destroyed_by_opponent(card)\n  destroy_opponent_st(1)\n  ss_from_deck(\"Fire Hand\", 1)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 98645731,
+    "name": "Pot of Duality",
+    "roles": [
+      "starter",
+      "draw"
+    ],
+    "interrupts": [
+      "none"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "excavate",
+        "when": "activate",
+        "cost": [
+          "no_special_summon_this_turn"
+        ],
+        "actions": [
+          {
+            "op": "add",
+            "from": "deck",
+            "to": "hand",
+            "filter": "excavate 3 pick 1",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "consistency"
+        ]
+      }
+    ],
+    "luaSource": "-- Pot of Duality\nfunction on_activate(card)\n  require(no_ss_this_turn)\n  excavate(3); add_one_to_hand(); shuffle_rest()\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 29401950,
+    "name": "Bottomless Trap Hole",
+    "roles": [
+      "trap"
+    ],
+    "interrupts": [
+      "bottomless"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "banish-summon",
+        "when": "opponent_summon_atk_ge_1500",
+        "actions": [
+          {
+            "op": "banish",
+            "filter": "those monsters",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "interaction"
+        ]
+      }
+    ],
+    "luaSource": "-- Bottomless Trap Hole\nfunction on_activate(card, summons)\n  banish(summons)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 23434538,
+    "name": "Maxx \"C\"",
+    "roles": [
+      "handtrap"
+    ],
+    "interrupts": [
+      "maxx_c"
+    ],
+    "timings": [
+      "quick"
+    ],
+    "steps": [
+      {
+        "id": "draw-on-ss",
+        "when": "opponent_special_summon",
+        "actions": [
+          {
+            "op": "draw",
+            "qty": 1,
+            "note": "each SS this turn"
+          }
+        ],
+        "produces": [
+          "interaction"
+        ]
+      }
+    ],
+    "luaSource": "-- Maxx \"C\"\nfunction on_activate(card)\n  for each opponent_ss_this_turn do draw(1) end\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 97268402,
+    "name": "Effect Veiler",
+    "roles": [
+      "handtrap"
+    ],
+    "interrupts": [
+      "veiler"
+    ],
+    "timings": [
+      "quick"
+    ],
+    "steps": [
+      {
+        "id": "negate",
+        "when": "opponent_turn",
+        "actions": [
+          {
+            "op": "negate",
+            "filter": "face-up monster",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "interaction"
+        ]
+      }
+    ],
+    "luaSource": "-- Effect Veiler\nfunction on_activate(card, target)\n  negate_effects(target) -- until end of turn\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 82633039,
+    "name": "Castel, the Skyblaster Musketeer",
+    "roles": [
+      "extra"
+    ],
+    "interrupts": [
+      "none"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "spin",
+        "when": "detach_2",
+        "actions": [
+          {
+            "op": "banish",
+            "filter": "face-up card to deck",
+            "note": "shuffle into deck",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "removal"
+        ]
+      }
+    ],
+    "luaSource": "-- Castel\nfunction effect2(card)\n  detach(2); shuffle_into_deck(target_face_up)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 46772449,
+    "name": "Evilswarm Exciton Knight",
+    "roles": [
+      "extra"
+    ],
+    "interrupts": [
+      "none"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "nuke",
+        "when": "opponent_more_cards",
+        "actions": [
+          {
+            "op": "destroy",
+            "filter": "all other cards on field",
+            "qty": 99
+          }
+        ],
+        "produces": [
+          "board_wipe"
+        ]
+      }
+    ],
+    "luaSource": "-- Evilswarm Exciton Knight\nfunction on_activate(card)\n  require(opponent_card_count > yours)\n  destroy_all_other_field_cards()\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 48739166,
+    "name": "Number 101: Silent Honor ARK",
+    "roles": [
+      "extra"
+    ],
+    "interrupts": [
+      "none"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "attach",
+        "when": "detach_2",
+        "actions": [
+          {
+            "op": "note",
+            "note": "attach opponent special summoned monster as material"
+          }
+        ],
+        "produces": [
+          "removal"
+        ]
+      }
+    ],
+    "luaSource": "-- Number 101\nfunction effect(card)\n  detach(2); attach_as_material(opponent_ss_monster)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 53582587,
+    "name": "Torrential Tribute",
+    "roles": [
+      "trap"
+    ],
+    "interrupts": [
+      "none"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "nuke-monsters",
+        "when": "monster_summoned",
+        "actions": [
+          {
+            "op": "destroy",
+            "filter": "all monsters",
+            "qty": 99
+          }
+        ],
+        "produces": [
+          "interaction"
+        ]
+      }
+    ],
+    "luaSource": "-- Torrential Tribute\nfunction on_activate(card)\n  destroy_all_monsters()\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 40605147,
+    "name": "Solemn Warning",
+    "roles": [
+      "trap"
+    ],
+    "interrupts": [
+      "warning"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "negate-summon",
+        "when": "summon_or_monster_effect_ss",
+        "cost": [
+          "pay_2000"
+        ],
+        "actions": [
+          {
+            "op": "negate",
+            "qty": 1
+          },
+          {
+            "op": "destroy",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "interaction"
+        ]
+      }
+    ],
+    "luaSource": "-- Solemn Warning\nfunction on_activate(card, event)\n  pay(2000); negate_and_destroy(event)\nend",
+    "source": "hat",
+    "confidence": 1
+  },
+  {
+    "cardId": 50078509,
+    "name": "Fiendish Chain",
+    "roles": [
+      "trap"
+    ],
+    "interrupts": [
+      "none"
+    ],
+    "timings": [
+      "activate"
+    ],
+    "steps": [
+      {
+        "id": "lock",
+        "when": "activate",
+        "actions": [
+          {
+            "op": "negate",
+            "filter": "face-up effect monster",
+            "note": "also cannot attack",
+            "qty": 1
+          }
+        ],
+        "produces": [
+          "interaction"
+        ]
+      }
+    ],
+    "luaSource": "-- Fiendish Chain\nfunction on_activate(card, target)\n  negate(target); target.cannot_attack = true\nend",
+    "source": "hat",
+    "confidence": 1
+  }
+]

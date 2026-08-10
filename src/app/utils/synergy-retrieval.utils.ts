@@ -18,8 +18,23 @@ export const DATASET_SYNERGY_PAIRS: ReadonlyArray<{
   { trigger: 'self_to_gy', response: 'ss_from_gy', relation: 'gy_synergy' },
   { trigger: 'sends_to_gy', response: 'revives_from_gy', relation: 'gy_synergy' },
   { trigger: 'sends_to_gy', response: 'ss_from_gy', relation: 'gy_synergy' },
+  { trigger: 'sends_to_gy', response: 'self_to_gy', relation: 'gy_synergy' },
+  { trigger: 'sends_to_gy', response: 'gy_interaction', relation: 'gy_synergy' },
+  { trigger: 'sends_to_gy', response: 'gy_effect', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'ss_from_gy', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'revives_from_gy', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'self_to_gy', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'gy_effect', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'gy_interaction', relation: 'gy_synergy' },
+  { trigger: 'discards', response: 'self_to_gy', relation: 'gy_synergy' },
+  { trigger: 'discards', response: 'gy_effect', relation: 'gy_synergy' },
+  { trigger: 'discards', response: 'gy_interaction', relation: 'gy_synergy' },
+  { trigger: 'ss_from_gy', response: 'sends_to_gy', relation: 'gy_synergy' },
+  { trigger: 'ss_from_gy', response: 'hand_to_gy', relation: 'gy_synergy' },
+  { trigger: 'ss_from_gy', response: 'mills', relation: 'gy_synergy' },
   { trigger: 'mills', response: 'gy_interaction', relation: 'gy_synergy' },
   { trigger: 'mills', response: 'ss_from_gy', relation: 'gy_synergy' },
+  { trigger: 'mills', response: 'gy_effect', relation: 'gy_synergy' },
   { trigger: 'mills', response: 'draw', relation: 'engine' },
   { trigger: 'self_to_gy', response: 'draw', relation: 'engine' },
   { trigger: 'sends_to_gy', response: 'draw', relation: 'engine' },
@@ -55,6 +70,24 @@ const UBIQUITOUS_TAGS = new Set([
 
 const BROAD_PAIR_TRIGGERS = new Set(['special_summons', 'ss_from_hand', 'ss_from_deck', 'ss_from_gy']);
 
+/** Keep curated combo partners above alphabetical GY flood when scores tie. */
+export const GY_COMBO_STAPLES = new Set(
+  [
+    'Mezuki',
+    'Plaguespreader Zombie',
+    'Goblin Zombie',
+    'Uni-Zombie',
+    'Gozuki',
+    'Zombie Master',
+    'Foolish Burial',
+    'Armageddon Knight',
+    'Dark Grepher',
+    'Mathematician',
+    'Glow-Up Bloom',
+    'Shiranui Solitaire',
+  ].map((name) => name.toLowerCase()),
+);
+
 export interface DatasetSynergyOptions {
   limit?: number;
   minScore?: number;
@@ -87,6 +120,11 @@ export function buildCardRosterMap(index: CardKnowledgeIndex): Map<number, CardK
     }
   }
   for (const members of Object.values(index.mechanicIndex ?? {})) {
+    for (const member of members) {
+      add(member);
+    }
+  }
+  for (const members of Object.values(index.raceIndex ?? {})) {
     for (const member of members) {
       add(member);
     }
@@ -307,10 +345,13 @@ function applyDirectionBias(
   if (profile.preferCombo && relation === 'engine') {
     score *= 1.4;
   }
+  if (profile.preferCombo && relation === 'gy_synergy') {
+    score *= 1.55;
+  }
   if (profile.preferGenericStaples && !candidate.archetype) {
     score *= 1.35;
   }
-  if (profile.preferGenericStaples || profile.matchupKeys.length > 0) {
+  if (profile.preferGenericStaples || (profile.matchupKeys?.length ?? 0) > 0) {
     const sideHits = [...candidateTags].filter((t) => SIDE_STAPLE_TAG_SET.has(t)).length;
     if (sideHits > 0) {
       score *= 1 + sideHits * 0.12;
@@ -382,6 +423,9 @@ export function retrieveDatasetSynergies(
 
     const member = rosterOrFallback(id, entry, roster);
     let score = applyDirectionBias(raw.score, raw.relation, member, candidateTags, profile);
+    if (raw.relation === 'gy_synergy' && GY_COMBO_STAPLES.has(member.name.toLowerCase())) {
+      score *= 1.35;
+    }
 
     score = scoreForCompletion(
       {
@@ -401,7 +445,10 @@ export function retrieveDatasetSynergies(
     scored.push({
       id,
       name: member.name,
-      relation: raw.relation === 'series' ? 'series' : 'mechanic_synergy',
+      relation:
+        raw.relation === 'series' || raw.relation === 'gy_synergy' || raw.relation === 'engine'
+          ? raw.relation
+          : 'mechanic_synergy',
       score,
       archetype: member.archetype,
       tcgDate: member.tcgDate,

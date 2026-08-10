@@ -25,6 +25,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/overlay/pages/overlay.page').then((m) => m.OverlayPage),
       },
+      {
+        path: 'flow',
+        loadComponent: () =>
+          import('./features/ygo-flow/pages/ygo-flow.page').then((m) => m.YgoFlowPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

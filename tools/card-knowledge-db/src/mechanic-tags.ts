@@ -1,8 +1,10 @@
 export const MECHANIC_TAGS = [
   'self_to_gy',
   'sends_to_gy',
+  'hand_to_gy',
   'revives_from_gy',
   'gy_interaction',
+  'gy_effect',
   'mills',
   'searches_deck',
   'searches_monster',
@@ -39,12 +41,35 @@ const TAG_RULES: TagRule[] = [
   { tag: 'self_to_gy', patterns: [/sent to the GY/i, /mandat[oa] al Cimitero/i] },
   { tag: 'sends_to_gy', patterns: [/send .* to the GY/i, /manda .* al Cimitero/i] },
   {
+    tag: 'hand_to_gy',
+    patterns: [
+      /send \d+ .+ from your hand to the GY/i,
+      /discard \d+ .+ from your hand/i,
+      /manda \d+ .+ dalla tua mano al Cimitero/i,
+      /scarta \d+ .+ dalla tua mano/i,
+    ],
+  },
+  {
     tag: 'revives_from_gy',
-    patterns: [/Special Summon .* from (?:your )?GY/i, /Evocazione Speciale .* dal(?:la)? Cimitero/i],
+    patterns: [
+      /Special Summon .* from (?:your |either )?GY/i,
+      /Evocazione Speciale .* dal(?:la)? Cimitero/i,
+    ],
   },
   {
     tag: 'gy_interaction',
-    patterns: [/from (?:your )?GY/i, /dal(?:la)? Cimitero/i, /in the GY/i],
+    patterns: [/from (?:your |either )?GY/i, /dal(?:la)? Cimitero/i, /in (?:your |either )?the GY/i, /in (?:your |either )?GY/i],
+  },
+  {
+    tag: 'gy_effect',
+    patterns: [
+      /banish this card from (?:your )?GY/i,
+      /if this card is in (?:your )?GY/i,
+      /while this card is in (?:your )?GY/i,
+      /You can .+ this card from your GY/i,
+      /bandisci questa carta dal(?:la)? (?:tuo )?Cimitero/i,
+      /se questa carta e(?:'|’) nel Cimitero/i,
+    ],
   },
   {
     tag: 'mills',
@@ -70,7 +95,10 @@ const TAG_RULES: TagRule[] = [
   },
   {
     tag: 'ss_from_gy',
-    patterns: [/Special Summon .* from (?:your )?GY/i, /Evocazione Speciale .* dal(?:la)? Cimitero/i],
+    patterns: [
+      /Special Summon .* from (?:your |either )?GY/i,
+      /Evocazione Speciale .* dal(?:la)? Cimitero/i,
+    ],
   },
   {
     tag: 'ss_from_deck',
@@ -108,9 +136,11 @@ const TAG_RULES: TagRule[] = [
 export const ENRICHMENT_TRIGGER_TAGS = [
   'mills',
   'sends_to_gy',
+  'hand_to_gy',
   'self_to_gy',
   'discards',
   'gy_interaction',
+  'ss_from_gy',
   'searches_monster',
   'searches_spell',
   'searches_trap',
@@ -122,8 +152,23 @@ export const SYNERGY_PAIRS: Array<{ trigger: MechanicTag; response: MechanicTag;
   { trigger: 'self_to_gy', response: 'ss_from_gy', relation: 'gy_synergy' },
   { trigger: 'sends_to_gy', response: 'revives_from_gy', relation: 'gy_synergy' },
   { trigger: 'sends_to_gy', response: 'ss_from_gy', relation: 'gy_synergy' },
+  { trigger: 'sends_to_gy', response: 'self_to_gy', relation: 'gy_synergy' },
+  { trigger: 'sends_to_gy', response: 'gy_interaction', relation: 'gy_synergy' },
+  { trigger: 'sends_to_gy', response: 'gy_effect', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'ss_from_gy', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'revives_from_gy', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'self_to_gy', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'gy_effect', relation: 'gy_synergy' },
+  { trigger: 'hand_to_gy', response: 'gy_interaction', relation: 'gy_synergy' },
+  { trigger: 'discards', response: 'self_to_gy', relation: 'gy_synergy' },
+  { trigger: 'discards', response: 'gy_effect', relation: 'gy_synergy' },
+  { trigger: 'discards', response: 'gy_interaction', relation: 'gy_synergy' },
+  { trigger: 'ss_from_gy', response: 'sends_to_gy', relation: 'gy_synergy' },
+  { trigger: 'ss_from_gy', response: 'hand_to_gy', relation: 'gy_synergy' },
+  { trigger: 'ss_from_gy', response: 'mills', relation: 'gy_synergy' },
   { trigger: 'mills', response: 'gy_interaction', relation: 'gy_synergy' },
   { trigger: 'mills', response: 'ss_from_gy', relation: 'gy_synergy' },
+  { trigger: 'mills', response: 'gy_effect', relation: 'gy_synergy' },
   { trigger: 'mills', response: 'draw', relation: 'engine' },
   { trigger: 'self_to_gy', response: 'draw', relation: 'engine' },
   { trigger: 'sends_to_gy', response: 'draw', relation: 'engine' },
@@ -151,6 +196,9 @@ const LEGACY_DERIVED: Array<{ fine: MechanicTag; coarse: MechanicTag }> = [
   { fine: 'searches_monster', coarse: 'searches_deck' },
   { fine: 'searches_spell', coarse: 'searches_deck' },
   { fine: 'searches_trap', coarse: 'searches_deck' },
+  { fine: 'hand_to_gy', coarse: 'sends_to_gy' },
+  { fine: 'gy_effect', coarse: 'gy_interaction' },
+  { fine: 'revives_from_gy', coarse: 'ss_from_gy' },
 ];
 
 export function detectMechanicTags(desc: string): MechanicTag[] {
@@ -161,6 +209,28 @@ export function detectMechanicTags(desc: string): MechanicTag[] {
   const tags = new Set<MechanicTag>(
     TAG_RULES.filter((rule) => rule.patterns.some((pattern) => pattern.test(text))).map((rule) => rule.tag),
   );
+
+  // Split-clause revive: "… in your GY; Special Summon that target"
+  if (
+    /\bGY\b/i.test(text) &&
+    /Special Summon that target/i.test(text) &&
+    !/from your (?:hand|Deck|Extra Deck)/i.test(text.match(/Special Summon that target.*/i)?.[0] ?? '')
+  ) {
+    tags.add('ss_from_gy');
+    tags.add('revives_from_gy');
+    tags.add('special_summons');
+  }
+
+  // GY activation phrasing without explicit "from GY" verb order
+  if (
+    (/banish this card from (?:your )?GY/i.test(text) ||
+      /this card from your GY/i.test(text) ||
+      /SetRange\(LOCATION_GRAVE\)/i.test(text)) &&
+    (/Special Summon/i.test(text) || /add .* to your hand/i.test(text) || /banish/i.test(text))
+  ) {
+    tags.add('gy_effect');
+    tags.add('gy_interaction');
+  }
 
   for (const { fine, coarse } of LEGACY_DERIVED) {
     if (tags.has(fine)) {

@@ -15,6 +15,7 @@ interface CardMeta {
   id: number;
   name: string;
   archetype: string | null;
+  race: string | null;
   desc_en: string;
 }
 
@@ -30,7 +31,7 @@ interface EffectRow {
 
 const MAX_TAG_RELATIONS_PER_SOURCE = 24;
 const MAX_ENGINE_RELATIONS_PER_SOURCE = 64;
-const MAX_GY_RELATIONS_PER_SOURCE = 56;
+const MAX_GY_RELATIONS_PER_SOURCE = 96;
 const MAX_ARCHETYPE_LINKS_PER_CARD = 16;
 const MAX_ARCHETYPE_GROUP_FULL_MESH = 22;
 const MAX_MENTIONS_PER_SOURCE = 12;
@@ -53,6 +54,44 @@ const SERIES_TOKENS = [
   'snake eye',
   'evil eye',
 ] as const;
+
+/** Prefer classic GY-engine partners when capping relation fan-out. */
+const GY_STAPLE_NAMES = new Set(
+  [
+    'Mezuki',
+    'Plaguespreader Zombie',
+    'Goblin Zombie',
+    'Uni-Zombie',
+    'Shiranui Solitaire',
+    'Glow-Up Bloom',
+    'Gozuki',
+    'Zombie Master',
+    'Foolish Burial',
+    'Lonefire Blossom',
+    'Mathematician',
+    'Armageddon Knight',
+    'Dark Grepher',
+  ].map((name) => name.toLowerCase()),
+);
+
+function gyLinkPriority(source: CardMeta, target: CardMeta): number {
+  let score = 0;
+  if (GY_STAPLE_NAMES.has(target.name.toLowerCase())) {
+    score += 100;
+  }
+  if (source.archetype && target.archetype && source.archetype === target.archetype) {
+    score += 40;
+  }
+  if (source.race && target.race && source.race === target.race) {
+    score += 30;
+  }
+  if (sharesArchetypeSignal(source, target)) {
+    score += 20;
+  }
+  // Prefer older / lower-id staples slightly less than race match
+  score += Math.max(0, 10 - Math.floor(target.id / 10_000_000));
+  return score;
+}
 
 function mentionsCardName(desc: string, cardName: string): boolean {
   return desc.toLowerCase().includes(cardName.toLowerCase());
@@ -114,8 +153,11 @@ async function main(): Promise<void> {
     byMention.set(row.mention, bucket);
   }
 
-  const cards = db.prepare('SELECT id, name, archetype, desc_en FROM cards').all() as CardMeta[];
+  const cards = db
+    .prepare('SELECT id, name, archetype, race, desc_en FROM cards')
+    .all() as CardMeta[];
 
+  const cardsById = new Map(cards.map((card) => [card.id, card]));
   const cardsByName = new Map<string, number>();
   for (const card of cards) {
     cardsByName.set(card.name.toLowerCase(), card.id);
@@ -151,12 +193,29 @@ async function main(): Promise<void> {
             ? MAX_GY_RELATIONS_PER_SOURCE
             : MAX_TAG_RELATIONS_PER_SOURCE;
       for (const sourceId of triggers) {
+        const source = cardsById.get(sourceId);
+        if (!source) {
+          continue;
+        }
+        const ranked = responses
+          .filter((targetId) => targetId !== sourceId)
+          .map((targetId) => {
+            const target = cardsById.get(targetId);
+            return {
+              targetId,
+              priority: target ? gyLinkPriority(source, target) : 0,
+            };
+          })
+          .sort((a, b) => b.priority - a.priority || a.targetId - b.targetId);
+
         let linked = 0;
-        for (const targetId of responses) {
-          if (sourceId === targetId || linked >= cap) {
-            continue;
+        for (const { targetId, priority } of ranked) {
+          if (linked >= cap) {
+            break;
           }
-          insertRelation(db, sourceId, targetId, pair.relation, pair.relation === 'engine' ? 0.92 : 1.0);
+          const score =
+            pair.relation === 'engine' ? 0.92 : Math.min(1.25, 0.9 + priority / 200);
+          insertRelation(db, sourceId, targetId, pair.relation, score);
           relations += 1;
           linked += 1;
         }

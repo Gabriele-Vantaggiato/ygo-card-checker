@@ -13,6 +13,7 @@ const TAG_LABEL_KEYS: Record<string, string> = {
   searches_deck: 'knowledge.tag.searchesDeck',
   special_summons: 'knowledge.tag.specialSummons',
   gy_interaction: 'knowledge.tag.gyInteraction',
+  gy_effect: 'knowledge.tag.gyEffect',
   revives_from_gy: 'knowledge.tag.revivesFromGy',
   quick_effect: 'knowledge.tag.quickEffect',
   hand_trap: 'knowledge.tag.handTrap',
@@ -23,6 +24,7 @@ const TAG_LABEL_KEYS: Record<string, string> = {
   draw: 'knowledge.tag.draw',
   discards: 'knowledge.tag.discards',
   sends_to_gy: 'knowledge.tag.sendsToGy',
+  hand_to_gy: 'knowledge.tag.handToGy',
   self_to_gy: 'knowledge.tag.selfToGy',
   negates: 'knowledge.tag.negates',
 };
@@ -39,10 +41,12 @@ const TAG_PRIORITY = [
   'searches_monster',
   'searches_spell',
   'revives_from_gy',
+  'gy_effect',
   'gy_interaction',
   'mills',
   'draw',
   'discards',
+  'hand_to_gy',
   'sends_to_gy',
   'self_to_gy',
   'quick_effect',
@@ -77,8 +81,9 @@ export function toDisplayTags(tags: readonly string[]): DisplayTag[] {
 }
 
 export const RELATION_GROUP_ORDER = [
-  'engine',
   'gy_synergy',
+  'engine',
+  'mechanic_synergy',
   'search_target',
   'mentions_card',
   'shared_mention',

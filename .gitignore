@@ -48,3 +48,9 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# MDPro extracted Lua (local authoring source; not shipped)
+/tools/card-knowledge-db/mdpro-scripts/
+assist-debug.png
+tools/card-knowledge-db/src/assist-browser-probe.mjs
+NUL

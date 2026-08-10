@@ -4,6 +4,8 @@ export interface CardKnowledgeRelated {
   relation: string;
   score: number;
   archetype: string | null;
+  race?: string | null;
+  attribute?: string | null;
   tcgDate: string | null;
   banTcg: string | null;
   imageSmall: string;
@@ -21,12 +23,17 @@ export interface CardKnowledgeEntry {
   mentions: string[];
   effects: CardKnowledgeEffect[];
   related: CardKnowledgeRelated[];
+  race?: string | null;
+  attribute?: string | null;
+  type?: string;
 }
 
 export interface CardKnowledgeRosterMember {
   id: number;
   name: string;
   type: string;
+  race?: string | null;
+  attribute?: string | null;
   archetype: string | null;
   tcgDate: string | null;
   banTcg: string | null;
@@ -51,6 +58,8 @@ export interface CardKnowledgeIndex {
   entries: Record<string, CardKnowledgeEntry>;
   archetypes?: Record<string, CardKnowledgeRosterMember[]>;
   seriesIndex?: Record<string, CardKnowledgeRosterMember[]>;
+  /** Monsters grouped by race (e.g. Zombie) — used for format-wide deck assist. */
+  raceIndex?: Record<string, CardKnowledgeRosterMember[]>;
   mechanicIndex?: Record<string, CardKnowledgeRosterMember[]>;
   mechanicSynergies?: MechanicSynergyPair[];
   matchupIndex?: Record<string, CardKnowledgeRosterMember[]>;

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
-export type NavIconName = 'search' | 'combo' | 'decklist' | 'overlay';
+export type NavIconName = 'search' | 'combo' | 'decklist' | 'overlay' | 'flow';
 
 @Component({
   selector: 'app-nav-icon',
@@ -35,6 +35,13 @@ export type NavIconName = 'search' | 'combo' | 'decklist' | 'overlay';
           <path d="M8 9h8M8 13h5" />
           <circle cx="17" cy="17" r="3.5" />
           <path d="M19.2 19.2L21 21" />
+        }
+        @case ('flow') {
+          <circle cx="5" cy="6" r="2.25" />
+          <circle cx="5" cy="18" r="2.25" />
+          <circle cx="19" cy="12" r="2.25" />
+          <path d="M7 6h6a4 4 0 0 1 4 4v0" />
+          <path d="M7 18h6a4 4 0 0 0 4-4v0" />
         }
       }
     </svg>

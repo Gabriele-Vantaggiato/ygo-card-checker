@@ -8,6 +8,8 @@ export interface DeckFingerprint {
   dominantArchetypes: string[];
   dominantSeries: string[];
   dominantTags: string[];
+  dominantRaces: string[];
+  dominantAttributes: string[];
   /** True when the deck leans on one or two identifiable themes. */
   hasClearIdentity: boolean;
 }
@@ -19,6 +21,8 @@ export function buildDeckFingerprint(deck: Decklist, index: CardKnowledgeIndex):
   const archetypeWeights = new Map<string, number>();
   const seriesWeights = new Map<string, number>();
   const tagWeights = new Map<string, number>();
+  const raceWeights = new Map<string, number>();
+  const attributeWeights = new Map<string, number>();
   let totalQty = 0;
 
   for (const card of deck.cards) {
@@ -27,6 +31,13 @@ export function buildDeckFingerprint(deck: Decklist, index: CardKnowledgeIndex):
     const entry = index.entries[String(card.id)];
     if (!entry) {
       continue;
+    }
+
+    if (entry.race) {
+      raceWeights.set(entry.race, (raceWeights.get(entry.race) ?? 0) + qty);
+    }
+    if (entry.attribute) {
+      attributeWeights.set(entry.attribute, (attributeWeights.get(entry.attribute) ?? 0) + qty);
     }
 
     for (const series of entry.series) {
@@ -51,11 +62,18 @@ export function buildDeckFingerprint(deck: Decklist, index: CardKnowledgeIndex):
     for (const series of entry.series) {
       archetypeWeights.set(series, (archetypeWeights.get(series) ?? 0) + qty * 0.65);
     }
+
+    // Race is a stronger identity signal than noisy cross-links on related[].
+    if (entry.race) {
+      archetypeWeights.set(entry.race, (archetypeWeights.get(entry.race) ?? 0) + qty * 0.9);
+    }
   }
 
   const dominantArchetypes = topWeightedKeys(archetypeWeights, 3);
   const dominantSeries = topWeightedKeys(seriesWeights, 4);
   const dominantTags = topWeightedKeys(tagWeights, 6);
+  const dominantRaces = topWeightedKeys(raceWeights, 3);
+  const dominantAttributes = topWeightedKeys(attributeWeights, 2);
 
   const topShare = totalQty > 0 ? (archetypeWeights.get(dominantArchetypes[0] ?? '') ?? 0) / totalQty : 0;
   const top2Share =
@@ -64,13 +82,19 @@ export function buildDeckFingerprint(deck: Decklist, index: CardKnowledgeIndex):
           (archetypeWeights.get(dominantArchetypes[1] ?? '') ?? 0)) /
         totalQty
       : 0;
+  const raceShare = totalQty > 0 ? (raceWeights.get(dominantRaces[0] ?? '') ?? 0) / totalQty : 0;
 
   return {
     totalQty,
     dominantArchetypes,
     dominantSeries,
     dominantTags,
-    hasClearIdentity: topShare >= MIN_IDENTITY_SHARE || top2Share >= MIN_COMBINED_TOP2_SHARE,
+    dominantRaces,
+    dominantAttributes,
+    hasClearIdentity:
+      topShare >= MIN_IDENTITY_SHARE ||
+      top2Share >= MIN_COMBINED_TOP2_SHARE ||
+      raceShare >= MIN_IDENTITY_SHARE,
   };
 }
 
@@ -172,8 +196,14 @@ function topWeightedKeys(weights: Map<string, number>, limit: number): string[] 
 }
 
 function tokensOverlap(archetypeKey: string, archetype: string, name: string): boolean {
-  const key = archetypeKey.toLowerCase();
-  const arch = archetype.toLowerCase();
-  const cardName = name.toLowerCase();
-  return arch.includes(key) || key.includes(arch) || cardName.includes(key);
+  const key = archetypeKey.toLowerCase().trim();
+  const arch = archetype.toLowerCase().trim();
+  const cardName = name.toLowerCase().trim();
+  if (!key) {
+    return false;
+  }
+  if (arch && (arch === key || arch.includes(key) || key.includes(arch))) {
+    return true;
+  }
+  return cardName.includes(key);
 }

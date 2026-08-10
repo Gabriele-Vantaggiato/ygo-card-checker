@@ -3,16 +3,19 @@ import { Observable, combineLatest, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import {
   ComboEntry,
-  ComboIndex,
+  ComboLine,
   ComboPartner,
   ComboPartnerRecord,
   ComboResult,
+  ComboScriptInfo,
+  ComboStep,
 } from '../models/card-combo.model';
 import {
   CardKnowledgeEntry,
   CardKnowledgeIndex,
   CardKnowledgeRelated,
 } from '../models/card-knowledge.model';
+import { EffectScript } from '../models/effect-script.model';
 import { YgoCard } from '../models/ygo-card.model';
 import { BanlistStatus, YgoFormat } from '../models/ygo-format.model';
 import { scoreForCompletion } from '../utils/completion-prompt.utils';
@@ -22,6 +25,7 @@ import { DeckStrategyStore } from '../features/decklist/stores/deck-strategy.sto
 import { toDisplayTags } from '../utils/knowledge-display.utils';
 import { SYNERGY_REASON_KEYS } from '../utils/knowledge-constants';
 import { CardKnowledgeIndexService } from './card-knowledge-index.service';
+import { EffectScriptService } from './effect-script.service';
 
 const MAX_STRATEGY_SYNERGIES = 48;
 
@@ -40,17 +44,23 @@ export class CardComboService {
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly synergyRetrieval = inject(SynergyRetrievalService);
   private readonly strategy = inject(DeckStrategyStore);
+  private readonly effectScripts = inject(EffectScriptService);
 
   findCombos$(card: YgoCard, format: YgoFormat): Observable<ComboResult> {
-    return combineLatest([this.indexService.combos$, this.strategy.ragResult$, this.indexService.related$]).pipe(
+    return combineLatest([
+      this.indexService.combos$,
+      this.strategy.ragResult$,
+      this.indexService.related$,
+      this.effectScripts.ensureLoaded$(),
+    ]).pipe(
       switchMap(([index, rag, knowledgeIndex]) => {
         if (!index && !knowledgeIndex) {
-          return of(this.emptyResult());
+          return of(this.attachScript(card, this.emptyResult()));
         }
         const comboEntry = index?.entries[String(card.id)];
         const knowledgeEntry = knowledgeIndex?.entries[String(card.id)];
         if (!comboEntry && !knowledgeEntry) {
-          return of({ ...this.emptyResult(), available: true });
+          return of(this.attachScript(card, { ...this.emptyResult(), available: true }));
         }
         return this.filterEntry$(
           card,
@@ -59,7 +69,7 @@ export class CardComboService {
           knowledgeIndex,
           format,
           rag.profile,
-        );
+        ).pipe(map((result) => this.attachScript(card, result, knowledgeIndex)));
       }),
     );
   }
@@ -109,6 +119,7 @@ export class CardComboService {
             const synergies = synergyCandidates
               .filter((item) => playable.has(item.id) && !playableIds.has(item.id))
               .map((item) => this.toSynergyPartner(item, card.name, entries, profile))
+              .map((item) => this.boostPartnerFromScript(card.id, item))
               .sort((a, b) => b.score - a.score)
               .slice(0, MAX_STRATEGY_SYNERGIES);
 
@@ -122,11 +133,215 @@ export class CardComboService {
               .filter((line) => line.steps.some((step) => step.role === 'target'))
               .sort((a, b) => this.lineScore(b, profile, entries) - this.lineScore(a, profile, entries));
 
-            return this.toResult(entry, enablers, targets, synergies, lines.slice(0, 8));
+            const result = this.toResult(entry, enablers, targets, synergies, lines.slice(0, 8));
+            return result;
           }),
         );
       }),
     );
+  }
+
+  private attachScript(
+    card: YgoCard,
+    result: ComboResult,
+    knowledgeIndex: CardKnowledgeIndex | null = null,
+  ): ComboResult {
+    const script = this.effectScripts.getScript(card.id);
+    if (!script) {
+      return result;
+    }
+
+    const scriptInfo = this.toScriptInfo(script);
+    const scriptLines = this.linesFromScript(card, script, knowledgeIndex);
+    const mergedLines = [...scriptLines, ...result.lines].slice(0, 8);
+    const roleEffects = script.roles.map((role) => ({
+      kind: `script_role:${role}`,
+      payload: { role },
+    }));
+
+    return {
+      ...result,
+      available: true,
+      effects: [...roleEffects, ...result.effects],
+      lines: mergedLines.length > 0 ? mergedLines : result.lines,
+      script: scriptInfo,
+    };
+  }
+
+  private toScriptInfo(script: EffectScript): ComboScriptInfo {
+    return {
+      cardId: script.cardId,
+      name: script.name,
+      roles: [...script.roles],
+      source: script.source,
+      confidence: script.confidence,
+      luaSource: script.luaSource,
+      steps: script.steps.map((step) => ({
+        id: step.id,
+        when: step.when,
+        summary: step.actions
+          .map((action) =>
+            [action.op, action.filter, action.note].filter(Boolean).join(' · '),
+          )
+          .join('; '),
+      })),
+    };
+  }
+
+  private linesFromScript(
+    card: YgoCard,
+    script: EffectScript,
+    knowledgeIndex: CardKnowledgeIndex | null,
+  ): ComboLine[] {
+    if (!knowledgeIndex || script.steps.length === 0) {
+      return [];
+    }
+
+    const imageSmall =
+      card.card_images?.[0]?.image_url_small ??
+      `https://images.ygoprodeck.com/images/cards_small/${card.id}.jpg`;
+
+    const lines: ComboLine[] = [];
+    for (const step of script.steps) {
+      const filters = step.actions
+        .map((action) => action.filter)
+        .filter((value): value is string => !!value && value.trim().length > 0);
+      if (filters.length === 0) {
+        continue;
+      }
+
+      const partners = this.findScriptPartners(filters, knowledgeIndex, card.id).slice(0, 3);
+      if (partners.length === 0) {
+        continue;
+      }
+
+      const steps: ComboStep[] = [
+        {
+          role: 'source',
+          cardId: card.id,
+          name: card.name,
+          reasonKey: 'combo.step.source',
+          imageSmall,
+        },
+        ...partners.map((partner) => ({
+          role: 'target' as const,
+          cardId: partner.id,
+          name: partner.name,
+          reasonKey: 'combo.reason.scriptTarget',
+          reasonParams: { name: partner.name, when: step.when },
+          imageSmall: partner.imageSmall,
+        })),
+      ];
+
+      lines.push({ id: `script:${script.cardId}:${step.id}`, steps });
+    }
+
+    return lines;
+  }
+
+  private findScriptPartners(
+    filters: string[],
+    knowledgeIndex: CardKnowledgeIndex,
+    sourceId: number,
+  ): Array<{ id: number; name: string; imageSmall: string }> {
+    const tokens = filters
+      .join(' ')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 3);
+
+    if (tokens.length === 0) {
+      return [];
+    }
+
+    const scored = new Map<number, { id: number; name: string; imageSmall: string; score: number }>();
+
+    const consider = (id: number, name: string, imageSmall: string, base: number) => {
+      if (id === sourceId || !name) {
+        return;
+      }
+      const lower = name.toLowerCase();
+      let score = base;
+      for (const token of tokens) {
+        if (lower.includes(token)) {
+          score += 2;
+        }
+      }
+      if (score <= base) {
+        return;
+      }
+      const prev = scored.get(id);
+      if (!prev || prev.score < score) {
+        scored.set(id, { id, name, imageSmall, score });
+      }
+    };
+
+    const sourceEntry = knowledgeIndex.entries[String(sourceId)];
+    for (const related of sourceEntry?.related ?? []) {
+      consider(related.id, related.name, related.imageSmall, related.score);
+      if (related.archetype) {
+        for (const token of tokens) {
+          if (related.archetype.toLowerCase().includes(token)) {
+            consider(related.id, related.name, related.imageSmall, related.score + 1);
+          }
+        }
+      }
+    }
+
+    for (const [archetype, roster] of Object.entries(knowledgeIndex.archetypes ?? {})) {
+      const archLower = archetype.toLowerCase();
+      if (!tokens.some((token) => archLower.includes(token) || token.includes(archLower))) {
+        continue;
+      }
+      for (const member of roster.slice(0, 24)) {
+        consider(
+          member.id,
+          member.name,
+          member.imageSmall,
+          1.2,
+        );
+      }
+    }
+
+    for (const [series, roster] of Object.entries(knowledgeIndex.seriesIndex ?? {})) {
+      const seriesLower = series.toLowerCase();
+      if (!tokens.some((token) => seriesLower.includes(token))) {
+        continue;
+      }
+      for (const member of roster.slice(0, 24)) {
+        consider(member.id, member.name, member.imageSmall, 1.1);
+      }
+    }
+
+    return [...scored.values()]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map(({ id, name, imageSmall }) => ({ id, name, imageSmall }));
+  }
+
+  private boostPartnerFromScript(cardId: number, partner: ComboPartner): ComboPartner {
+    const script = this.effectScripts.getScript(cardId);
+    if (!script) {
+      return partner;
+    }
+    const blob = script.steps
+      .flatMap((step) => step.actions.map((action) => `${action.filter ?? ''} ${action.note ?? ''}`))
+      .join(' ')
+      .toLowerCase();
+    const name = partner.name.toLowerCase();
+    const hit =
+      blob.includes(name) ||
+      name.split(/\s+/).some((token) => token.length > 3 && blob.includes(token));
+    if (!hit) {
+      return partner;
+    }
+    return {
+      ...partner,
+      score: partner.score + 0.35,
+      reasonKey: partner.reasonKey === 'knowledge.reason.related' ? 'combo.reason.scriptTarget' : partner.reasonKey,
+      reasonParams: { ...partner.reasonParams, name: partner.name },
+    };
   }
 
   private toSynergyPartner(
