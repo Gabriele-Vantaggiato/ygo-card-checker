@@ -4,11 +4,13 @@ import { effectsToScript, mergeScripts } from './effect-script-compiler';
 import { openDatabase, readMeta, REPO_ROOT, runInTransaction } from './database';
 import { HAT_2014_SCRIPTS, hatScriptsById } from './hat-2014-scripts';
 import { mdproToEffectScript, parseMdproLua } from './mdpro-lua-parser';
+import { parseSegocProfile, deriveSpellSpeed, type SegocProfile } from './segoc-parser';
 import type { EffectScript, EffectScriptIndex } from './effect-script-types';
 
 const SCRIPTS_DIR = join(REPO_ROOT, 'src', 'assets', 'data', 'effect-scripts');
 const SCRIPTS_PATH = join(SCRIPTS_DIR, 'scripts.json');
 const HAT_PATH = join(SCRIPTS_DIR, 'hat-2014.json');
+const SEGOC_PATH = join(SCRIPTS_DIR, 'segoc-profiles.json');
 const MDPRO_CACHE = join(REPO_ROOT, 'tools', 'card-knowledge-db', 'mdpro-scripts');
 
 const CARD_SCRIPTS_DDL = `
@@ -120,6 +122,11 @@ function writeAssets(scripts: Record<string, EffectScript>, cardCount: number): 
   writeFileSync(HAT_PATH, JSON.stringify(HAT_2014_SCRIPTS, null, 2), 'utf8');
 }
 
+function writeSegocProfiles(profiles: Record<string, SegocProfile>): void {
+  mkdirSync(SCRIPTS_DIR, { recursive: true });
+  writeFileSync(SEGOC_PATH, JSON.stringify(profiles), 'utf8');
+}
+
 async function main(): Promise<void> {
   const db = openDatabase();
   db.exec(CARD_SCRIPTS_DDL);
@@ -130,6 +137,7 @@ async function main(): Promise<void> {
   if (cards.length === 0) {
     db.close();
     writeAssets({ ...hatById }, 0);
+    writeSegocProfiles({});
     console.log('No cards in DB — wrote HAT-2014 assets only.');
     return;
   }
@@ -138,6 +146,7 @@ async function main(): Promise<void> {
   const effectsByCard = loadEffectsByCard(db);
   const meta = readMeta();
   const scripts: Record<string, EffectScript> = { ...hatById };
+  const segocProfiles: Record<string, SegocProfile> = {};
   let compiled = 0;
   let mdproHits = 0;
 
@@ -167,6 +176,12 @@ async function main(): Promise<void> {
         } else {
           merged = mergeScripts(merged, mdproScript);
         }
+
+        const luaProfile = parseSegocProfile(lua);
+        segocProfiles[String(card.id)] = {
+          ...luaProfile,
+          spellSpeed: deriveSpellSpeed(card.type, luaProfile.effectType),
+        };
       }
 
       merged = mergeScripts(merged, hatById[String(card.id)]);
@@ -185,10 +200,12 @@ async function main(): Promise<void> {
 
   db.close();
   writeAssets(scripts, meta?.totalCards ?? cards.length);
+  writeSegocProfiles(segocProfiles);
   console.log(`Compiled ${compiled} card scripts → ${SCRIPTS_PATH}`);
   console.log(`MDPro lua hits: ${mdproHits}`);
   console.log(`HAT pack → ${HAT_PATH}`);
   console.log(`Total indexed: ${Object.keys(scripts).length}`);
+  console.log(`SEGOC profiles → ${SEGOC_PATH} (${Object.keys(segocProfiles).length} cards)`);
 }
 
 main().catch((error) => {
