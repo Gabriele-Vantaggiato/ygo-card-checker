@@ -20,6 +20,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/decklist/pages/decklist.page').then((m) => m.DecklistPage),
       },
+      {
+        path: 'tournament',
+        loadComponent: () =>
+          import('./features/tournament/pages/tournament.page').then((m) => m.TournamentPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

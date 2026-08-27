@@ -58,6 +58,9 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
             <a role="tab" routerLink="/decklist" routerLinkActive="tab-active" class="tab text-sm px-3">
               {{ 'nav.decklist' | translate }}
             </a>
+            <a role="tab" routerLink="/tournament" routerLinkActive="tab-active" class="tab text-sm px-3">
+              {{ 'nav.tournament' | translate }}
+            </a>
           </div>
         </nav>
 
@@ -101,6 +104,10 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
       <a routerLink="/decklist" routerLinkActive="mobile-tab-active" class="mobile-tab">
         <span class="mobile-tab-icon"><app-nav-icon name="decklist" /></span>
         <span class="mobile-tab-label">{{ 'nav.decklist' | translate }}</span>
+      </a>
+      <a routerLink="/tournament" routerLinkActive="mobile-tab-active" class="mobile-tab">
+        <span class="mobile-tab-icon"><app-nav-icon name="tournament" /></span>
+        <span class="mobile-tab-label">{{ 'nav.tournament' | translate }}</span>
       </a>
     </nav>
 
