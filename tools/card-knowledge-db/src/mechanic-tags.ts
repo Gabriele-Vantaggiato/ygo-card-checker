@@ -50,10 +50,13 @@ const TAG_RULES: TagRule[] = [
     ],
   },
   {
+    // Self-SS from GY only (Plaguespreader). SS of another monster → ss_from_gy.
     tag: 'revives_from_gy',
     patterns: [
-      /Special Summon .* from (?:your |either )?GY/i,
-      /Evocazione Speciale .* dal(?:la)? Cimitero/i,
+      /Special Summon this card from (?:your |either )?GY/i,
+      /(?:If|While) this card is in (?:your )?GY[\s\S]{0,240}?Special Summon this card/i,
+      /Evoca(?:zione)? Special(?:e)? questa carta dal(?:la)? (?:tuo )?Cimitero/i,
+      /[Ss]e questa carta e(?:'|’) nel Cimitero[\s\S]{0,240}?Evoca(?:zione)? Special(?:e)? questa carta/i,
     ],
   },
   {
@@ -210,15 +213,25 @@ export function detectMechanicTags(desc: string): MechanicTag[] {
     TAG_RULES.filter((rule) => rule.patterns.some((pattern) => pattern.test(text))).map((rule) => rule.tag),
   );
 
-  // Split-clause revive: "… in your GY; Special Summon that target"
+  // Split-clause SS from GY: "… in your GY; Special Summon that target" (other monster, not self).
   if (
     /\bGY\b/i.test(text) &&
     /Special Summon that target/i.test(text) &&
     !/from your (?:hand|Deck|Extra Deck)/i.test(text.match(/Special Summon that target.*/i)?.[0] ?? '')
   ) {
     tags.add('ss_from_gy');
-    tags.add('revives_from_gy');
     tags.add('special_summons');
+  }
+
+  // Self-revive phrasing without literal "from GY" on the SS clause.
+  if (
+    /(?:If|While) this card is in (?:your )?GY/i.test(text) &&
+    /Special Summon this card/i.test(text)
+  ) {
+    tags.add('revives_from_gy');
+    tags.add('ss_from_gy');
+    tags.add('special_summons');
+    tags.add('gy_effect');
   }
 
   // GY activation phrasing without explicit "from GY" verb order

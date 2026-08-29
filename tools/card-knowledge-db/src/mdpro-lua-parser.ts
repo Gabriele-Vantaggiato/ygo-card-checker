@@ -14,13 +14,23 @@ export function parseMdproLua(cardId: number, name: string, lua: string): MdproP
   const timings = new Set<string>();
   const roles = new Set<EffectRole>();
 
+  // Hand → GY as cost only (not hand → deck, and not bare REASON_COST).
   const hasHandToGraveCost =
     /LOCATION_HAND/.test(lua) &&
-    (/SendtoGrave/.test(lua) || /IsAbleToGraveAsCost/.test(lua) || /REASON_COST/.test(lua));
+    (/IsAbleToGraveAsCost/.test(lua) ||
+      /DiscardHand/.test(lua) ||
+      /SendtoGrave\([^)]*LOCATION_HAND/.test(lua));
   const hasGraveRange = /SetRange\(\s*LOCATION_GRAVE\s*\)/.test(lua);
   const hasSpecialSummon = /SpecialSummon|CATEGORY_SPECIAL_SUMMON/.test(lua);
   const summonsFromGrave =
-    hasSpecialSummon && (/LOCATION_GRAVE/.test(lua) || /IsExistingTarget\([^)]*LOCATION_GRAVE/.test(lua));
+    hasSpecialSummon &&
+    (/LOCATION_GRAVE/.test(lua) || /IsExistingTarget\([^)]*LOCATION_GRAVE/.test(lua));
+  /** Special Summons this card (handler), typically a GY ignition like Plaguespreader. */
+  const summonsSelf =
+    hasSpecialSummon &&
+    (/SetOperationInfo\(\s*0\s*,\s*CATEGORY_SPECIAL_SUMMON\s*,\s*e:GetHandler\(\)/.test(lua) ||
+      /SpecialSummon\(\s*e:GetHandler\(\)/.test(lua) ||
+      /SpecialSummon\(\s*c\b/.test(lua));
   const discards = /DiscardHand|SendtoGrave\([^)]*LOCATION_HAND/.test(lua);
 
   if (hasHandToGraveCost || discards) {
@@ -29,23 +39,32 @@ export function parseMdproLua(cardId: number, name: string, lua: string): MdproP
     roles.add('extender');
     timings.add('activate');
   }
-  if (summonsFromGrave) {
-    signals.add('ss_from_gy');
-    signals.add('revives_from_gy');
-    roles.add('extender');
-    timings.add('special_summon');
-  }
+
   if (hasGraveRange) {
     signals.add('gy_effect');
     signals.add('gy_interaction');
     roles.add('extender');
     timings.add('gy');
   }
-  if (hasSpecialSummon) {
+
+  // Self-revive from GY (Plaguespreader): activates in GY and SS this card.
+  if (hasGraveRange && summonsSelf) {
+    signals.add('revives_from_gy');
+    signals.add('ss_from_gy');
+    signals.add('special_summons');
+    roles.add('extender');
+    timings.add('special_summon');
+  } else if (summonsFromGrave) {
+    // SS another monster from GY (Mezuki, Superbia, Monster Reborn, …) — not "self revive".
+    signals.add('ss_from_gy');
+    signals.add('special_summons');
+    roles.add('extender');
+    timings.add('special_summon');
+  } else if (hasSpecialSummon) {
     signals.add('special_summons');
   }
 
-  if (hasHandToGraveCost && summonsFromGrave) {
+  if (hasHandToGraveCost && summonsFromGrave && !summonsSelf) {
     roles.add('starter');
     const actions: EffectAction[] = [
       { op: 'discard', from: 'hand', to: 'gy', filter: 'monster', qty: 1, note: 'cost' },
@@ -58,11 +77,19 @@ export function parseMdproLua(cardId: number, name: string, lua: string): MdproP
       actions,
       produces: ['gy_body', 'ss_from_gy'],
     });
+  } else if (hasGraveRange && summonsSelf) {
+    steps.push({
+      id: 'mdpro-gy-self-ss',
+      when: 'gy',
+      cost: extractGyCost(lua),
+      actions: [{ op: 'ss', from: 'gy', to: 'monster', filter: 'this card', qty: 1 }],
+      produces: ['revives_from_gy', 'gy_effect'],
+    });
   } else if (hasGraveRange && summonsFromGrave) {
     steps.push({
       id: 'mdpro-gy-ss',
       when: 'gy',
-      cost: [/bfgcost|Remove\(/.test(lua) ? 'banish_self_from_gy' : undefined].filter(Boolean) as string[],
+      cost: extractGyCost(lua),
       actions: [
         { op: 'ss', from: 'gy', to: 'monster', filter: extractRaceFilter(lua) ?? 'monster in GY', qty: 1 },
       ],
@@ -115,6 +142,16 @@ export function mdproToEffectScript(
     source: 'manual',
     confidence: parse.steps.length > 0 ? 0.95 : 0.55,
   };
+}
+
+function extractGyCost(lua: string): string[] {
+  if (/bfgcost|Remove\(/.test(lua)) {
+    return ['banish_self_from_gy'];
+  }
+  if (/SendtoDeck/.test(lua) && /LOCATION_HAND/.test(lua)) {
+    return ['send_hand_to_deck'];
+  }
+  return [];
 }
 
 function extractRaceFilter(lua: string): string | null {
