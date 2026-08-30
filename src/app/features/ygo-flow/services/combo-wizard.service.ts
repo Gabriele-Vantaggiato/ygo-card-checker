@@ -1,4 +1,6 @@
 import { Injectable, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ComboEntry } from '../../../models/card-combo.model';
 import { EffectAction } from '../../../models/effect-script.model';
 import {
   FlowCard,
@@ -8,11 +10,12 @@ import {
   WizardLineStep,
   scriptToFlowInterrupts,
 } from '../../../models/ygo-flow.model';
+import { CardKnowledgeIndexService } from '../../../services/card-knowledge-index.service';
 import { EffectScriptService } from '../../../services/effect-script.service';
 import { I18nService } from '../../../services/i18n.service';
 import { hypergeometricAtLeastOne, toPercent } from '../../../utils/hypergeo.utils';
 
-/** Turn-1 starter priority for HAT-2014: Myrmeleo > Sanctum > Duality > Fire/Ice Hand. */
+/** Legacy HAT-2014 meta-priority tie-break (Myrmeleo > Sanctum > Duality > Fire/Ice Hand). */
 const STARTER_PRIORITY: readonly number[] = [
   91812341, // Traptrix Myrmeleo
   12444060, // Artifact Sanctum
@@ -20,6 +23,8 @@ const STARTER_PRIORITY: readonly number[] = [
   68535320, // Fire Hand
   95929069, // Ice Hand
 ];
+
+const CURATED_TARGETS_PER_STARTER = 3;
 
 interface ChokepointGroup {
   labelKey: string;
@@ -39,6 +44,8 @@ const CHOKEPOINT_GROUPS: readonly ChokepointGroup[] = [
 export class ComboWizardService {
   private readonly effectScripts = inject(EffectScriptService);
   private readonly i18n = inject(I18nService);
+  private readonly indexService = inject(CardKnowledgeIndexService);
+  private readonly comboIndex = toSignal(this.indexService.combos$, { initialValue: null });
 
   /** Analyzes a drawn hand: combo line off the highest-priority starter, or brick advice. */
   analyzeHand(hand: readonly FlowCard[]): WizardAnalysis {
@@ -59,7 +66,7 @@ export class ComboWizardService {
         starters.push(card);
       }
     }
-    starters.sort((a, b) => this.starterRank(a.passcode) - this.starterRank(b.passcode));
+    starters.sort((a, b) => this.starterScore(b.passcode) - this.starterScore(a.passcode));
     return starters.map((starter) => this.buildComboAnalysis([starter], [starter]));
   }
 
@@ -104,12 +111,59 @@ export class ComboWizardService {
   private rankedStarters(hand: readonly FlowCard[]): FlowCard[] {
     return [...hand]
       .filter((card) => this.effectScripts.isStarter(card.passcode))
-      .sort((a, b) => this.starterRank(a.passcode) - this.starterRank(b.passcode));
+      .sort((a, b) => this.starterScore(b.passcode) - this.starterScore(a.passcode));
   }
 
-  private starterRank(cardId: number): number {
-    const idx = STARTER_PRIORITY.indexOf(cardId);
-    return idx === -1 ? STARTER_PRIORITY.length : idx;
+  /** Real-signal starter quality: script confidence + curated combo richness + step count,
+   *  with a small nudge for cards on the legacy HAT-2014 meta-priority list. */
+  private starterScore(cardId: number): number {
+    const script = this.effectScripts.getScript(cardId);
+    const comboEntry = this.comboIndex()?.entries[String(cardId)];
+    let score = script?.confidence ?? 0.5;
+    score += (script?.steps.length ?? 0) * 0.15;
+    if (comboEntry) {
+      const topTargetScore = comboEntry.targets
+        .slice()
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .reduce((sum, target) => sum + target.score, 0);
+      score += topTargetScore * 0.3;
+      if (comboEntry.lines.length > 0) {
+        score += 0.5;
+      }
+    }
+    const legacyIdx = STARTER_PRIORITY.indexOf(cardId);
+    if (legacyIdx !== -1) {
+      score += (STARTER_PRIORITY.length - legacyIdx) * 0.2;
+    }
+    return score;
+  }
+
+  /** Curated combo-library targets for a starter, excluding ones already surfaced as
+   *  script steps or already sitting in hand. */
+  private curatedTargetsFor(
+    starter: FlowCard,
+    comboEntry: ComboEntry | undefined,
+    alreadyMentioned: ReadonlySet<number>,
+    hand: readonly FlowCard[],
+  ): WizardLineStep | null {
+    if (!comboEntry || comboEntry.targets.length === 0) {
+      return null;
+    }
+    const handIds = new Set(hand.map((card) => card.passcode));
+    const picks = comboEntry.targets
+      .filter((target) => !alreadyMentioned.has(target.id) && !handIds.has(target.id))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, CURATED_TARGETS_PER_STARTER);
+    if (picks.length === 0) {
+      return null;
+    }
+    return {
+      order: 0,
+      title: this.i18n.t('flow.wizard.line.curatedTargets', { name: starter.name }),
+      detail: picks.map((target) => target.name).join(' · '),
+      interruptRisk: [],
+    };
   }
 
   private hasRole(cardId: number, role: string): boolean {
@@ -119,6 +173,7 @@ export class ComboWizardService {
   private buildComboAnalysis(hand: readonly FlowCard[], starters: readonly FlowCard[]): WizardAnalysis {
     const lines: WizardLineStep[] = [];
     const usedInterrupts = new Set<FlowInterrupt>();
+    const mentionedCardIds = new Set<number>(starters.map((s) => s.passcode));
     let order = 1;
 
     for (const starter of starters) {
@@ -142,6 +197,16 @@ export class ComboWizardService {
           cardId: starter.passcode,
           interruptRisk: interrupts,
         });
+      }
+
+      const comboEntry = this.comboIndex()?.entries[String(starter.passcode)];
+      const curated = this.curatedTargetsFor(starter, comboEntry, mentionedCardIds, hand);
+      if (curated) {
+        curated.order = order++;
+        lines.push(curated);
+        for (const target of comboEntry?.targets ?? []) {
+          mentionedCardIds.add(target.id);
+        }
       }
     }
 

@@ -457,6 +457,7 @@
   "flow.wizard.line.activateDetail": "Opens the turn with {name}",
   "flow.wizard.line.extend": "Extend with {name}",
   "flow.wizard.line.extendDetail": "{name} adds to the line",
+  "flow.wizard.line.curatedTargets": "Curated combo library — also look for with {name}",
   "flow.wizard.advice.interruptRisk": "Watch out for: {names} — could stop this line",
   "flow.wizard.advice.backupTraps": "Backup in hand: {names}",
   "flow.wizard.advice.brickTraps": "Set {names} face-down and pass ({count} trap(s) to disrupt them)",

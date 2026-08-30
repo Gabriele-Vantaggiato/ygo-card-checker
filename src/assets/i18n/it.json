@@ -457,6 +457,7 @@
   "flow.wizard.line.activateDetail": "Apre il turno con {name}",
   "flow.wizard.line.extend": "Estendi con {name}",
   "flow.wizard.line.extendDetail": "{name} si aggiunge alla linea",
+  "flow.wizard.line.curatedTargets": "Libreria combo curata — cerca anche con {name}",
   "flow.wizard.advice.interruptRisk": "Attenzione a: {names} — potrebbero fermare questa linea",
   "flow.wizard.advice.backupTraps": "Backup in mano: {names}",
   "flow.wizard.advice.brickTraps": "Setta {names} coperte e passa ({count} trappola/e per disturbarli)",

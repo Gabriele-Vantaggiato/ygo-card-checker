@@ -24,13 +24,18 @@ import { CardLegalityFacade } from './card-legality.facade';
 import { YgoApiService } from './ygo-api.service';
 import { CompletionRagService } from './completion-rag.service';
 import { CardKnowledgeIndexService } from './card-knowledge-index.service';
+import { EffectScriptService } from './effect-script.service';
 import { DeckStrategyStore } from '../features/decklist/stores/deck-strategy.store';
+import {
+  DEFAULT_TARGET_MAIN,
+  MIN_TARGET_MAIN,
+  MAX_TARGET_MAIN,
+  TARGET_EXTRA,
+  DEFAULT_TARGET_SIDE,
+  resolveRoleTier,
+  scaledMaxCopies,
+} from '../utils/deck-role-tier.utils';
 
-const DEFAULT_TARGET_MAIN = 40;
-const MIN_TARGET_MAIN = 40;
-const MAX_TARGET_MAIN = 60;
-const TARGET_EXTRA = 15;
-const DEFAULT_TARGET_SIDE = 15;
 const SUGGESTION_POOL = 96;
 const MAX_COMPLETION_API_CARDS = 80;
 
@@ -42,6 +47,7 @@ export class DeckCompletionService {
   private readonly completionRag = inject(CompletionRagService);
   private readonly strategy = inject(DeckStrategyStore);
   private readonly indexService = inject(CardKnowledgeIndexService);
+  private readonly effectScripts = inject(EffectScriptService);
 
   private readonly comboIndex$ = this.indexService.combos$;
 
@@ -248,6 +254,7 @@ export class DeckCompletionService {
         adds,
         'main',
         mainGap,
+        targetMain,
         profile,
         entries,
       );
@@ -263,6 +270,7 @@ export class DeckCompletionService {
         adds,
         'extra',
         extraGap,
+        TARGET_EXTRA,
         profile,
         entries,
       );
@@ -290,6 +298,7 @@ export class DeckCompletionService {
         adds,
         'side',
         sideGap,
+        options.targetSide,
         profile,
         entries,
       );
@@ -328,6 +337,7 @@ export class DeckCompletionService {
     adds: DeckCompletionAdd[],
     section: 'main' | 'extra' | 'side',
     gap: number,
+    sectionTarget: number,
     profile: CompletionScoringProfile,
     entries: Record<string, CardKnowledgeEntry>,
   ): void {
@@ -363,8 +373,11 @@ export class DeckCompletionService {
           (entry) => entry.id === card.id && resolveDeckSection(entry) === section,
         )?.quantity ?? 0;
       const already = plannedQty.get(card.id) ?? 0;
-      const max = suggestion.maxCopies ?? 3;
-      const room = Math.max(0, max - inDeck - already);
+      const formatMax = suggestion.maxCopies ?? 3;
+      const fullness = sectionTarget > 0 ? Math.min(1, (sectionTarget - remaining) / sectionTarget) : 0;
+      const tier = resolveRoleTier(suggestion.relation, this.effectScripts.getRoles(card.id));
+      const tieredMax = scaledMaxCopies(formatMax, tier, fullness);
+      const room = Math.max(0, tieredMax - inDeck - already);
       const quantity = Math.min(room, remaining);
       if (quantity <= 0) {
         continue;

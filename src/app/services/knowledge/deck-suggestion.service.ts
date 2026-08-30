@@ -15,6 +15,13 @@ import { YgoFormat } from '../../models/ygo-format.model';
 import { relationGroupOrder, tagLabelKey } from '../../utils/knowledge-display.utils';
 import { isPlayableInFormat, maxCopiesInFormat } from '../../utils/format-legality.utils';
 import { buildMechanicSynergyRelated } from '../../utils/mechanic-synergy.utils';
+import { splitDeckSections, sectionCardCount } from '../../utils/deck-card.utils';
+import {
+  DEFAULT_TARGET_MAIN,
+  TARGET_EXTRA,
+  resolveRoleTier,
+  scaledMaxCopies,
+} from '../../utils/deck-role-tier.utils';
 import { collectScriptDeckSynergies, isCompatibleMonsterPartner } from '../../utils/script-deck-synergy.utils';
 import { retrieveDatasetSynergies } from '../../utils/synergy-retrieval.utils';
 import { CardLegalityFacade } from '../card-legality.facade';
@@ -185,7 +192,7 @@ export class DeckSuggestionService {
                 return enrichSuggestionReasonForFingerprint({ ...suggestion, score }, entry, fingerprint);
               })
               .filter((suggestion) => suggestion.score >= MIN_SUGGESTION_SCORE);
-            const withQty = this.applySuggestedQuantities(withAffinity, deck);
+            const withQty = this.applySuggestedQuantities(withAffinity, deck, index);
             return withQty
               .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
               .slice(0, effectiveLimit);
@@ -611,11 +618,21 @@ export class DeckSuggestionService {
   private applySuggestedQuantities(
     suggestions: CardRelatedSuggestion[],
     deck: Decklist,
+    index: CardKnowledgeIndex,
   ): CardRelatedSuggestion[] {
+    const sections = splitDeckSections(deck.cards);
+    const mainFullness = Math.min(1, sectionCardCount(sections.main) / DEFAULT_TARGET_MAIN);
+    const extraFullness = Math.min(1, sectionCardCount(sections.extra) / TARGET_EXTRA);
+
     return suggestions
       .map((suggestion) => {
         const inDeck = deck.cards.find((card) => card.id === suggestion.cardId)?.quantity ?? 0;
-        const max = suggestion.maxCopies ?? 3;
+        const formatMax = suggestion.maxCopies ?? 3;
+        const entryType = index.entries[String(suggestion.cardId)]?.type;
+        const isExtra = entryType ? isExtraDeckType(entryType) : false;
+        const scriptRoles = this.effectScripts.getRoles(suggestion.cardId);
+        const tier = resolveRoleTier(suggestion.relation, scriptRoles);
+        const max = scaledMaxCopies(formatMax, tier, isExtra ? extraFullness : mainFullness);
         const suggestedQty = Math.max(0, max - inDeck);
         return { ...suggestion, suggestedQty };
       })

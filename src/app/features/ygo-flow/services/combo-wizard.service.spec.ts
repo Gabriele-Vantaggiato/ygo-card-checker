@@ -1,10 +1,60 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { ComboIndex } from '../../../models/card-combo.model';
 import { EffectScript } from '../../../models/effect-script.model';
 import { FlowCard } from '../../../models/ygo-flow.model';
+import { CardKnowledgeIndexService } from '../../../services/card-knowledge-index.service';
 import { EffectScriptService } from '../../../services/effect-script.service';
 import { ComboWizardService } from './combo-wizard.service';
+
+/** Not on the legacy STARTER_PRIORITY list — isolates the dynamic (combo-richness) scoring path. */
+const CURATED_STARTER_SCRIPT: EffectScript = {
+  cardId: 55501234,
+  name: 'Curated Combo Starter',
+  roles: ['starter'],
+  interrupts: [],
+  timings: ['activate'],
+  steps: [],
+  luaSource: '',
+  source: 'hat',
+  confidence: 0.5,
+};
+
+const PLAIN_STARTER_SCRIPT: EffectScript = {
+  cardId: 55505678,
+  name: 'Plain Starter',
+  roles: ['starter'],
+  interrupts: [],
+  timings: ['activate'],
+  steps: [],
+  luaSource: '',
+  source: 'hat',
+  confidence: 0.5,
+};
+
+const COMBO_INDEX: ComboIndex = {
+  version: 1,
+  generatedAt: '',
+  cardCount: 1,
+  entries: {
+    [String(CURATED_STARTER_SCRIPT.cardId)]: {
+      requirements: [],
+      payoffs: [],
+      enablers: [],
+      targets: [
+        { id: 100, name: 'Curated Target A', role: 'summon_target', score: 2, imageSmall: '' },
+        { id: 101, name: 'Curated Target B', role: 'summon_target', score: 1, imageSmall: '' },
+      ],
+      lines: [],
+    },
+  },
+};
+
+class FakeCardKnowledgeIndexService {
+  readonly combos$ = of(COMBO_INDEX);
+}
 
 const STARTER_SCRIPT: EffectScript = {
   cardId: 91812341,
@@ -54,6 +104,8 @@ class FakeEffectScriptService {
     [STARTER_SCRIPT.cardId, STARTER_SCRIPT],
     [TRAP_SCRIPT.cardId, TRAP_SCRIPT],
     [HANDTRAP_SCRIPT.cardId, HANDTRAP_SCRIPT],
+    [CURATED_STARTER_SCRIPT.cardId, CURATED_STARTER_SCRIPT],
+    [PLAIN_STARTER_SCRIPT.cardId, PLAIN_STARTER_SCRIPT],
   ]);
 
   getScript(cardId: number): EffectScript | undefined {
@@ -86,6 +138,7 @@ describe('ComboWizardService', () => {
       providers: [
         ComboWizardService,
         { provide: EffectScriptService, useClass: FakeEffectScriptService },
+        { provide: CardKnowledgeIndexService, useClass: FakeCardKnowledgeIndexService },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],
@@ -153,5 +206,26 @@ describe('ComboWizardService', () => {
 
     expect(analyses.length).toBe(1); // Duality has no registered script in this fake index.
     expect(analyses[0]?.starters[0]?.passcode).toBe(91812341);
+  });
+
+  it('appends curated combo-library targets not already covered by the script steps', () => {
+    const hand: FlowCard[] = [flowCard(CURATED_STARTER_SCRIPT.cardId, CURATED_STARTER_SCRIPT.name, 0)];
+
+    const analysis = service.analyzeHand(hand);
+
+    const curatedLine = analysis.lines.find((line) => line.detail.includes('Curated Target A'));
+    expect(curatedLine).toBeTruthy();
+    expect(curatedLine?.detail).toContain('Curated Target B');
+  });
+
+  it('ranks a starter with a richer curated combo entry ahead of an equally-confident plain starter', () => {
+    const main: FlowCard[] = [
+      flowCard(PLAIN_STARTER_SCRIPT.cardId, PLAIN_STARTER_SCRIPT.name, 0),
+      flowCard(CURATED_STARTER_SCRIPT.cardId, CURATED_STARTER_SCRIPT.name, 1),
+    ];
+
+    const analyses = service.analyzeAllStarters({ main });
+
+    expect(analyses[0]?.starters[0]?.passcode).toBe(CURATED_STARTER_SCRIPT.cardId);
   });
 });
