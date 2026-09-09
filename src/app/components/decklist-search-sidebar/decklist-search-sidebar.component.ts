@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  viewChild,
   computed,
   inject,
   input,
@@ -10,8 +12,8 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { Subject, Subscription, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
+import { Subject, Subscription, of, timer } from 'rxjs';
+import { distinctUntilChanged, switchMap, tap, takeUntil, skip } from 'rxjs/operators';
 import { DecklistCard } from '../../models/decklist.model';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { CardSearchFacade } from '../../services/card-search.facade';
@@ -33,9 +35,12 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
   template: `
     <app-duel-panel panelClass="flex flex-col overflow-hidden min-w-0 w-full">
       <div class="duel-panel-header shrink-0">
+        <label for="deck-card-query" class="block mb-2 text-sm font-semibold normal-case tracking-normal">{{ 'ux.addCards' | translate }}</label>
         <input
-          type="text"
-          class="input input-bordered input-sm w-full"
+          #searchInput
+          id="deck-card-query"
+          type="search"
+          class="input input-bordered w-full"
           [placeholder]="'search.placeholder' | translate"
           [attr.aria-label]="'decklist.editor.search' | translate"
           [ngModel]="searchQuery()"
@@ -46,6 +51,7 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
             {{ searchResultsLabel() }}
           </p>
         }
+        <p class="mt-2 text-xs font-normal normal-case tracking-normal text-base-content/60">{{ 'ux.searchAddHint' | translate }}</p>
       </div>
 
       <div class="overflow-y-auto overscroll-y-contain p-2 min-h-[14rem] max-h-[min(62vh,30rem)] lg:max-h-[min(28vh,14rem)]">
@@ -66,8 +72,8 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
               />
               <button
                 type="button"
-                class="btn btn-primary btn-xs btn-square shrink-0 mr-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100 transition-opacity"
-                [class.btn-disabled]="row.isForbidden || !row.canAdd"
+                class="btn btn-outline btn-sm btn-square shrink-0 mr-1"
+                [disabled]="row.isForbidden || !row.canAdd || legalityLoading()"
                 [attr.aria-label]="'decklist.editor.quickAdd' | translate"
                 (click)="onQuickAdd(row.card, $event)"
               >
@@ -92,6 +98,12 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
   `,
 })
 export class DecklistSearchSidebarComponent {
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+  focusSearch(): void {
+    const input = this.searchInput()?.nativeElement;
+    input?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+    input?.focus({ preventScroll: true });
+  }
   readonly deckCards = input.required<readonly DecklistCard[]>();
   readonly inspectedCardId = input<number | null>(null);
 
@@ -130,7 +142,7 @@ export class DecklistSearchSidebarComponent {
     const deckCards = this.deckCards();
     return this.sortedSearchResults().map((card) => {
       const legality = legalityMap.get(card.id) ?? null;
-      const qtyInDeck = deckCards.find((c) => c.id === card.id)?.quantity ?? 0;
+      const qtyInDeck = deckCards.filter((c) => c.id === card.id).reduce((total, c) => total + c.quantity, 0);
       const isForbidden = legality?.banlistStatus === 'Forbidden';
       const status = legality?.banlistStatus ?? 'Unlimited';
       const canAdd = !isForbidden && qtyInDeck < maxCopiesForStatus(status);
@@ -141,8 +153,6 @@ export class DecklistSearchSidebarComponent {
   constructor() {
     this.search$
       .pipe(
-        debounceTime(280),
-        distinctUntilChanged(),
         switchMap((query) => {
           const trimmed = query.trim();
           if (trimmed.length < 2) {
@@ -153,7 +163,7 @@ export class DecklistSearchSidebarComponent {
             return of({ cards: [] as YgoCard[], totalRows: 0, hasMore: false });
           }
           this.searchLoading.set(true);
-          return this.cardSearch.searchPage$(trimmed, this.i18n.lang(), this.searchLimit, 0);
+          return timer(280).pipe(switchMap(() => this.cardSearch.searchPage$(trimmed, this.i18n.lang(), this.searchLimit, 0)));
         }),
         tap(() => this.searchLoading.set(false)),
         takeUntilDestroyed(this.destroyRef),
@@ -170,6 +180,9 @@ export class DecklistSearchSidebarComponent {
         }
       });
 
+    this.i18n.lang$.pipe(skip(1), takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onSearchInput(this.searchQuery()));
+    this.destroyRef.onDestroy(() => this.searchLegalitySub?.unsubscribe());
+
     this.formatStore.formatId$
       .pipe(distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
@@ -182,13 +195,20 @@ export class DecklistSearchSidebarComponent {
   }
 
   onSearchInput(value: string): void {
+    this.searchLegalitySub?.unsubscribe();
+    this.legalityLoading.set(false);
+    this.searchLegality.set(new Map());
+    this.searchResults.set([]);
+    this.searchHasMore.set(false);
+    this.searchTotalRows.set(0);
+    this.searchLoading.set(value.trim().length >= 2);
     this.searchQuery.set(value);
     this.search$.next(value);
   }
 
   loadMore(): void {
     const query = this.searchQuery().trim();
-    if (query.length < 2 || !this.searchHasMore()) {
+    if (query.length < 2 || !this.searchHasMore() || this.searchLoading()) {
       return;
     }
     const offset = this.searchResults().length;
@@ -196,7 +216,7 @@ export class DecklistSearchSidebarComponent {
     this.searchLoading.set(true);
     this.cardSearch
       .searchPage$(query, this.i18n.lang(), this.searchLimit, offset)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(takeUntil(this.search$), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
           this.searchResults.update((prev) => [...prev, ...page.cards]);
@@ -214,9 +234,8 @@ export class DecklistSearchSidebarComponent {
   onQuickAdd(card: YgoCard, event: Event): void {
     event.stopPropagation();
     event.preventDefault();
-    this.cardInspect.emit(card);
     const row = this.enrichedSearchRows().find((item) => item.card.id === card.id);
-    if (row?.canAdd) {
+    if (row?.canAdd && !this.legalityLoading()) {
       this.quickAdd.emit(card);
     }
   }

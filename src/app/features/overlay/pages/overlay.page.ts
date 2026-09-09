@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, computed, signal, inject } from '@angular/core';
 import { FormatSelectorComponent } from '../../../components/format-selector/format-selector.component';
 import { CardDetailTabsComponent } from '../../../components/card-detail-tabs/card-detail-tabs.component';
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
@@ -12,11 +12,19 @@ import { OverlayStore } from '../stores/overlay.store';
   imports: [FormatSelectorComponent, CardDetailTabsComponent, TranslatePipe, PageHeaderComponent],
   providers: [OverlayStore],
   template: `
-    <main class="page-main page-stack lg:max-w-5xl">
+    <main class="page-main page-stack overlay-page">
       <app-page-header titleKey="overlay.pageTitle" subtitleKey="overlay.pageSubtitle" />
 
+      <section class="overlay-guide">
+        <div><p class="duel-eyebrow">DUEL COMPANION</p><h2>{{ 'overlay.guideTitle' | translate }}</h2><p>{{ 'overlay.guideHint' | translate }}</p></div>
+        <ol class="overlay-steps">
+          <li><span>01</span><div><strong>{{ 'overlay.step1' | translate }}</strong><p>{{ 'overlay.step1Hint' | translate }}</p></div></li>
+          <li><span>02</span><div><strong>{{ 'overlay.step2' | translate }}</strong><p>{{ 'overlay.step2Hint' | translate }}</p></div></li>
+          <li><span>03</span><div><strong>{{ 'overlay.step3' | translate }}</strong><p>{{ (store.captureSupported() ? 'overlay.step3Hint' : 'overlay.step3ImageHint') | translate }}</p></div></li>
+        </ol>
+      </section>
       @if (store.errorKey(); as err) {
-        <div class="alert alert-warning alert-sm py-2 flex-col items-start gap-1">
+        <div class="alert alert-warning alert-sm py-2 flex-col items-start gap-1" role="alert">
           <span>{{ err | translate: store.statusParams() }}</span>
           <span class="text-xs opacity-80">{{ 'overlay.fallbackHint' | translate }}</span>
         </div>
@@ -32,7 +40,11 @@ import { OverlayStore } from '../stores/overlay.store';
         />
       </div>
 
-      <section class="surface-elevated rounded-xl border border-base-300/60 p-3 sm:p-4 space-y-3">
+      <section class="overlay-workspace surface-elevated" [class.overlay-dragging]="dragging()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+        <div class="overlay-drop-intro">
+          <div class="scan-emblem" aria-hidden="true"><span>✦</span></div>
+          <div><p class="duel-eyebrow">{{ 'overlay.workspaceLabel' | translate }}</p><h2>{{ 'overlay.dropTitle' | translate }}</h2><p>{{ 'overlay.dropHint' | translate }}</p></div>
+        </div>
         @if (!store.captureSupported()) {
           <div class="alert alert-info alert-sm py-2">
             <span>{{ 'overlay.liveDesktopOnly' | translate }}</span>
@@ -44,20 +56,21 @@ import { OverlayStore } from '../stores/overlay.store';
                 type="file"
                 accept="image/*"
                 capture="environment"
-                class="hidden"
+                class="sr-only"
+                [disabled]="busy()"
                 (change)="onFile($event)"
               />
             </label>
             <label class="btn btn-outline btn-md w-full cursor-pointer">
               {{ 'overlay.upload' | translate }}
-              <input type="file" accept="image/*" class="hidden" (change)="onFile($event)" />
+              <input type="file" accept="image/*" class="sr-only" [disabled]="busy()" (change)="onFile($event)" />
             </label>
           </div>
           <p class="text-xs text-base-content/70">{{ 'overlay.hintMobile' | translate }}</p>
         } @else {
           <div class="flex flex-wrap gap-2">
             @if (!store.liveActive()) {
-              <button type="button" class="btn btn-primary btn-sm" (click)="store.startLive()">
+              <button type="button" class="btn btn-primary btn-sm" [disabled]="busy()" (click)="store.startLive()">
                 {{ 'overlay.liveStart' | translate }}
               </button>
             } @else {
@@ -69,7 +82,7 @@ import { OverlayStore } from '../stores/overlay.store';
               }}</span>
             }
 
-            <button type="button" class="btn btn-outline btn-sm" (click)="store.pasteFromClipboard()">
+            <button type="button" class="btn btn-outline btn-sm" [disabled]="busy()" (click)="store.pasteFromClipboard()">
               {{ 'overlay.paste' | translate }}
             </button>
 
@@ -79,7 +92,7 @@ import { OverlayStore } from '../stores/overlay.store';
                 type="file"
                 accept="image/*"
                 capture="environment"
-                class="hidden"
+                class="sr-only" [disabled]="busy()"
                 (change)="onFile($event)"
               />
             </label>
@@ -118,30 +131,30 @@ import { OverlayStore } from '../stores/overlay.store';
         }
 
         @if (store.statusKey(); as status) {
-          <p class="text-sm text-base-content/80">
+          <p class="overlay-status" role="status" aria-live="polite">
             {{ status | translate: store.statusParams() }}
           </p>
         }
 
-        <div class="flex flex-col sm:flex-row gap-2">
+        <div class="overlay-manual flex flex-col sm:flex-row gap-3">
           <label class="form-control flex-1 min-w-0">
             <span class="label py-0 pb-1">
               <span class="label-text text-xs">{{ 'overlay.manualLabel' | translate }}</span>
             </span>
             <input
               type="search"
-              class="input input-bordered input-sm w-full"
+              class="input input-bordered w-full"
               [value]="store.manualQuery()"
               (input)="store.setManualQuery($any($event.target).value)"
-              (keydown.enter)="store.lookupManual()"
+              (keydown.enter)="lookupManual()"
               [attr.placeholder]="'overlay.manualPlaceholder' | translate"
             />
           </label>
           <button
             type="button"
-            class="btn btn-secondary btn-sm sm:self-end"
-            [disabled]="store.manualQuery().trim().length < 2"
-            (click)="store.lookupManual()"
+            class="btn btn-outline sm:self-end"
+            [disabled]="store.manualQuery().trim().length < 2 || busy()"
+            (click)="lookupManual()"
           >
             {{ 'overlay.manualLookup' | translate }}
           </button>
@@ -174,6 +187,28 @@ import { OverlayStore } from '../stores/overlay.store';
 })
 export class OverlayPage {
   protected readonly store = inject(OverlayStore);
+  readonly dragging = signal(false);
+  readonly busy = computed(() => ['capturing', 'ocr', 'resolving'].includes(this.store.phase()));
+
+  lookupManual(): void { if (!this.busy()) this.store.lookupManual(); }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    if (!this.busy()) this.dragging.set(true);
+  }
+
+  onDragLeave(event: DragEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    if (!(event.relatedTarget instanceof Node) || !target.contains(event.relatedTarget)) this.dragging.set(false);
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.dragging.set(false);
+    if (this.busy()) return;
+    const file = Array.from(event.dataTransfer?.files ?? []).find(file => file.type.startsWith('image/'));
+    if (file) this.store.processFile(file);
+  }
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.store.destroy());
@@ -189,6 +224,7 @@ export class OverlayPage {
 
   @HostListener('window:paste', ['$event'])
   onWindowPaste(event: ClipboardEvent): void {
+    if (this.busy()) return;
     const items = event.clipboardData?.items;
     if (!items) {
       return;
@@ -208,7 +244,7 @@ export class OverlayPage {
   onFile(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (file) {
+    if (file && !this.busy()) {
       this.store.processFile(file);
     }
     input.value = '';

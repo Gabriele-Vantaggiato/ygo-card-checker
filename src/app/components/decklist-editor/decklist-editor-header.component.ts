@@ -24,8 +24,8 @@ import { FormatStore } from '../../core/stores/format.store';
     <app-duel-panel>
       <div class="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-3">
         <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-        <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" (click)="back.emit()">
-          ←
+        <button type="button" class="btn btn-ghost btn-sm shrink-0" (click)="back.emit()" [attr.aria-label]="'nav.decklist' | translate">
+          ← <span class="hidden sm:inline">{{ 'nav.decklist' | translate }}</span>
         </button>
 
         <div class="flex-1 min-w-0 flex items-center gap-2">
@@ -42,7 +42,7 @@ import { FormatStore } from '../../core/stores/format.store';
               {{ 'decklist.renameSave' | translate }}
             </button>
           } @else {
-            <h2 class="font-bold text-lg truncate tracking-tight">{{ deck().name }}</h2>
+            <h1 class="font-display font-semibold text-2xl truncate tracking-tight">{{ deck().name }}</h1>
             <button
               type="button"
               class="btn btn-ghost btn-xs btn-square shrink-0"
@@ -73,6 +73,7 @@ import { FormatStore } from '../../core/stores/format.store';
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
+        <button type="button" class="btn btn-outline btn-sm" (click)="importText.emit()">{{ 'decklist.importText' | translate }}</button>
         <button type="button" class="btn btn-primary btn-sm" (click)="completeDeck.emit()">
           {{ 'decklist.completeDeck' | translate }}
         </button>
@@ -98,6 +99,10 @@ import { FormatStore } from '../../core/stores/format.store';
       </div>
       </div>
 
+      <div class="editor-context-note">
+        <span class="editor-save-indicator"><span aria-hidden="true">●</span>{{ 'ux.savedLocal' | translate }}</span>
+        <details><summary>{{ 'ux.editorGuide' | translate }} <span aria-hidden="true">ⓘ</span></summary><p>{{ 'ux.editorGuideHint' | translate }}</p></details>
+      </div>
       <div class="border-t border-base-300/60 px-3 py-2 sm:px-4">
         <app-deck-stats-strip [embedded]="true" [cards]="cards()" [mainTarget]="mainTarget()" />
       </div>

@@ -8,12 +8,13 @@ import {
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { I18nService } from '../../services/i18n.service';
 
+import { CardPreviewDirective } from '../../shared/ui/card-preview/card-preview.directive';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-related-panel',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [CardPreviewDirective, TranslatePipe],
   template: `
     <section
       [class.card]="!embedded()"
@@ -97,6 +98,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                         <button
                           type="button"
                           class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/80 text-left transition-colors"
+                          [cardPreview]="{ id: item.cardId, name: item.name, imageUrlSmall: item.imageSmall }"
                           (click)="cardSelected.emit(item.cardId)"
                         >
                           <img [src]="item.imageSmall" [alt]="" class="w-9 h-12 object-cover rounded shrink-0" loading="lazy" />

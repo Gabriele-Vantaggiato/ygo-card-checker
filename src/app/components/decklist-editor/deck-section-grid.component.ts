@@ -1,7 +1,8 @@
 import { CdkDrag, CdkDragDrop, CdkDragPlaceholder, CdkDragPreview, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, input, output, signal, viewChildren } from '@angular/core';
 import { DecklistCard } from '../../models/decklist.model';
+import { CardPreviewDirective } from '../../shared/ui/card-preview/card-preview.directive';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 import { verdictBannerClass } from '../../utils/legality-display.utils';
@@ -28,6 +29,7 @@ export interface DeckCardRemoveEvent {
   selector: 'app-deck-section-grid',
   standalone: true,
   imports: [
+    CardPreviewDirective,
     CdkDropListGroup,
     CdkDropList,
     CdkDrag,
@@ -39,18 +41,26 @@ export interface DeckCardRemoveEvent {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-duel-panel panelClass="overflow-hidden flex flex-col min-h-[24rem]">
+    <nav class="deck-section-nav" [attr.aria-label]="'ux.sectionNav' | translate">
+      @for (section of sections(); track section.key) {
+        <button type="button" class="btn btn-ghost btn-sm" (click)="jumpTo(section.key)">{{ section.titleKey | translate }} <span>{{ section.count }}</span></button>
+      }
+      <button type="button" class="btn btn-outline btn-sm ml-auto" (click)="searchRequested.emit()"><span aria-hidden="true">＋</span>{{ 'ux.addCards' | translate }}</button>
+    </nav>
+    <app-duel-panel panelClass="deck-board flex flex-col min-h-[24rem]">
       <p class="deck-dnd-hint px-3 pt-3 sm:px-4 text-[11px] text-base-content/50 leading-relaxed">
-        {{ 'decklist.editor.dragHint' | translate }}
+        {{ (coarsePointer ? 'ux.deckTouchHint' : 'ux.deckHoverHint') | translate }}
       </p>
 
       <div
-        class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 pt-2 pb-6 max-lg:pb-8 space-y-4 max-h-[min(70vh,48rem)]"
+        class="deck-section-content p-3 sm:p-4 pt-2 pb-6 space-y-5"
         cdkDropListGroup
       >
         @for (section of sections(); track section.key) {
           <section
             class="deck-section-drop"
+            #sectionAnchor
+            tabindex="-1"
             [class.deck-section-drop-target]="isDropTarget(section.key)"
             [attr.data-section]="section.key"
           >
@@ -103,6 +113,7 @@ export interface DeckCardRemoveEvent {
                     class="group relative aspect-[59/86] rounded deck-card-tile"
                     cdkDrag
                     [cdkDragData]="cell.card"
+                    [cdkDragDisabled]="coarsePointer"
                     [cdkDragStartDelay]="dragStartDelayMs"
                     (cdkDragStarted)="onDragStarted(section.key)"
                     (cdkDragEnded)="onDragEnded()"
@@ -121,6 +132,8 @@ export interface DeckCardRemoveEvent {
                       [class.border-transparent]="inspectedCardId() !== cell.card.id"
                       [class.ring-2]="inspectedCardId() === cell.card.id"
                       [class.ring-primary/40]="inspectedCardId() === cell.card.id"
+                      [cardPreview]="cell.card"
+                      [attr.aria-label]="cell.card.name"
                       (click)="cardInspect.emit(cell.card)"
                     >
                       @if (cell.card.imageUrlSmall; as src) {
@@ -229,7 +242,16 @@ export class DeckSectionGridComponent {
   readonly sections = input.required<DeckSectionViewModel[]>();
   readonly inspectedCardId = input<number | null>(null);
 
+  readonly searchRequested = output<void>();
   readonly cardInspect = output<DecklistCard>();
+  readonly coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  private readonly anchors = viewChildren<ElementRef<HTMLElement>>('sectionAnchor');
+
+  jumpTo(key: DeckSectionKey): void {
+    const section = this.anchors().find(item => item.nativeElement.dataset['section'] === key)?.nativeElement;
+    section?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    section?.focus({ preventScroll: true });
+  }
   readonly cardRemove = output<DeckCardRemoveEvent>();
   readonly cardMove = output<DeckCardMoveEvent>();
 

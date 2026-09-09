@@ -34,6 +34,8 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
           [attr.aria-label]="'search.label' | translate"
           [value]="query()"
           (input)="onInput($event)"
+          (keydown)="onKeydown($event)"
+          (focus)="openResults()"
           autocomplete="off"
           enterkeyhint="search"
         />
@@ -45,9 +47,21 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
       @if (!showDropdown() && !showDesktopList() && query().trim().length < 2) {
         <p class="checker-search-hint">{{ 'search.hint' | translate }}</p>
       } @else if (loading() || legalityLoading()) {
-        <p class="checker-search-hint">{{ 'search.loading' | translate }}</p>
+        <p class="checker-search-hint" role="status">{{ 'search.loading' | translate }}</p>
       }
 
+      @if (query().trim().length < 2) {
+        <div class="search-starters">
+          <p>{{ 'search.quickTitle' | translate }}</p>
+          <div class="flex flex-wrap gap-2">
+            @for (name of starterNames(); track name) {
+              <button type="button" class="btn btn-outline btn-sm" (click)="searchStarter(name)">{{ name }}</button>
+            }
+          </div>
+        </div>
+      } @else {
+        <p class="checker-search-hint hidden lg:block">{{ 'search.keyboardHint' | translate }}</p>
+      }
       @if (showDropdown()) {
         <ul class="checker-search-results lg:hidden">
           @if (loading() && listCards().length === 0) {
@@ -117,14 +131,13 @@ export class CardSearchComponent {
     const q = this.query().trim();
     return (
       this.dropdownOpen() &&
-      q.length >= 2 &&
-      (this.loading() || this.listCards().length > 0)
+      q.length >= 2
     );
   }
 
   showDesktopList(): boolean {
     const q = this.query().trim();
-    return q.length >= 2 && (this.loading() || this.listCards().length > 0 || this.hasSelectedInQuery());
+    return q.length >= 2;
   }
 
   listCards(): YgoCard[] {
@@ -155,6 +168,30 @@ export class CardSearchComponent {
       return false;
     }
     return this.query().trim().toLowerCase() === selected.name.toLowerCase();
+  }
+
+  openResults(): void { this.dropdownOpen.set(true); }
+
+  starterNames(): string[] {
+    return this.i18n.lang() === 'it'
+      ? ['Drago Bianco Occhi Blu', 'Mago Nero', 'Fioritura di Cenere']
+      : ['Blue-Eyes White Dragon', 'Dark Magician', 'Ash Blossom'];
+  }
+
+  searchStarter(name: string): void {
+    this.dropdownOpen.set(true);
+    this.queryChange.emit(name);
+  }
+
+  onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.dropdownOpen.set(false);
+      this.queryChange.emit('');
+    } else if (event.key === 'Enter' && !this.loading()) {
+      const first = this.listCards()[0];
+      if (first) { event.preventDefault(); this.selectCard(first); }
+    }
   }
 
   onInput(event: Event): void {

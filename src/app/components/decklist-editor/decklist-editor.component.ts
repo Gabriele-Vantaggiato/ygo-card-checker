@@ -1,5 +1,8 @@
 import {
   ChangeDetectionStrategy,
+  HostListener,
+  afterNextRender,
+  Injector,
   Component,
   DestroyRef,
   computed,
@@ -17,6 +20,7 @@ import { debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operato
 import { Decklist, DecklistCard } from '../../models/decklist.model';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
 import { CardLegalityFacade } from '../../services/card-legality.facade';
+import { ToastService } from '../../services/toast.service';
 import { I18nService } from '../../services/i18n.service';
 import { YgoApiService } from '../../services/ygo-api.service';
 import { splitDeckIntoYdkeSections, parseYdkeUrl } from '../../services/ydke.service';
@@ -137,6 +141,7 @@ import {
             <app-deck-section-grid
               [sections]="sectionViewModels()"
               [inspectedCardId]="deckInspectedCardId()"
+              (searchRequested)="focusSearch()"
               (cardInspect)="inspectDeckCard($event)"
               (cardRemove)="removeOneCopy($event.cardId, $event.event, $event.section)"
               (cardMove)="moveCardCopy($event)"
@@ -153,7 +158,7 @@ import {
             />
 
             @if (inspectViewModel(); as inspectVm) {
-              <app-deck-card-inspect-panel
+              <app-deck-card-inspect-panel class="hidden lg:block"
                 [view]="inspectVm"
                 (increment)="incrementInspect()"
                 (decrement)="decrementInspect()"
@@ -187,6 +192,7 @@ import {
 
         <app-deck-card-inspect-mobile
           [view]="inspectViewModel()"
+          (closed)="inspectCard.set(null)"
           (increment)="incrementInspect()"
           (decrement)="decrementInspect()"
           (removeCopy)="removeInspectedCopy()"
@@ -297,6 +303,19 @@ export class DecklistEditorComponent {
 
   readonly renaming = signal(false);
   readonly renameDraft = signal('');
+  private readonly renderInjector = inject(Injector);
+  focusSearch(): void {
+    this.mobileWorkspaceTab.set('search');
+    afterNextRender(() => this.searchSidebar()?.focusSearch(), { injector: this.renderInjector });
+  }
+  @HostListener('document:keydown', ['$event'])
+  onShortcut(event: KeyboardEvent): void {
+    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"], dialog, [role="dialog"]')) return;
+    event.preventDefault();
+    this.focusSearch();
+  }
   readonly mobileWorkspaceTab = signal<'deck' | 'search' | 'assist'>('deck');
   readonly inspectCard = signal<InspectTarget | null>(null);
   readonly inspectDesc = signal<string | null>(null);
@@ -598,11 +617,14 @@ export class DecklistEditorComponent {
     }
   }
 
+  private readonly toast = inject(ToastService);
+
   addSearchCard(card: YgoCard): void {
     const legality = this.searchLegalityMap().get(card.id);
     if (legality?.banlistStatus === 'Forbidden') {
       return;
     }
+    const previousQuantity = this.decklistStore.quantityInActive(card.id);
     this.decklistStore.addCard({
       id: card.id,
       name: card.name,
@@ -611,6 +633,7 @@ export class DecklistEditorComponent {
       banlistStatus: legality?.banlistStatus ?? null,
       legalityVerdict: legality?.verdict ?? null,
     });
+    if (this.decklistStore.quantityInActive(card.id) > previousQuantity) this.toast.success(this.i18n.translate('ux.cardAdded', { name: card.name }), 1800);
   }
 
   openInspectedInSearch(): void {

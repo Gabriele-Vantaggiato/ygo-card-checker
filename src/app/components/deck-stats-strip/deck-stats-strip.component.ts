@@ -39,6 +39,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               class="progress progress-primary w-20 sm:w-28 h-2"
               [value]="stat.progress"
               max="100"
+              [attr.aria-label]="stat.labelKey | translate"
             ></progress>
           }
         </div>

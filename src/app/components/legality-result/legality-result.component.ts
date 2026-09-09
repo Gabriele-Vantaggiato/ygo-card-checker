@@ -25,7 +25,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
   template: `
     @if (!card()) {
       <app-empty-state
-        icon="🃏"
+        icon="✦"
         titleKey="result.emptyTitle"
         hintKey="result.selectCard"
         hostClass="min-h-44 lg:min-h-[calc(100vh-14rem)]"
@@ -83,7 +83,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
                   <h3 class="font-semibold mb-2 text-sm uppercase tracking-wide text-base-content/80">
                     {{ 'result.effect' | translate }}
                   </h3>
-                  <p class="text-sm leading-relaxed whitespace-pre-line text-base-content/90 max-h-48 overflow-y-auto">
+                  <p class="text-base leading-relaxed whitespace-pre-line text-base-content/90">
                     {{ card()!.desc }}
                   </p>
                 </section>

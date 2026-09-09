@@ -58,6 +58,7 @@ import { SearchHistoryEntry } from '../../../models/search-history.model';
         </div>
       </header>
 
+      <div class="page-usage-note"><strong>{{ 'ux.searchGuide' | translate }}</strong><p>{{ 'ux.searchGuideHint' | translate }}</p></div>
       @if (deckReturn(); as ctx) {
         <div
           class="checker-deck-return"
@@ -258,7 +259,7 @@ export class CheckerPage {
   }
 
   scrollToSearch(): void {
-    this.searchPane()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.searchPane()?.nativeElement.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }
 
   scrollToDetail(): void {

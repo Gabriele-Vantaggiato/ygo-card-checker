@@ -7,12 +7,13 @@ import {
   verdictLabelKey,
 } from '../../utils/legality-display.utils';
 
+import { CardPreviewDirective } from '../../shared/ui/card-preview/card-preview.directive';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-search-history',
   standalone: true,
-  imports: [NgClass, TranslatePipe],
+  imports: [CardPreviewDirective, NgClass, TranslatePipe],
   template: `
     <section class="checker-history">
       <header class="checker-history-header">
@@ -62,6 +63,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
                   <button
                     type="button"
                     class="checker-history-pick"
+                    [cardPreview]="entry"
                     (click)="onSelectEntry(entry)"
                   >
                     @if (entry.imageUrlSmall; as src) {

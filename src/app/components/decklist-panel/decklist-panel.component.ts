@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { filter, map } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
+import { A11yModule } from '@angular/cdk/a11y';
 import { DecklistEditorComponent } from '../decklist-editor/decklist-editor.component';
 import { DecklistGridComponent } from '../decklist-grid/decklist-grid.component';
 import { I18nService } from '../../services/i18n.service';
@@ -15,16 +16,19 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-panel',
   standalone: true,
-  imports: [FormsModule, DecklistGridComponent, DecklistEditorComponent,
+  imports: [A11yModule, FormsModule, DecklistGridComponent, DecklistEditorComponent,
     TranslatePipe],
   template: `
     <section class="flex flex-col min-h-0 gap-4">
       @if (createOpen()) {
-        <dialog class="modal modal-open" open>
-          <div class="modal-box duel-modal">
-            <h3 class="font-bold text-lg">{{ 'decklist.create.title' | translate }}</h3>
+        <dialog class="modal modal-open" open aria-modal="true" aria-labelledby="create-deck-title" (keydown.escape)="cancelCreateDeck()">
+          <div class="modal-box duel-modal" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+            <h3 id="create-deck-title" class="font-display font-semibold text-2xl">{{ 'decklist.create.title' | translate }}</h3>
             <input
+              cdkFocusInitial
               type="text"
+              maxlength="100"
+              [attr.aria-label]="'decklist.create.placeholder' | translate"
               class="input input-bordered w-full mt-4"
               [placeholder]="'decklist.create.placeholder' | translate"
               [ngModel]="newDeckName()"
@@ -81,24 +85,17 @@ export class DecklistPanelComponent {
           cardId: params.get('cardId'),
           editor: params.get('editor'),
         })),
-        filter(({ deckId, editor }) => !!deckId && editor === '1'),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(({ deckId, cardId }) => {
-        if (!deckId || !this.decklistStore.getDeckById(deckId)) {
+      .subscribe(({ deckId, cardId, editor }) => {
+        if (!deckId || editor !== '1' || !this.decklistStore.getDeckById(deckId)) {
+          this.view.set('grid');
+          this.focusCardId.set(null);
           return;
         }
         this.decklistStore.setActiveDecklist(deckId);
         this.view.set('editor');
-        if (cardId && /^\d+$/.test(cardId)) {
-          this.focusCardId.set(Number(cardId));
-        }
-        void this.router.navigate([], {
-          relativeTo: this.route,
-          queryParams: { deckId: null, cardId: null, editor: null },
-          queryParamsHandling: 'merge',
-          replaceUrl: true,
-        });
+        this.focusCardId.set(cardId && /^\d+$/.test(cardId) ? Number(cardId) : null);
       });
   }
 
@@ -106,11 +103,13 @@ export class DecklistPanelComponent {
     this.focusCardId.set(null);
     this.decklistStore.setActiveDecklist(deckId);
     this.view.set('editor');
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { deckId, editor: '1', cardId: null }, queryParamsHandling: 'merge' });
   }
 
   closeEditor(): void {
     this.focusCardId.set(null);
     this.view.set('grid');
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { deckId: null, editor: null, cardId: null }, queryParamsHandling: 'merge' });
   }
 
   openCreateDeck(): void {

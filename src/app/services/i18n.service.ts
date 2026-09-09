@@ -16,7 +16,9 @@ export class I18nService {
   /** @deprecated Prefer `lang` signal. Kept for RxJS pipelines during migration. */
   readonly lang$ = toObservable(this.lang).pipe(distinctUntilChanged());
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {
+    document.documentElement.lang = this.lang();
+  }
 
   init$(): Observable<void> {
     return forkJoin([this.loadDictionary$('it'), this.loadDictionary$('en')]).pipe(
@@ -29,6 +31,7 @@ export class I18nService {
       return;
     }
     this.lang.set(lang);
+    document.documentElement.lang = lang;
     localStorage.setItem(this.storageKey, lang);
   }
 

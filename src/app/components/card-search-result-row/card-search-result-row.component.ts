@@ -9,12 +9,13 @@ import {
   verdictBadgeClass,
 } from '../../utils/legality-display.utils';
 
+import { CardPreviewDirective } from '../../shared/ui/card-preview/card-preview.directive';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-search-result-row',
   standalone: true,
-  imports: [AddToDecklistButtonComponent, NgClass,
+  imports: [CardPreviewDirective, AddToDecklistButtonComponent, NgClass,
     TranslatePipe],
   template: `
     <div
@@ -38,6 +39,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
         type="button"
         class="flex-1 min-w-0 flex items-center gap-2.5 p-2 sm:p-2.5 rounded-lg hover:bg-base-200/80 text-left transition-colors"
         [class.opacity-50]="legality()?.banlistStatus === 'Forbidden'"
+        [cardPreview]="card()"
         (click)="cardSelect.emit(card())"
       >
         @if (card().card_images[0]?.image_url_small; as src) {

@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, input, output } from '@angular/core';
+import { A11yModule } from '@angular/cdk/a11y';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { VerdictBadgeComponent } from '../../shared/ui/verdict-badge/verdict-badge.component';
 import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
@@ -92,56 +93,59 @@ export class DeckCardInspectPanelComponent {
 @Component({
   selector: 'app-deck-card-inspect-mobile',
   standalone: true,
-  imports: [TranslatePipe, VerdictBadgeComponent],
+  imports: [TranslatePipe, VerdictBadgeComponent, A11yModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (view(); as vm) {
-      <div class="lg:hidden rounded-xl border border-base-300 bg-base-100 p-3 flex flex-col gap-3">
-        <div class="flex gap-3 items-start">
-          @if (vm.imageUrl; as src) {
-            <img [src]="src" [alt]="vm.name" class="w-14 h-20 object-cover rounded-lg shrink-0" />
-          }
-          <div class="flex-1 min-w-0">
-            <p class="font-semibold text-sm leading-tight">{{ vm.name }}</p>
-            @if (vm.legality; as legality) {
-              <app-verdict-badge class="mt-1" mode="verdict" [verdict]="legality.verdict" size="xs" />
-            }
-            <div class="join mt-2">
-              <button type="button" class="btn btn-xs join-item" [disabled]="vm.qty === 0" (click)="decrement.emit()">
-                −
-              </button>
-              <span class="btn btn-xs join-item btn-disabled tabular-nums no-animation">×{{ vm.qty }}</span>
-              <button type="button" class="btn btn-xs join-item" [disabled]="!vm.canAdd" (click)="increment.emit()">
-                +
-              </button>
+    @if (isMobile() && view(); as vm) {
+      <div class="mobile-card-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-card-title" (keydown.escape)="closed.emit()">
+        <button type="button" class="mobile-card-backdrop" [attr.aria-label]="'ux.closeCard' | translate" (click)="closed.emit()"></button>
+        <section class="mobile-card-content" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+          <div class="mobile-card-handle" aria-hidden="true"></div>
+          <header class="flex items-center gap-3 px-5 pb-4 border-b border-base-300">
+            <p id="mobile-card-title" class="font-display text-xl font-semibold flex-1">{{ vm.name }}</p>
+            <button cdkFocusInitial type="button" class="btn btn-ghost btn-sm btn-circle" [attr.aria-label]="'ux.closeCard' | translate" (click)="closed.emit()">✕</button>
+          </header>
+          <div class="mobile-card-scroll">
+            <div class="flex items-start gap-4">
+              @if (vm.imageUrl; as src) { <img [src]="src" [alt]="vm.name" class="w-28 rounded-lg shadow-xl" /> }
+              <div class="space-y-3"><p class="text-sm text-base-content/70">{{ vm.type }}</p>
+                @if (vm.legality; as legality) {
+                  <app-verdict-badge mode="verdict" [verdict]="legality.verdict" size="sm" />
+                  <app-verdict-badge mode="quantity" [banlistStatus]="legality.banlistStatus" size="sm" />
+                }
+                <p class="text-sm">{{ vm.inDeckLabelKey | translate: vm.inDeckLabelParams }}</p>
+              </div>
             </div>
+            <section class="mt-5 rounded-xl bg-base-200 p-4">
+              <h3 class="text-xs uppercase tracking-widest text-primary mb-3">{{ 'result.effect' | translate }}</h3>
+              @if (vm.descLoading) { <p role="status">{{ 'search.loading' | translate }}</p> }
+              @else { <p class="text-sm leading-relaxed whitespace-pre-line">{{ vm.desc || ('ux.previewUnavailable' | translate) }}</p> }
+            </section>
           </div>
-          <button
-            type="button"
-            class="btn btn-ghost btn-xs btn-circle text-error shrink-0"
-            [disabled]="vm.qty === 0"
-            [attr.aria-label]="'decklist.editor.removeCopy' | translate"
-            (click)="removeCopy.emit()"
-          >
-            ✕
-          </button>
-        </div>
-        @if (vm.desc; as desc) {
-          <section class="rounded-lg bg-base-200/50 p-2.5 max-h-32 overflow-y-auto">
-            <h3 class="text-[10px] font-semibold uppercase tracking-wide text-base-content/60 mb-1">
-              {{ 'result.effect' | translate }}
-            </h3>
-            <p class="text-xs leading-relaxed whitespace-pre-line text-base-content/90">{{ desc }}</p>
-          </section>
-        }
+          <footer class="mobile-card-actions">
+            <p class="text-xs text-base-content/65 mb-3">{{ 'ux.copyHelp' | translate }}</p>
+            <div class="flex gap-3 items-center">
+              <button type="button" class="btn btn-outline flex-1" [disabled]="vm.qty === 0" (click)="decrement.emit()" [attr.aria-label]="'ux.lessCopy' | translate">−</button>
+              <span class="font-display text-2xl tabular-nums px-4" aria-live="polite">×{{ vm.qty }}</span>
+              <button type="button" class="btn btn-primary flex-1" [disabled]="!vm.canAdd" (click)="increment.emit()" [attr.aria-label]="'ux.moreCopy' | translate">＋</button>
+            </div>
+          </footer>
+        </section>
       </div>
     }
   `,
 })
 export class DeckCardInspectMobileComponent {
   readonly view = input<DeckCardInspectViewModel | null>(null);
-
   readonly increment = output<void>();
   readonly decrement = output<void>();
   readonly removeCopy = output<void>();
+  readonly closed = output<void>();
+  private readonly media = window.matchMedia('(max-width: 1023px)');
+  readonly isMobile = signal(this.media.matches);
+  constructor() {
+    const changed = (event: MediaQueryListEvent): void => this.isMobile.set(event.matches);
+    this.media.addEventListener('change', changed);
+    inject(DestroyRef).onDestroy(() => this.media.removeEventListener('change', changed));
+  }
 }

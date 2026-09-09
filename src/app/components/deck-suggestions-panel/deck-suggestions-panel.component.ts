@@ -2,13 +2,14 @@ import { ChangeDetectionStrategy, Component, inject, input, output } from '@angu
 import { CardRelatedGroup, CardRelatedSuggestion } from '../../models/card-knowledge.model';
 import { I18nService } from '../../services/i18n.service';
 
+import { CardPreviewDirective } from '../../shared/ui/card-preview/card-preview.directive';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-deck-suggestions-panel',
   standalone: true,
-  imports: [TranslatePipe, DuelPanelComponent],
+  imports: [CardPreviewDirective, TranslatePipe, DuelPanelComponent],
   template: `
     <app-duel-panel
       [panelClass]="(compact() ? 'min-h-0 h-full' : 'min-h-0') + ' overflow-hidden flex flex-col'"
@@ -64,6 +65,7 @@ import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.compon
                       <button
                         type="button"
                         class="w-full flex items-center gap-2 p-1.5 rounded-lg border border-transparent hover:border-primary/25 hover:bg-primary/5 text-left transition-colors"
+                        [cardPreview]="{ id: item.cardId, name: item.name, imageUrlSmall: item.imageSmall }"
                         (click)="cardSelected.emit(item)"
                       >
                         <img
