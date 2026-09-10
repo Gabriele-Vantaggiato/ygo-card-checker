@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS cards (
   link_val INTEGER,
   pendulum_scale INTEGER,
   is_extra_deck INTEGER NOT NULL DEFAULT 0,
-  synced_at TEXT NOT NULL
+  synced_at TEXT NOT NULL,
+  setcode_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS card_tags (

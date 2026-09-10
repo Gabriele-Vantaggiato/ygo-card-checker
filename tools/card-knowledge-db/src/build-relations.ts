@@ -17,6 +17,7 @@ interface CardMeta {
   archetype: string | null;
   race: string | null;
   desc_en: string;
+  setcode_json: string | null;
 }
 
 interface MentionIndex {
@@ -154,7 +155,7 @@ async function main(): Promise<void> {
   }
 
   const cards = db
-    .prepare('SELECT id, name, archetype, race, desc_en FROM cards')
+    .prepare('SELECT id, name, archetype, race, desc_en, setcode_json FROM cards')
     .all() as CardMeta[];
 
   const cardsById = new Map(cards.map((card) => [card.id, card]));
@@ -297,6 +298,52 @@ async function main(): Promise<void> {
         }
       }
     }
+
+    // BabelCDB setcode groups: ground-truth archetype membership from the
+    // official card database, independent of (and often broader than)
+    // YGOPRODeck's single `archetype` string. Runs after the heuristic
+    // archetype pass so official links win when both agree on a pair.
+    const bySetcode = new Map<number, CardMeta[]>();
+    for (const card of cards) {
+      if (!card.setcode_json) {
+        continue;
+      }
+      let codes: number[];
+      try {
+        codes = JSON.parse(card.setcode_json) as number[];
+      } catch {
+        continue;
+      }
+      for (const code of codes) {
+        const bucket = bySetcode.get(code) ?? [];
+        bucket.push(card);
+        bySetcode.set(code, bucket);
+      }
+    }
+
+    let setcodeRelations = 0;
+    for (const group of bySetcode.values()) {
+      if (group.length < 2) {
+        continue;
+      }
+      const fullMesh = group.length <= MAX_ARCHETYPE_GROUP_FULL_MESH;
+      for (const source of group) {
+        let linked = 0;
+        for (const target of group) {
+          if (source.id === target.id || linked >= MAX_ARCHETYPE_LINKS_PER_CARD) {
+            continue;
+          }
+          if (!fullMesh && !sharesArchetypeSignal(source, target)) {
+            continue;
+          }
+          insertRelation(db, source.id, target.id, 'archetype', fullMesh ? 0.9 : 0.8);
+          relations += 1;
+          setcodeRelations += 1;
+          linked += 1;
+        }
+      }
+    }
+    console.log(`BabelCDB setcode groups: ${bySetcode.size}, relations reinforced: ${setcodeRelations}`);
 
     for (const card of cards) {
       const nameLower = card.name.toLowerCase();

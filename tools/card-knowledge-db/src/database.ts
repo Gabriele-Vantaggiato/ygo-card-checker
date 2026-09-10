@@ -20,6 +20,7 @@ const CARD_COLUMN_MIGRATIONS = [
   'ALTER TABLE cards ADD COLUMN is_extra_deck INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE cards ADD COLUMN ban_goat TEXT',
   'ALTER TABLE cards ADD COLUMN formats_json TEXT',
+  'ALTER TABLE cards ADD COLUMN setcode_json TEXT',
 ] as const;
 
 function migrateCardTagsSource(db: DatabaseSync): void {

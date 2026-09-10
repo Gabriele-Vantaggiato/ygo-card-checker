@@ -11,6 +11,7 @@
     "db:sync:full": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/sync.ts --it",
     "db:tag": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/tag.ts",
     "db:parse-effects": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/parse-effects.ts",
+    "db:babel": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/sync-babelcdb.ts",
     "db:relations": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-relations.ts",
     "db:format-legality": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-format-legality.ts",
     "db:export:formats": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/export-format-legality.ts",
@@ -23,7 +24,7 @@
     "db:test:segoc": "node --import tsx tools/card-knowledge-db/src/segoc-parser.test.ts",
     "db:stats": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/stats.ts",
     "db:query": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/query-card.ts",
-    "db:build": "npm run db:sync && npm run db:parse-effects && npm run db:tag && npm run db:format-legality && npm run db:relations && npm run db:export && npm run db:export:formats && npm run db:combos && npm run db:mdpro-scripts && npm run db:effect-scripts"
+    "db:build": "npm run db:sync && npm run db:babel && npm run db:parse-effects && npm run db:tag && npm run db:format-legality && npm run db:relations && npm run db:export && npm run db:export:formats && npm run db:combos && npm run db:mdpro-scripts && npm run db:effect-scripts"
   },
   "prettier": {
     "printWidth": 100,
