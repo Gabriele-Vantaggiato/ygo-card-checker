@@ -1,32 +1,131 @@
+import { createsCycle } from './flow-graph.utils';
 import { Injectable } from '@angular/core';
 import { FlowCanvasState, FlowNode, YgoFlowDocument } from '../../../models/ygo-flow.model';
 
 export type YgoFlowIoResult<T> = { ok: true; value: T } | { ok: false; errorKey: string };
 
-const NODE_W = 128;
-const NODE_H = 176;
-const IMAGE_H = 140;
+const NODE_W = 224;
+const NODE_H = 208;
 const PADDING = 60;
 const EXPORT_SCALE = 2;
 
-function isYgoFlowDocument(value: unknown): value is YgoFlowDocument {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
+export function isYgoFlowDocument(value: unknown): value is YgoFlowDocument {
+  if (!value || typeof value !== 'object') return false;
   const doc = value as Partial<YgoFlowDocument>;
-  return (
-    doc.version === 1 &&
-    typeof doc.ydke === 'string' &&
-    typeof doc.canvas === 'object' &&
-    doc.canvas !== null &&
-    Array.isArray((doc.canvas as FlowCanvasState).nodes) &&
-    Array.isArray((doc.canvas as FlowCanvasState).edges) &&
-    typeof doc.roles === 'object' &&
-    doc.roles !== null
+  if (
+    doc.version !== 1 ||
+    typeof doc.ydke !== 'string' ||
+    !doc.canvas ||
+    !Array.isArray(doc.canvas.nodes) ||
+    !Array.isArray(doc.canvas.edges) ||
+    !doc.roles ||
+    typeof doc.roles !== 'object' ||
+    Array.isArray(doc.roles)
+  )
+    return false;
+  if (doc.canvas.nodes.length > 1500 || doc.canvas.edges.length > 5000) return false;
+  if (doc.name !== undefined && (typeof doc.name !== 'string' || doc.name.length > 200))
+    return false;
+  if (
+    ![doc.canvas.zoom, doc.canvas.panX, doc.canvas.panY].every(
+      (n) => typeof n === 'number' && Number.isFinite(n),
+    )
+  )
+    return false;
+  if (doc.canvas.zoom < 0.1 || doc.canvas.zoom > 4) return false;
+  const ids = new Set<string>();
+  for (const node of doc.canvas.nodes) {
+    if (
+      !node ||
+      typeof node.id !== 'string' ||
+      ids.has(node.id) ||
+      typeof node.name !== 'string' ||
+      typeof node.action !== 'string' ||
+      typeof node.imageSmall !== 'string' ||
+      !Number.isFinite(node.x) ||
+      !Number.isFinite(node.y) ||
+      !Array.isArray(node.interrupts)
+    )
+      return false;
+    if (node.cardId !== null && (!Number.isSafeInteger(node.cardId) || node.cardId <= 0))
+      return false;
+    if (
+      node.kind !== undefined &&
+      !['start', 'action', 'condition', 'outcome', 'note'].includes(node.kind)
+    )
+      return false;
+    if (node.notes !== undefined && typeof node.notes !== 'string') return false;
+    if (node.collapsed !== undefined && typeof node.collapsed !== 'boolean') return false;
+    if (
+      node.interrupts.some((tag) => !['veiler', 'maxx_c', 'bottomless', 'nightmare'].includes(tag))
+    )
+      return false;
+    if (node.card !== undefined) {
+      const card = node.card;
+      if (
+        !card ||
+        typeof card !== 'object' ||
+        card.id !== node.cardId ||
+        typeof card.name !== 'string' ||
+        typeof card.type !== 'string' ||
+        typeof card.desc !== 'string' ||
+        !Array.isArray(card.card_images)
+      )
+        return false;
+      if (
+        card.card_images.some(
+          (image) =>
+            !image ||
+            typeof image.image_url !== 'string' ||
+            typeof image.image_url_small !== 'string' ||
+            !Number.isSafeInteger(image.id),
+        )
+      )
+        return false;
+      if (
+        ['atk', 'def', 'level'].some(
+          (key) =>
+            card[key as 'atk' | 'def' | 'level'] !== undefined &&
+            !Number.isFinite(card[key as 'atk' | 'def' | 'level']),
+        )
+      )
+        return false;
+    }
+    ids.add(node.id);
+  }
+  const checked: typeof doc.canvas.edges = [];
+  const edgeIds = new Set<string>();
+  for (const edge of doc.canvas.edges) {
+    if (
+      !edge ||
+      typeof edge.id !== 'string' ||
+      edgeIds.has(edge.id) ||
+      !ids.has(edge.from) ||
+      !ids.has(edge.to) ||
+      (edge.label !== undefined && typeof edge.label !== 'string')
+    )
+      return false;
+    if (
+      checked.some((other) => other.from === edge.from && other.to === edge.to) ||
+      createsCycle(checked, edge.from, edge.to)
+    )
+      return false;
+    checked.push(edge);
+    edgeIds.add(edge.id);
+  }
+  return Object.values(doc.roles).every((role) =>
+    ['starter', 'extender', 'handtrap', 'untagged'].includes(role),
   );
 }
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -109,7 +208,10 @@ export class YgoFlowIoService {
   }
 
   /** Renders nodes + bezier edges to an offscreen 2x canvas and downloads it as PNG. */
-  async exportPng(state: FlowCanvasState, filename = 'ygoflow.png'): Promise<YgoFlowIoResult<void>> {
+  async exportPng(
+    state: FlowCanvasState,
+    filename = 'ygoflow.png',
+  ): Promise<YgoFlowIoResult<void>> {
     if (state.nodes.length === 0) {
       return { ok: false, errorKey: 'flow.io.error.emptyCanvas' };
     }
@@ -121,14 +223,19 @@ export class YgoFlowIoService {
     const width = maxX - minX + PADDING * 2;
     const height = maxY - minY + PADDING * 2;
 
+    const scale = Math.min(
+      EXPORT_SCALE,
+      8192 / Math.max(width, height),
+      Math.sqrt(24000000 / (width * height)),
+    );
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(width * EXPORT_SCALE));
-    canvas.height = Math.max(1, Math.round(height * EXPORT_SCALE));
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       return { ok: false, errorKey: 'flow.io.error.canvasUnsupported' };
     }
-    ctx.scale(EXPORT_SCALE, EXPORT_SCALE);
+    ctx.scale(scale, scale);
 
     ctx.fillStyle = '#0b0f14';
     ctx.fillRect(0, 0, width, height);
@@ -151,13 +258,19 @@ export class YgoFlowIoService {
         continue;
       }
       const a = center(from);
+      a.x += NODE_W / 2;
       const b = center(to);
+      b.x -= NODE_W / 2;
       const cx = a.x + (b.x - a.x) / 2;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.bezierCurveTo(cx, a.y, cx, b.y, b.x, b.y);
       ctx.stroke();
       this.drawArrowHead(ctx, cx, b.y, b.x, b.y);
+      ctx.font = '12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(edge.label || '', cx, (a.y + b.y) / 2 - 12);
+      ctx.textAlign = 'left';
     }
 
     for (const node of state.nodes) {
@@ -174,7 +287,7 @@ export class YgoFlowIoService {
       if (node.imageSmall) {
         try {
           const img = await this.loadImage(node.imageSmall);
-          ctx.drawImage(img, x + 4, y + 4, NODE_W - 8, IMAGE_H - 8);
+          ctx.drawImage(img, x + 10, y + 38, 64, 94);
         } catch {
           // No CORS / network access — keep the placeholder card back.
         }
@@ -182,12 +295,23 @@ export class YgoFlowIoService {
 
       ctx.fillStyle = '#e2e8f0';
       ctx.font = '600 11px system-ui, sans-serif';
-      wrapText(ctx, node.name, x + 6, y + IMAGE_H + 14, NODE_W - 12, 13);
+      ctx.fillStyle = '#d5b77a';
+      ctx.fillText((node.kind || 'action').toUpperCase(), x + 10, y + 20);
+      ctx.fillStyle = '#eee6d5';
+      wrapText(
+        ctx,
+        node.name,
+        x + (node.imageSmall ? 84 : 10),
+        y + 45,
+        NODE_W - (node.imageSmall ? 94 : 20),
+        15,
+        3,
+      );
 
       if (node.action) {
         ctx.fillStyle = '#67e8f9';
         ctx.font = 'italic 10px system-ui, sans-serif';
-        wrapText(ctx, node.action, x + 6, y + NODE_H - 10, NODE_W - 12, 11, 1);
+        wrapText(ctx, node.action, x + 10, y + 152, NODE_W - 20, 13, 4);
       }
 
       if (node.interrupts.length > 0) {
@@ -206,7 +330,13 @@ export class YgoFlowIoService {
     return { ok: true, value: undefined };
   }
 
-  private drawArrowHead(ctx: CanvasRenderingContext2D, fromX: number, fromY: number, x: number, y: number): void {
+  private drawArrowHead(
+    ctx: CanvasRenderingContext2D,
+    fromX: number,
+    fromY: number,
+    x: number,
+    y: number,
+  ): void {
     const angle = Math.atan2(y - fromY, x - fromX);
     const size = 7;
     ctx.beginPath();
@@ -221,8 +351,18 @@ export class YgoFlowIoService {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('image load failed'));
+      const timer = setTimeout(() => {
+        img.src = '';
+        reject(new Error('image timeout'));
+      }, 4000);
+      img.onload = () => {
+        clearTimeout(timer);
+        resolve(img);
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('image load failed'));
+      };
       img.src = src;
     });
   }

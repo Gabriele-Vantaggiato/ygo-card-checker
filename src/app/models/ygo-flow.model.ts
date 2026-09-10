@@ -18,7 +18,14 @@ export interface FlowCard {
   role: CardRoleTag;
 }
 
+export type FlowNodeKind = 'start' | 'action' | 'condition' | 'outcome' | 'note';
+
 export interface FlowNode {
+  /** Card snapshot travels with the Flow, even without an associated deck. */
+  card?: YgoCard;
+  kind?: FlowNodeKind;
+  notes?: string;
+  collapsed?: boolean;
   id: string;
   cardId: number | null;
   name: string;
@@ -30,6 +37,7 @@ export interface FlowNode {
 }
 
 export interface FlowEdge {
+  label?: string;
   id: string;
   from: string;
   to: string;
@@ -78,6 +86,7 @@ export interface WizardAnalysis {
 }
 
 export interface YgoFlowDocument {
+  name?: string;
   version: 1;
   ydke: string;
   canvas: FlowCanvasState;

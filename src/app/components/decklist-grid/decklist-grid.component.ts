@@ -20,7 +20,7 @@ import { DecklistTileComponent } from './decklist-tile.component';
           <p class="duel-hero-description">{{ 'studio.description' | translate }}</p>
           <div class="flex flex-wrap gap-3 mt-6">
             <button type="button" class="btn btn-primary gap-3" (click)="createRequested.emit()"><span aria-hidden="true">＋</span>{{ 'decklist.create.button' | translate }}</button>
-            <a routerLink="/" class="btn btn-ghost gap-3">{{ 'studio.explore' | translate }} <span aria-hidden="true">↗</span></a>
+            <a routerLink="/search" class="btn btn-ghost gap-3">{{ 'studio.explore' | translate }} <span aria-hidden="true">↗</span></a>
           </div>
           <p class="duel-hero-note"><span aria-hidden="true">◇</span> {{ 'studio.localNote' | translate }}</p>
         </div>
@@ -34,7 +34,7 @@ import { DecklistTileComponent } from './decklist-tile.component';
       </header>
 
       <div class="studio-tool-links">
-        <a routerLink="/" class="studio-tool-link"><span class="studio-tool-number">01</span><div><strong>{{ 'studio.searchTitle' | translate }}</strong><span>{{ 'studio.searchHint' | translate }}</span></div><span aria-hidden="true">↗</span></a>
+        <a routerLink="/search" class="studio-tool-link"><span class="studio-tool-number">01</span><div><strong>{{ 'studio.searchTitle' | translate }}</strong><span>{{ 'studio.searchHint' | translate }}</span></div><span aria-hidden="true">↗</span></a>
         <a routerLink="/overlay" class="studio-tool-link"><span class="studio-tool-number">02</span><div><strong>{{ 'studio.overlayTitle' | translate }}</strong><span>{{ 'studio.overlayHint' | translate }}</span></div><span aria-hidden="true">↗</span></a>
         <a routerLink="/flow" class="studio-tool-link"><span class="studio-tool-number">03</span><div><strong>{{ 'studio.flowTitle' | translate }}</strong><span>{{ 'studio.flowHint' | translate }}</span></div><span aria-hidden="true">↗</span></a>
       </div>

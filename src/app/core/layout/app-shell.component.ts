@@ -38,7 +38,7 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
           class="navbar studio-navbar"
         >
           <div class="flex-1 min-w-0">
-            <a routerLink="/decklist" class="app-brand whitespace-nowrap"><span class="brand-seal" aria-hidden="true">✦</span>
+            <a routerLink="/" class="app-brand whitespace-nowrap"><span class="brand-seal" aria-hidden="true">✦</span>
               <span class="lg:hidden">{{ 'app.titleShort' | translate }}</span>
               <span class="hidden lg:inline">{{ 'app.title' | translate }}</span>
             </a>
@@ -51,7 +51,7 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
               </a>
               <a
                 ariaCurrentWhenActive="page"
-                routerLink="/"
+                routerLink="/search"
                 routerLinkActive="tab-active"
                 [routerLinkActiveOptions]="{ exact: true }"
                 class="tab text-sm px-3"
@@ -97,7 +97,7 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
           <span class="mobile-tab-label">{{ 'nav.decklist' | translate }}</span>
         </a>
         <a
-          routerLink="/"
+          routerLink="/search"
           ariaCurrentWhenActive="page" routerLinkActive="mobile-tab-active"
           [routerLinkActiveOptions]="{ exact: true }"
           class="mobile-tab"

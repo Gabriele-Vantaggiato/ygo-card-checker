@@ -1,6 +1,8 @@
-import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { createsCycle, layoutFlow } from '../services/flow-graph.utils';
+import { isYgoFlowDocument } from '../services/ygo-flow-io.service';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, forkJoin, of } from 'rxjs';
+import { Subscription, catchError, forkJoin, of } from 'rxjs';
 import { YgoCard } from '../../../models/ygo-card.model';
 import {
   CardRoleTag,
@@ -21,18 +23,29 @@ import { EffectScriptService } from '../../../services/effect-script.service';
 import { I18nService } from '../../../services/i18n.service';
 import { YdkeSections, YdkeService } from '../../../services/ydke.service';
 import { YgoApiService } from '../../../services/ygo-api.service';
-import { clamp01, hypergeometricAtLeastOne, hypergeometricBothClasses } from '../../../utils/hypergeo.utils';
+import {
+  clamp01,
+  hypergeometricAtLeastOne,
+  hypergeometricBothClasses,
+} from '../../../utils/hypergeo.utils';
 import { DecklistStore } from '../../decklist/stores/decklist.store';
 import { ComboWizardService } from '../services/combo-wizard.service';
 
 export type FlowZoneKey = 'deck' | 'hand' | 'monsters' | 'spellTraps' | 'gy';
 
 const EMPTY_CANVAS: FlowCanvasState = { nodes: [], edges: [], zoom: 1, panX: 0, panY: 0 };
-const EMPTY_SOLITAIRE: SolitaireState = { deck: [], hand: [], monsters: [], spellTraps: [], gy: [], log: [] };
+const EMPTY_SOLITAIRE: SolitaireState = {
+  deck: [],
+  hand: [],
+  monsters: [],
+  spellTraps: [],
+  gy: [],
+  log: [],
+};
 const HAND_SIZE = 5;
-const MIN_ZOOM = 0.4;
+const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 2;
-const CANVAS_STEP_X = 190;
+const CANVAS_STEP_X = 324;
 const CANVAS_START_Y = 80;
 
 let idCounter = 0;
@@ -110,7 +123,9 @@ export class YgoFlowStore {
       extenders,
       handtraps,
       pAtLeastOneStarter: hypergeometricAtLeastOne(deckSize, starters, HAND_SIZE),
-      pBrick: clamp01(1 - hypergeometricAtLeastOne(deckSize, starters + extenders + handtraps, HAND_SIZE)),
+      pBrick: clamp01(
+        1 - hypergeometricAtLeastOne(deckSize, starters + extenders + handtraps, HAND_SIZE),
+      ),
       pStarterPlusExtenderOrTrap: hypergeometricBothClasses(
         deckSize,
         starters,
@@ -135,12 +150,109 @@ export class YgoFlowStore {
     return main.length === 0 ? [] : this.comboWizard.chokepointsAdvice({ main });
   });
 
+  readonly flowName = signal('Il mio Flow');
+  readonly saveState = signal('Salvataggio locale');
+  readonly undoStack = signal<FlowCanvasState[]>([]);
+  readonly redoStack = signal<FlowCanvasState[]>([]);
+  private deckRequest?: Subscription;
+  constructor() {
+    try {
+      const raw = localStorage.getItem('ygo-flow-workspace-v2');
+      const doc: unknown = raw ? JSON.parse(raw) : null;
+      if (isYgoFlowDocument(doc)) {
+        this.canvas.set(doc.canvas);
+        this.roles.set(doc.roles);
+        this.flowName.set(doc.name || 'Il mio Flow');
+        this.ydkeInput.set(doc.ydke);
+      }
+    } catch {
+      this.saveState.set('Archivio locale non disponibile');
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const save = () => {
+      try {
+        localStorage.setItem('ygo-flow-workspace-v2', JSON.stringify(this.exportDocument()));
+        this.saveState.set('Salvato su questo dispositivo');
+      } catch {
+        this.saveState.set('Salvataggio non riuscito: esporta il Flow');
+      }
+    };
+    effect(() => {
+      this.canvas();
+      this.roles();
+      this.flowName();
+      this.ydkeInput();
+      clearTimeout(timer);
+      timer = setTimeout(save, 350);
+    });
+    this.destroyRef.onDestroy(() => {
+      clearTimeout(timer);
+      save();
+    });
+  }
+  checkpoint(): void {
+    this.undoStack.update((stack) => [...stack.slice(-49), this.canvas()]);
+    this.redoStack.set([]);
+  }
+  undo(): void {
+    const stack = this.undoStack();
+    if (!stack.length) return;
+    this.redoStack.update((items) => [...items, this.canvas()]);
+    this.canvas.set(stack[stack.length - 1]);
+    this.undoStack.set(stack.slice(0, -1));
+  }
+  redo(): void {
+    const stack = this.redoStack();
+    if (!stack.length) return;
+    this.undoStack.update((items) => [...items, this.canvas()]);
+    this.canvas.set(stack[stack.length - 1]);
+    this.redoStack.set(stack.slice(0, -1));
+  }
+  editNode(
+    id: string,
+    patch: Partial<Pick<FlowNode, 'name' | 'action' | 'kind' | 'notes' | 'collapsed'>>,
+  ): void {
+    this.checkpoint();
+    this.canvas.update((state) => ({
+      ...state,
+      nodes: state.nodes.map((node) => (node.id === id ? { ...node, ...patch } : node)),
+    }));
+  }
+  connect(from: string, to: string, label = ''): boolean {
+    const state = this.canvas();
+    if (
+      !state.nodes.some((n) => n.id === from) ||
+      !state.nodes.some((n) => n.id === to) ||
+      state.edges.some((e) => e.from === from && e.to === to) ||
+      createsCycle(state.edges, from, to)
+    )
+      return false;
+    this.checkpoint();
+    this.canvas.update((s) => ({
+      ...s,
+      edges: [...s.edges, { id: nextId('edge'), from, to, label }],
+    }));
+    return true;
+  }
+  editEdge(id: string, label: string): void {
+    this.checkpoint();
+    this.canvas.update((s) => ({
+      ...s,
+      edges: s.edges.map((e) => (e.id === id ? { ...e, label } : e)),
+    }));
+  }
+  arrange(): void {
+    this.checkpoint();
+    this.canvas.update(layoutFlow);
+  }
   setSelectedDeckId(deckId: string): void {
     this.selectedDeckId.set(deckId || null);
   }
 
   /** Load the selected (or active) decklist into the lab — preferred entry path. */
   loadFromDecklist(deckId?: string): void {
+    this.deckRequest?.unsubscribe();
+    this.loading.set(false);
     const options = this.deckOptions();
     if (options.length === 0) {
       this.errorKey.set('flow.error.noDecklists');
@@ -182,6 +294,8 @@ export class YgoFlowStore {
 
   /** Used only by .ygoflow import (legacy ydke payload inside the document). */
   loadYdke(rawInput?: string): void {
+    this.deckRequest?.unsubscribe();
+    this.loading.set(false);
     const input = (rawInput ?? this.ydkeInput()).trim();
     if (!input) {
       this.errorKey.set('flow.error.emptyInput');
@@ -214,7 +328,8 @@ export class YgoFlowStore {
     this.errorKey.set(null);
     const lang = this.i18n.lang();
 
-    forkJoin({
+    this.deckRequest?.unsubscribe();
+    this.deckRequest = forkJoin({
       cards: this.ygoApi.getCardsByIds$(allIds, lang),
       scripts: this.effectScripts.ensureLoaded$().pipe(catchError(() => of(null))),
     })
@@ -234,7 +349,9 @@ export class YgoFlowStore {
             ids
               .map((id) => byId.get(id))
               .filter((card): card is YgoCard => !!card)
-              .map((card) => toFlowCard(card, scriptToRoles(this.effectScripts.getScript(card.id))));
+              .map((card) =>
+                toFlowCard(card, scriptToRoles(this.effectScripts.getScript(card.id))),
+              );
 
           const main = build(sections.main);
           const extra = build(sections.extra);
@@ -250,7 +367,7 @@ export class YgoFlowStore {
           this.resolvedDeck.set({ ydke: ydkeSnapshot, main, extra, side, byId });
           this.ydkeInput.set(ydkeSnapshot);
           this.roles.set(this.pendingRoles ?? this.defaultRoles([...main, ...extra, ...side]));
-          this.canvas.set(this.pendingCanvas ?? EMPTY_CANVAS);
+          if (this.pendingCanvas) this.canvas.set(this.pendingCanvas);
           this.pendingCanvas = null;
           this.pendingRoles = null;
           this.resetSolitaire();
@@ -275,11 +392,23 @@ export class YgoFlowStore {
   // ---- Canvas: nodes / edges / zoom / pan --------------------------------
 
   addNode(card: FlowCard | null, x = 60, y = 60): string {
+    this.checkpoint();
     const id = nextId('node');
     const script = card ? this.effectScripts.getScript(card.passcode) : undefined;
     const node: FlowNode = {
       id,
       cardId: card?.passcode ?? null,
+      card: card
+        ? (this.resolvedDeck()?.byId.get(card.passcode) ?? {
+            id: card.passcode,
+            name: card.name,
+            type: card.type,
+            desc: card.desc,
+            card_images: [
+              { id: card.passcode, image_url: card.image, image_url_small: card.imageSmall },
+            ],
+          })
+        : undefined,
       name: card?.name ?? this.i18n.t('flow.canvas.blankNode'),
       action: '',
       imageSmall: card?.imageSmall ?? '',
@@ -291,7 +420,26 @@ export class YgoFlowStore {
     return id;
   }
 
+  attachCard(id: string, card: YgoCard): void {
+    this.checkpoint();
+    this.canvas.update((state) => ({
+      ...state,
+      nodes: state.nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              card,
+              cardId: card.id,
+              name: card.name,
+              imageSmall: card.card_images[0]?.image_url_small ?? '',
+              interrupts: scriptToFlowInterrupts(this.effectScripts.getScript(card.id)),
+            }
+          : node,
+      ),
+    }));
+  }
   removeNode(id: string): void {
+    this.checkpoint();
     this.canvas.update((state) => ({
       ...state,
       nodes: state.nodes.filter((n) => n.id !== id),
@@ -310,6 +458,7 @@ export class YgoFlowStore {
   }
 
   updateNodeAction(id: string, action: string): void {
+    this.checkpoint();
     this.canvas.update((state) => ({
       ...state,
       nodes: state.nodes.map((n) => (n.id === id ? { ...n, action } : n)),
@@ -328,12 +477,7 @@ export class YgoFlowStore {
       return;
     }
     this.linkingFrom.set(null);
-    const exists = this.canvas().edges.some((e) => e.from === from && e.to === id);
-    if (exists) {
-      return;
-    }
-    const edge: FlowEdge = { id: nextId('edge'), from, to: id };
-    this.canvas.update((state) => ({ ...state, edges: [...state.edges, edge] }));
+    this.connect(from, id);
   }
 
   cancelConnect(): void {
@@ -341,6 +485,7 @@ export class YgoFlowStore {
   }
 
   removeEdge(id: string): void {
+    this.checkpoint();
     this.canvas.update((state) => ({ ...state, edges: state.edges.filter((e) => e.id !== id) }));
   }
 
@@ -358,6 +503,7 @@ export class YgoFlowStore {
   }
 
   resetCanvas(): void {
+    this.checkpoint();
     this.canvas.set(EMPTY_CANVAS);
     this.linkingFrom.set(null);
   }
@@ -377,6 +523,7 @@ export class YgoFlowStore {
       nodes.push({
         id,
         cardId: step.cardId ?? null,
+        card: step.cardId != null ? this.resolvedDeck()?.byId.get(step.cardId) : undefined,
         name: card?.name ?? step.title,
         action: step.detail,
         imageSmall: card?.imageSmall ?? '',
@@ -390,6 +537,7 @@ export class YgoFlowStore {
       previousId = id;
     });
 
+    this.checkpoint();
     this.canvas.set({ nodes, edges, zoom: 1, panX: 0, panY: 0 });
   }
 
@@ -470,6 +618,7 @@ export class YgoFlowStore {
       '';
     return {
       version: 1,
+      name: this.flowName(),
       ydke,
       canvas: this.canvas(),
       roles: this.roles(),
@@ -478,9 +627,18 @@ export class YgoFlowStore {
   }
 
   loadDocument(doc: YgoFlowDocument): void {
-    this.pendingCanvas = doc.canvas;
+    this.deckRequest?.unsubscribe();
+    this.loading.set(false);
+    this.checkpoint();
+    this.selectedDeckId.set(null);
+    this.resolvedDeck.set(null);
+    this.errorKey.set(null);
+    this.canvas.set(doc.canvas);
+    this.roles.set(doc.roles);
+    this.flowName.set(doc.name || 'Flow importato');
+    this.ydkeInput.set(doc.ydke);
     this.pendingRoles = doc.roles;
-    this.loadYdke(doc.ydke);
+    if (doc.ydke) this.loadYdke(doc.ydke);
   }
 
   private findCardByPasscode(passcode: number): FlowCard | undefined {

@@ -1,4 +1,5 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, Routes } from '@angular/router';
 import { AppShellComponent } from './core/layout/app-shell.component';
 
 export const routes: Routes = [
@@ -8,6 +9,18 @@ export const routes: Routes = [
     children: [
       {
         path: '',
+        pathMatch: 'full',
+        canActivate: [
+          (route) =>
+            route.queryParamMap.has('cardId')
+              ? inject(Router).createUrlTree(['/search'], { queryParams: route.queryParams })
+              : true,
+        ],
+        loadComponent: () =>
+          import('./features/landing/pages/landing.page').then((m) => m.LandingPage),
+      },
+      {
+        path: 'search',
         loadComponent: () =>
           import('./features/checker/pages/checker.page').then((m) => m.CheckerPage),
       },

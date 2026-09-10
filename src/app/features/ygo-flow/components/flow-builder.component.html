@@ -1,0 +1,466 @@
+<section class="flow-studio" [class.flow-studio-expanded]="expanded()">
+  <header class="flow-studio-heading">
+    <div>
+      <span class="duel-eyebrow">ENGINE LAB / FLOW BUILDER</span
+      ><input
+        class="flow-title"
+        aria-label="Nome del Flow"
+        maxlength="200"
+        [value]="store.flowName()"
+        (change)="store.flowName.set($any($event.target).value)"
+      />
+      <p role="status">
+        {{ store.saveState() }} · {{ store.canvas().nodes.length }} passaggi ·
+        {{ store.canvas().edges.length }} collegamenti
+      </p>
+    </div>
+    <button class="btn btn-sm btn-ghost" (click)="expanded.set(!expanded())">
+      {{ expanded() ? 'Riduci ↙' : 'Espandi ↗' }}
+    </button>
+  </header>
+  <div class="flow-file-tools">
+    <div>
+      <strong>Il tuo Flow, da portare con te</strong>
+      <p>
+        Il file .ygoflow conserva carte, effetti, note e collegamenti. Il PNG è un’anteprima
+        grafica.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button class="btn btn-sm btn-outline" (click)="importFlow.emit()">↥ Importa Flow</button
+      ><button class="btn btn-sm btn-primary" (click)="exportFlow.emit()">↧ Esporta Flow</button
+      ><button
+        class="btn btn-sm btn-ghost"
+        [disabled]="!store.canvas().nodes.length || exportingImage()"
+        (click)="exportImage.emit()"
+      >
+        {{ exportingImage() ? 'Esportazione…' : 'Salva immagine' }}
+      </button>
+    </div>
+  </div>
+  <div class="flow-tools">
+    <div class="flex flex-wrap gap-2">
+      @for (kind of kinds; track kind.id) {
+        <button class="btn btn-sm btn-outline" (click)="add(kind.id)">+ {{ kind.label }}</button>
+      }
+    </div>
+    <div class="flex gap-2">
+      <button
+        class="btn btn-sm btn-ghost"
+        [disabled]="!store.undoStack().length"
+        (click)="store.undo()"
+        title="Annulla (Ctrl+Z)"
+      >
+        ↶ Annulla</button
+      ><button
+        class="btn btn-sm btn-ghost"
+        [disabled]="!store.redoStack().length"
+        (click)="store.redo()"
+        title="Ripristina"
+      >
+        ↷</button
+      ><button
+        class="btn btn-sm btn-primary"
+        (click)="arrange()"
+        [disabled]="!store.canvas().nodes.length"
+      >
+        Riordina albero
+      </button>
+    </div>
+  </div>
+  <details class="flow-palette flow-catalog" open>
+    <summary>Cerca e aggiungi una carta</summary>
+    <div class="flow-catalog-controls">
+      <input
+        type="search"
+        class="input input-sm"
+        aria-label="Cerca una carta nel catalogo"
+        placeholder="Nome della carta, in italiano o inglese…"
+        [value]="catalogQuery()"
+        (input)="catalogQuery.set($any($event.target).value)"
+      /><select
+        class="select select-sm"
+        aria-label="Destinazione della carta"
+        [value]="cardTarget()"
+        (change)="cardTarget.set($any($event.target).value)"
+      >
+        <option value="next">
+          {{ node() ? 'Aggiungi dopo il passaggio selezionato' : 'Aggiungi un nuovo passaggio' }}
+        </option>
+        <option value="replace" [disabled]="!node()">Associa al passaggio selezionato</option>
+      </select>
+    </div>
+    @if (catalogLoading()) {
+      <p role="status">Ricerca in corso…</p>
+    } @else if (catalogQuery().trim().length >= 2 && !catalogCards().length) {
+      <p role="status">Nessuna carta trovata. Prova un altro nome o verifica la connessione.</p>
+    } @else if (catalogCards().length) {
+      <p class="flow-palette-help">
+        {{ catalogCards().length }} risultati · passa sulle carte per i dettagli, seleziona per
+        aggiungerle.
+      </p>
+      <div class="flow-card-strip">
+        @for (card of catalogCards(); track card.id) {
+          <button class="flow-palette-card" [cardPreview]="card" (click)="addCatalogCard(card)">
+            <img
+              [src]="card.card_images[0]?.image_url_small"
+              alt=""
+              loading="lazy"
+              (error)="hideImage($event)"
+            /><span>{{ card.name }}</span
+            ><b>+ Aggiungi</b>
+          </button>
+        }
+      </div>
+    } @else {
+      <p class="flow-palette-help">
+        Cerca almeno due caratteri. Puoi inserire una carta in un nuovo nodo o associarla a un
+        passaggio già presente.
+      </p>
+    }
+  </details>
+  @if (store.hasDeck()) {
+    <details class="flow-palette" open>
+      <summary>Aggiungi una carta del mazzo · {{ cards().length }} carte</summary>
+      <input
+        class="input input-sm my-2"
+        placeholder="Filtra le carte…"
+        aria-label="Filtra carte del mazzo"
+        (input)="search.set($any($event.target).value)"
+      />
+      <div class="flow-card-strip">
+        @for (card of cards(); track card.passcode) {
+          <button
+            class="flow-palette-card"
+            [cardPreview]="previewDeck(card)"
+            (click)="add('action', node(), card)"
+          >
+            <img [src]="card.imageSmall" alt="" loading="lazy" /><span>{{ card.name }}</span>
+          </button>
+        }
+      </div>
+    </details>
+  }
+  <div class="flow-jump">
+    <label for="flow-jump">Vai a un passaggio</label
+    ><select id="flow-jump" class="select select-sm" #jump (change)="focusNode(jump.value)">
+      <option value="">Esplora l’albero…</option>
+      @for (step of store.canvas().nodes; track step.id) {
+        <option [value]="step.id">{{ label(step.kind) }} · {{ step.name }}</option>
+      }</select
+    ><span>Trascina per esplorare · Ctrl + rotella per zoomare</span>
+  </div>
+  <div class="flow-workspace">
+    <div class="flow-stage" #viewport (wheel)="wheel($event)">
+      <div class="flow-pan-layer" (pointerdown)="startDrag($event)"></div>
+      <div
+        class="flow-world"
+        [style.transform]="
+          'translate(' +
+          store.canvas().panX +
+          'px,' +
+          store.canvas().panY +
+          'px) scale(' +
+          store.canvas().zoom +
+          ')'
+        "
+      >
+        <svg class="flow-wires" aria-hidden="true">
+          <defs>
+            <marker
+              id="flow-arrow"
+              markerWidth="8"
+              markerHeight="8"
+              refX="7"
+              refY="4"
+              orient="auto"
+            >
+              <path d="M0,0 L8,4 L0,8" fill="currentColor" />
+            </marker>
+          </defs>
+          @for (edge of graph().edges; track edge.id) {
+            <path [attr.d]="path(edge.from, edge.to)" marker-end="url(#flow-arrow)" />
+            <text
+              [attr.x]="mid(edge.from, edge.to, 'x')"
+              [attr.y]="mid(edge.from, edge.to, 'y') - 12"
+              text-anchor="middle"
+            >
+              {{ edge.label || 'Prosegui' }}
+            </text>
+          }
+        </svg>
+        @for (item of graph().nodes; track item.id) {
+          <article
+            class="flow-step"
+            [class.flow-step-selected]="selected() === item.id"
+            [class.flow-step-guided]="guided()?.id === item.id"
+            [attr.data-kind]="item.kind || 'action'"
+            [style.left.px]="item.x"
+            [style.top.px]="item.y"
+          >
+            <button
+              class="flow-step-handle"
+              (pointerdown)="startDrag($event, item)"
+              (click)="selected.set(item.id)"
+              [attr.aria-label]="'Seleziona ' + item.name"
+            >
+              <span>{{ label(item.kind) }}</span
+              ><span aria-hidden="true">⠿</span>
+            </button>
+            <button
+              class="flow-step-body"
+              [cardPreview]="item.cardId ? previewNode(item) : null"
+              (click)="selectNode(item.id)"
+              [attr.aria-label]="
+                item.cardId ? 'Dettagli carta e passaggio: ' + item.name : item.name
+              "
+            >
+              @if (item.imageSmall) {
+                <img [src]="item.imageSmall" alt="" loading="lazy" (error)="hideImage($event)" />
+              }
+              <span
+                ><strong>{{ item.name }}</strong
+                ><small>{{
+                  item.action || 'Seleziona per descrivere questo passaggio'
+                }}</small></span
+              >
+            </button>
+            <div class="flow-step-footer">
+              <button
+                (click)="selected.set(item.id); add('action', item)"
+                aria-label="Aggiungi passaggio successivo"
+              >
+                + Passaggio</button
+              ><button
+                (click)="store.editNode(item.id, { collapsed: !item.collapsed })"
+                [attr.aria-expanded]="!item.collapsed"
+              >
+                {{ item.collapsed ? 'Apri rami' : 'Chiudi rami' }}
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+      @if (!store.canvas().nodes.length) {
+        <div class="flow-onboarding">
+          <span class="flow-sigil" aria-hidden="true">◇</span>
+          <h2>Ogni duello ha più strade.</h2>
+          <p>
+            Disegna le tue: azioni, risposte avversarie, alternative ed esiti. Puoi iniziare anche
+            senza un mazzo.
+          </p>
+          <div class="flex flex-wrap justify-center gap-3">
+            <button class="btn btn-primary" (click)="add('start')">Crea il primo passaggio</button
+            ><button class="btn btn-outline" (click)="example()">Esplora un esempio</button>
+          </div>
+          <small
+            >L’esempio illustra la struttura; le linee di gioco vanno definite e verificate da
+            te.</small
+          >
+        </div>
+      }
+      <div class="flow-zoom">
+        <button class="btn btn-xs btn-ghost" (click)="zoom(-0.15)" aria-label="Riduci zoom">
+          −</button
+        ><span>{{ (store.canvas().zoom * 100).toFixed(0) }}%</span
+        ><button class="btn btn-xs btn-ghost" (click)="zoom(0.15)" aria-label="Aumenta zoom">
+          +</button
+        ><button class="btn btn-xs btn-ghost" (click)="fit()">Inquadra tutto</button>
+      </div>
+    </div>
+    <aside class="flow-inspector" id="flow-card-inspector">
+      @if (node(); as item) {
+        <div class="flex justify-between items-center">
+          <span class="duel-eyebrow">DETTAGLIO PASSAGGIO</span
+          ><button
+            class="btn btn-xs btn-ghost"
+            (click)="selected.set(null)"
+            aria-label="Chiudi dettaglio"
+          >
+            ×
+          </button>
+        </div>
+        @if (selectedCard(); as card) {
+          <section class="flow-card-details">
+            <div class="flow-card-details-heading">
+              <img [src]="cardImage(card)" [alt]="card.name" (error)="hideImage($event)" />
+              <div>
+                <span class="duel-eyebrow">CARTA ASSOCIATA</span>
+                <h3>{{ card.name }}</h3>
+                <p>{{ card.type }}</p>
+                <div class="flow-card-stats">
+                  @if (card.attribute) {
+                    <span>{{ card.attribute }}</span>
+                  }
+                  @if (card.level != null) {
+                    <span>★ {{ card.level }}</span>
+                  }
+                  @if (card.atk != null) {
+                    <span>ATK {{ card.atk! < 0 ? '?' : card.atk }}</span>
+                  }
+                  @if (card.def != null) {
+                    <span>DEF {{ card.def! < 0 ? '?' : card.def }}</span>
+                  }
+                </div>
+              </div>
+            </div>
+            <h4>Testo della carta</h4>
+            @if (detailLoading()) {
+              <p role="status">Caricamento dettagli…</p>
+            } @else {
+              <p class="flow-card-effect">
+                {{ card.desc || 'Dettagli non disponibili. Riprova dalla ricerca carte.' }}
+              </p>
+            }
+            <a
+              class="btn btn-xs btn-outline"
+              routerLink="/search"
+              [queryParams]="{ cardId: card.id }"
+              >Apri scheda completa ↗</a
+            >
+          </section>
+        }
+        <label
+          >Tipo<select
+            class="select select-sm w-full"
+            [value]="item.kind || 'action'"
+            (change)="store.editNode(item.id, { kind: $any($event.target).value })"
+          >
+            @for (kind of kinds; track kind.id) {
+              <option [value]="kind.id">{{ kind.label }}</option>
+            }
+          </select></label
+        >
+        <label
+          >Titolo<input
+            class="input w-full"
+            [value]="item.name"
+            (change)="store.editNode(item.id, { name: $any($event.target).value })"
+        /></label>
+        <label
+          >Cosa succede<textarea
+            class="textarea w-full"
+            rows="3"
+            [value]="item.action"
+            placeholder="Effetto, costo, bersaglio, risoluzione…"
+            (change)="store.editNode(item.id, { action: $any($event.target).value })"
+          ></textarea>
+        </label>
+        <label
+          >Note e requisiti<textarea
+            class="textarea w-full"
+            rows="2"
+            [value]="item.notes || ''"
+            placeholder="Risorse necessarie, restrizioni, rischi…"
+            (change)="store.editNode(item.id, { notes: $any($event.target).value })"
+          ></textarea>
+        </label>
+        <h3>Da qui puoi…</h3>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-sm btn-outline" (click)="add('action', item)">+ Azione</button
+          ><button class="btn btn-sm btn-outline" (click)="add('condition', item)">
+            + Decisione</button
+          ><button class="btn btn-sm btn-outline" (click)="add('outcome', item)">+ Esito</button>
+        </div>
+        @for (edge of outgoing(); track edge.id) {
+          <div class="flow-branch-edit">
+            <label
+              >Verso {{ name(edge.to)
+              }}<input
+                class="input input-sm w-full"
+                aria-label="Condizione del ramo"
+                placeholder="Es. Sì / No / Se hai un extender"
+                [value]="edge.label || ''"
+                (change)="store.editEdge(edge.id, $any($event.target).value)" /></label
+            ><button
+              class="btn btn-xs btn-ghost"
+              (click)="store.removeEdge(edge.id)"
+              aria-label="Rimuovi collegamento"
+            >
+              ×
+            </button>
+          </div>
+        }
+        <label
+          >Collega un passaggio esistente<select
+            class="select select-sm w-full"
+            #target
+            (change)="link(target.value); target.value = ''"
+          >
+            <option value="">Scegli destinazione…</option>
+            @for (other of store.canvas().nodes; track other.id) {
+              @if (other.id !== item.id) {
+                <option [value]="other.id">{{ other.name }}</option>
+              }
+            }
+          </select></label
+        >
+        <p role="status">{{ message() }}</p>
+        <button
+          class="btn btn-sm btn-ghost text-error"
+          (click)="store.removeNode(item.id); selected.set(null)"
+        >
+          Elimina passaggio</button
+        ><small>I passaggi successivi restano disponibili. Puoi annullare.</small>
+      } @else {
+        <span class="duel-eyebrow">LA TUA MAPPA DI GIOCO</span>
+        <h3>Pensa per possibilità.</h3>
+        <p>
+          Seleziona un passaggio per scriverne effetto, requisiti e alternative. Una decisione può
+          avere tutti i rami che ti servono.
+        </p>
+        <ol>
+          <li>Aggiungi un punto di inizio.</li>
+          <li>Collega azioni e decisioni.</li>
+          <li>Descrivi le condizioni sui rami.</li>
+          <li>Prova i percorsi e completa gli esiti.</li>
+        </ol>
+        <p>
+          Trascina la barra di un passaggio per spostarlo; trascina il fondo per esplorare. Ctrl +
+          rotella regola lo zoom.
+        </p>
+        <small
+          >Il Flow descrive il tuo piano: non verifica automaticamente la legalità delle giocate.
+          Per conservare una copia, usa Import / Export.</small
+        >
+      }
+    </aside>
+  </div>
+  <div class="flow-walkthrough">
+    @if (guided(); as step) {
+      <div>
+        <span class="duel-eyebrow">PERCORSO GUIDATO · STEP {{ trail().length }}</span>
+        <h3>{{ step.name }}</h3>
+        <p>{{ step.action }}</p>
+        @if (step.notes) {
+          <small>{{ step.notes }}</small>
+        }
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        @for (edge of choices(); track edge.id) {
+          <button class="btn btn-sm btn-primary" (click)="advance(edge.to); selected.set(edge.to)">
+            {{ edge.label || name(edge.to) }} →
+          </button>
+        }
+        @if (!choices().length) {
+          <span class="badge badge-success">Fine del percorso</span>
+        }
+        <button class="btn btn-sm btn-ghost" (click)="trail.set(trail().slice(0, -1))">
+          ← Indietro</button
+        ><button class="btn btn-sm btn-ghost" (click)="trail.set([])">Termina</button>
+      </div>
+    } @else {
+      <div>
+        <h3>Metti alla prova il tuo piano</h3>
+        <p>Percorri un ramo alla volta, scegliendo le risposte a ogni decisione.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        @for (root of roots(); track root.id) {
+          <button class="btn btn-sm btn-outline" (click)="trail.set([root.id]); focusNode(root.id)">
+            ▷ {{ root.name }}
+          </button>
+        }
+      </div>
+    }
+  </div>
+</section>

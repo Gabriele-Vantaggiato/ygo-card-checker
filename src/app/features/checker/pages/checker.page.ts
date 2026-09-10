@@ -221,7 +221,7 @@ export class CheckerPage {
       )
       .subscribe((event) => {
         const path = event.urlAfterRedirects.split('?')[0];
-        if (path !== '/' && path !== '') {
+        if (path !== '/search') {
           this.deckReturn.set(null);
         }
       });

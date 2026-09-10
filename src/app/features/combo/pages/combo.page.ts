@@ -49,7 +49,7 @@ import { LoadingSkeletonComponent } from '../../../shared/ui/loading-skeleton/lo
     <main class="page-main page-stack max-w-3xl lg:max-w-4xl fade-in-panel">
       <app-page-header titleKey="combo.title" subtitleKey="combo.subtitle">
         <a
-          routerLink="/"
+          routerLink="/search"
           [queryParams]="card() ? { cardId: card()!.id } : null"
           class="btn btn-ghost btn-sm gap-1.5 shrink-0"
         >

@@ -641,7 +641,7 @@ export class DecklistEditorComponent {
     if (!id) {
       return;
     }
-    void this.router.navigate(['/'], {
+    void this.router.navigate(['/search'], {
       queryParams: { cardId: id, from: 'decklist', deckId: this.deck().id },
     });
   }
