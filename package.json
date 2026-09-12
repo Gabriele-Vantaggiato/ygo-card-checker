@@ -24,7 +24,9 @@
     "db:test:segoc": "node --import tsx tools/card-knowledge-db/src/segoc-parser.test.ts",
     "db:stats": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/stats.ts",
     "db:query": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/query-card.ts",
-    "db:build": "npm run db:sync && npm run db:babel && npm run db:parse-effects && npm run db:tag && npm run db:format-legality && npm run db:relations && npm run db:export && npm run db:export:formats && npm run db:combos && npm run db:mdpro-scripts && npm run db:effect-scripts"
+    "db:build": "npm run db:sync && npm run db:babel && npm run db:parse-effects && npm run db:tag && npm run db:format-legality && npm run db:relations && npm run db:export && npm run db:export:formats && npm run db:combos && npm run db:mdpro-scripts && npm run db:effect-scripts",
+    "prebuild": "node tools/build/prepare-study-data.mjs",
+    "prestart": "node tools/build/prepare-study-data.mjs"
   },
   "prettier": {
     "printWidth": 100,

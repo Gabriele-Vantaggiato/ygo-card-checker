@@ -1,3 +1,5 @@
+import { DecklistStore } from '../../decklist/stores/decklist.store';
+import { FlowLibraryService } from '../../ygo-flow/services/flow-library.service';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../../services/i18n.service';
@@ -7,6 +9,10 @@ import { I18nService } from '../../../services/i18n.service';
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: ` <main class="showcase" [class.motion-paused]="paused()">
+    <section class="home-lab-entry">
+      <div><span class="lab-eyebrow">FLOW STUDIO / {{ t('PRONTO PER IL PROSSIMO TEST?', 'READY FOR THE NEXT TEST?') }}</span><strong>{{ decks.activeDecklist().name || t('Il tuo prossimo piano di gioco', 'Your next game plan') }}</strong><p>{{ t('Prova una mano, prepara una linea e allenati sulle alternative.', 'Test a hand, prepare a line and practice the alternatives.') }}</p></div>
+      <div class="lab-actions"><a routerLink="/flow" [queryParams]="{ deckId: decks.activeDecklistId(), section: 'hands' }" class="lab-btn lab-btn-primary">{{ t('Prova una mano', 'Test a hand') }} ↗</a><a routerLink="/flow" class="lab-btn">{{ t('I tuoi Flow', 'Your Flows') }} · {{ library.documents().length }}</a></div>
+    </section>
     <section class="showcase-hero">
       <div class="showcase-copy">
         <span class="duel-eyebrow">YGO CHECKER · DUELIST WORKSPACE</span>
@@ -299,6 +305,8 @@ import { I18nService } from '../../../services/i18n.service';
   </main>`,
 })
 export class LandingPage {
+  readonly decks = inject(DecklistStore);
+  readonly library = inject(FlowLibraryService);
   readonly i18n = inject(I18nService);
   readonly slide = signal(0);
   readonly paused = signal(false);

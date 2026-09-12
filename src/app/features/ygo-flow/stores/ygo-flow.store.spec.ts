@@ -27,7 +27,7 @@ describe('Flow workspace', () => {
         { provide: YgoApiService, useValue: { getCardsByIds$: () => of([]) } },
         {
           provide: EffectScriptService,
-          useValue: { getScript: () => undefined, ensureLoaded$: () => of(null) },
+          useValue: { getScript: () => undefined, ensureStudyLoaded$: () => of(null) },
         },
         { provide: I18nService, useValue: { lang: signal('it'), t: (key: string) => key } },
         { provide: ComboWizardService, useValue: {} },
@@ -82,7 +82,7 @@ describe('Flow workspace', () => {
     TestBed.flushEffects();
     tick(400);
     expect(saved).toHaveBeenCalled();
-    const doc = JSON.parse(saved.calls.mostRecent().args[1]);
+    const doc = JSON.parse(saved.calls.allArgs().find(args => args[0] === 'ygo-flow-workspace-v2')![1]);
     expect(doc.canvas.nodes.length).toBe(1);
     expect(doc.name).toBe('Il mio Flow');
   }));
@@ -132,5 +132,15 @@ describe('Flow workspace', () => {
     expect(store.canvas().nodes[0].cardId).toBeNull();
     store.redo();
     expect(store.canvas().nodes[0].card?.name).toBe('Test');
+  });
+  it('persists clearing an already archived Flow without resurrecting its old nodes', () => {
+    store.addNode(null);
+    store.persistNow();
+    const id = store.documentId();
+    store.resetCanvas();
+    store.persistNow();
+    expect(store.library.documents().find(doc => doc.id === id)!.canvas.nodes).toEqual([]);
+    store.newDocument();
+    expect(store.library.documents().find(doc => doc.id === id)!.canvas.nodes).toEqual([]);
   });
 });

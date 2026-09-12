@@ -4,6 +4,8 @@ import { ComboEntry } from '../../../models/card-combo.model';
 import { EffectAction } from '../../../models/effect-script.model';
 import {
   FlowCard,
+  CardRoleTag,
+  scriptToRoles,
   FlowInterrupt,
   ResolvedDeck,
   WizardAnalysis,
@@ -48,26 +50,40 @@ export class ComboWizardService {
   private readonly comboIndex = toSignal(this.indexService.combos$, { initialValue: null });
 
   /** Analyzes a drawn hand: combo line off the highest-priority starter, or brick advice. */
-  analyzeHand(hand: readonly FlowCard[]): WizardAnalysis {
-    const starters = this.rankedStarters(hand);
+  analyzeHand(
+    hand: readonly FlowCard[],
+    deck?: Pick<ResolvedDeck, 'main' | 'extra' | 'side'>,
+    roles: Record<string, CardRoleTag> = {},
+  ): WizardAnalysis {
+    const starters = this.rankedStarters(hand, roles);
     if (starters.length === 0) {
-      return this.buildBrickAnalysis(hand);
+      return this.buildBrickAnalysis(hand, roles);
     }
-    return this.buildComboAnalysis(hand, starters);
+    return this.buildComboAnalysis(hand, starters, deck, roles);
   }
 
   /** One analysis per unique starter found in the main deck (each treated as the sole opener). */
-  analyzeAllStarters(deck: Pick<ResolvedDeck, 'main'>): WizardAnalysis[] {
+  analyzeAllStarters(
+    deck: Pick<ResolvedDeck, 'main'> & Partial<Pick<ResolvedDeck, 'extra' | 'side'>>,
+    roles: Record<string, CardRoleTag> = {},
+  ): WizardAnalysis[] {
     const seen = new Set<number>();
     const starters: FlowCard[] = [];
     for (const card of deck.main) {
-      if (this.effectScripts.isStarter(card.passcode) && !seen.has(card.passcode)) {
+      if (this.effectiveRole(card, roles) === 'starter' && !seen.has(card.passcode)) {
         seen.add(card.passcode);
         starters.push(card);
       }
     }
     starters.sort((a, b) => this.starterScore(b.passcode) - this.starterScore(a.passcode));
-    return starters.map((starter) => this.buildComboAnalysis([starter], [starter]));
+    return starters.map((starter) =>
+      this.buildComboAnalysis(
+        [starter],
+        [starter],
+        { main: deck.main, extra: deck.extra ?? [], side: deck.side ?? [] },
+        roles,
+      ),
+    );
   }
 
   /** Consistency advice for the HAT-2014 chokepoint engines (Traptrix / Artifact / Hands). */
@@ -88,7 +104,10 @@ export class ComboWizardService {
       const probability = hypergeometricAtLeastOne(total, count, 5);
       if (count < 3) {
         advice.push(
-          this.i18n.t('flow.wizard.advice.thinEngine', { engine: engineName, count: String(count) }),
+          this.i18n.t('flow.wizard.advice.thinEngine', {
+            engine: engineName,
+            count: String(count),
+          }),
         );
       }
       advice.push(
@@ -108,9 +127,12 @@ export class ComboWizardService {
     return advice;
   }
 
-  private rankedStarters(hand: readonly FlowCard[]): FlowCard[] {
+  private rankedStarters(
+    hand: readonly FlowCard[],
+    roles: Record<string, CardRoleTag>,
+  ): FlowCard[] {
     return [...hand]
-      .filter((card) => this.effectScripts.isStarter(card.passcode))
+      .filter((card) => this.effectiveRole(card, roles) === 'starter')
       .sort((a, b) => this.starterScore(b.passcode) - this.starterScore(a.passcode));
   }
 
@@ -146,13 +168,20 @@ export class ComboWizardService {
     comboEntry: ComboEntry | undefined,
     alreadyMentioned: ReadonlySet<number>,
     hand: readonly FlowCard[],
+    deck?: Pick<ResolvedDeck, 'main' | 'extra' | 'side'>,
   ): WizardLineStep | null {
     if (!comboEntry || comboEntry.targets.length === 0) {
       return null;
     }
     const handIds = new Set(hand.map((card) => card.passcode));
+    const available = deck ? new Set([...deck.main, ...deck.extra].map((c) => c.passcode)) : null;
     const picks = comboEntry.targets
-      .filter((target) => !alreadyMentioned.has(target.id) && !handIds.has(target.id))
+      .filter(
+        (target) =>
+          !alreadyMentioned.has(target.id) &&
+          !handIds.has(target.id) &&
+          (!available || available.has(target.id)),
+      )
       .sort((a, b) => b.score - a.score)
       .slice(0, CURATED_TARGETS_PER_STARTER);
     if (picks.length === 0) {
@@ -170,13 +199,27 @@ export class ComboWizardService {
     return this.effectScripts.getScript(cardId)?.roles.includes(role as never) ?? false;
   }
 
-  private buildComboAnalysis(hand: readonly FlowCard[], starters: readonly FlowCard[]): WizardAnalysis {
+  private effectiveRole(card: FlowCard, roles: Record<string, CardRoleTag>): CardRoleTag {
+    return (
+      roles[String(card.passcode)] ??
+      (card.role !== 'untagged'
+        ? card.role
+        : scriptToRoles(this.effectScripts.getScript(card.passcode)))
+    );
+  }
+
+  private buildComboAnalysis(
+    hand: readonly FlowCard[],
+    starters: readonly FlowCard[],
+    deck?: Pick<ResolvedDeck, 'main' | 'extra' | 'side'>,
+    roles: Record<string, CardRoleTag> = {},
+  ): WizardAnalysis {
     const lines: WizardLineStep[] = [];
     const usedInterrupts = new Set<FlowInterrupt>();
     const mentionedCardIds = new Set<number>(starters.map((s) => s.passcode));
     let order = 1;
 
-    for (const starter of starters) {
+    for (const starter of starters.slice(0, 1)) {
       const script = this.effectScripts.getScript(starter.passcode);
       const interrupts = scriptToFlowInterrupts(script);
       interrupts.forEach((tag) => usedInterrupts.add(tag));
@@ -200,7 +243,7 @@ export class ComboWizardService {
       }
 
       const comboEntry = this.comboIndex()?.entries[String(starter.passcode)];
-      const curated = this.curatedTargetsFor(starter, comboEntry, mentionedCardIds, hand);
+      const curated = this.curatedTargetsFor(starter, comboEntry, mentionedCardIds, hand, deck);
       if (curated) {
         curated.order = order++;
         lines.push(curated);
@@ -211,29 +254,21 @@ export class ComboWizardService {
     }
 
     const starterUids = new Set(starters.map((s) => s.uid));
-    for (const card of hand) {
-      if (starterUids.has(card.uid)) {
-        continue;
-      }
-      const script = this.effectScripts.getScript(card.passcode);
-      if (!script || !script.roles.includes('extender')) {
-        continue;
-      }
-      const interrupts = scriptToFlowInterrupts(script);
-      interrupts.forEach((tag) => usedInterrupts.add(tag));
-      const detail = script.steps
-        .map((step) => step.actions.map((action) => this.describeAction(action)).join(' · '))
-        .join(' → ');
-      lines.push({
-        order: order++,
-        title: this.i18n.t('flow.wizard.line.extend', { name: card.name }),
-        detail: detail || this.i18n.t('flow.wizard.line.extendDetail', { name: card.name }),
-        cardId: card.passcode,
-        interruptRisk: interrupts,
-      });
-    }
-
-    const advice: string[] = [];
+    const advice: string[] = [this.i18n.t('studio.wizard.candidate')];
+    if (starters.length > 1)
+      advice.push(
+        this.i18n.t('studio.wizard.alternatives', {
+          names: starters
+            .slice(1)
+            .map((c) => c.name)
+            .join(', '),
+        }),
+      );
+    const extenders = hand.filter((c) => this.effectiveRole(c, roles) === 'extender');
+    if (extenders.length)
+      advice.push(
+        this.i18n.t('studio.wizard.extenders', { names: extenders.map((c) => c.name).join(', ') }),
+      );
     if (usedInterrupts.size > 0) {
       advice.push(
         this.i18n.t('flow.wizard.advice.interruptRisk', {
@@ -242,19 +277,26 @@ export class ComboWizardService {
       );
     }
 
-    const traps = hand.filter((card) => !starterUids.has(card.uid) && this.hasRole(card.passcode, 'trap'));
+    const traps = hand.filter(
+      (card) => !starterUids.has(card.uid) && this.effectiveRole(card, roles) === 'interaction',
+    );
     if (traps.length > 0) {
       advice.push(
-        this.i18n.t('flow.wizard.advice.backupTraps', { names: traps.map((c) => c.name).join(', ') }),
+        this.i18n.t('flow.wizard.advice.backupTraps', {
+          names: traps.map((c) => c.name).join(', '),
+        }),
       );
     }
 
     return { kind: 'combo', starters: [...starters], lines, advice };
   }
 
-  private buildBrickAnalysis(hand: readonly FlowCard[]): WizardAnalysis {
-    const traps = hand.filter((card) => this.hasRole(card.passcode, 'trap'));
-    const handtraps = hand.filter((card) => this.hasRole(card.passcode, 'handtrap'));
+  private buildBrickAnalysis(
+    hand: readonly FlowCard[],
+    roles: Record<string, CardRoleTag>,
+  ): WizardAnalysis {
+    const traps = hand.filter((card) => this.effectiveRole(card, roles) === 'interaction');
+    const handtraps = hand.filter((card) => this.effectiveRole(card, roles) === 'handtrap');
     const advice: string[] = [];
 
     if (traps.length > 0) {
@@ -276,7 +318,12 @@ export class ComboWizardService {
       advice.push(this.i18n.t('flow.wizard.advice.brickNothing'));
     }
 
-    return { kind: 'brick', starters: [], lines: [], advice };
+    return {
+      kind: traps.length || handtraps.length ? 'control' : 'unclassified',
+      starters: [],
+      lines: [],
+      advice,
+    };
   }
 
   private describeAction(action: EffectAction): string {
@@ -289,7 +336,7 @@ export class ComboWizardService {
     };
     const key = `flow.wizard.action.${action.op}`;
     const translated = this.i18n.t(key, params);
-    return translated === key ? action.note ?? action.op : translated;
+    return translated === key ? (action.note ?? action.op) : translated;
   }
 
   private humanizeTrigger(when: string): string {

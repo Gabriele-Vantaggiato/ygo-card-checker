@@ -164,7 +164,7 @@ describe('ComboWizardService', () => {
     expect(analysis.lines.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('flags a brick hand with no starters and offers trap-based advice', () => {
+  it('identifies a control hand without calling it unplayable', () => {
     const hand: FlowCard[] = [
       flowCard(29401950, 'Bottomless Trap Hole', 0),
       flowCard(23434538, 'Maxx "C"', 1),
@@ -175,13 +175,13 @@ describe('ComboWizardService', () => {
 
     const analysis = service.analyzeHand(hand);
 
-    expect(analysis.kind).toBe('brick');
+    expect(analysis.kind).toBe('control');
     expect(analysis.starters).toEqual([]);
     expect(analysis.lines).toEqual([]);
     expect(analysis.advice.length).toBeGreaterThan(0);
   });
 
-  it('flags a brick hand with nothing playable at all', () => {
+  it('leaves an unknown hand unclassified', () => {
     const hand: FlowCard[] = [
       flowCard(1, 'Vanilla Beater A', 0),
       flowCard(2, 'Vanilla Beater B', 1),
@@ -192,7 +192,7 @@ describe('ComboWizardService', () => {
 
     const analysis = service.analyzeHand(hand);
 
-    expect(analysis.kind).toBe('brick');
+    expect(analysis.kind).toBe('unclassified');
     expect(analysis.advice.length).toBe(1);
   });
 
@@ -227,5 +227,28 @@ describe('ComboWizardService', () => {
     const analyses = service.analyzeAllStarters({ main });
 
     expect(analyses[0]?.starters[0]?.passcode).toBe(CURATED_STARTER_SCRIPT.cardId);
+  });
+
+  it('respects explicit untagged overrides and manual starters', () => {
+    const card = flowCard(STARTER_SCRIPT.cardId, 'Starter', 0);
+    expect(service.analyzeHand([card], undefined, { [card.passcode]: 'untagged' }).kind).toBe('unclassified');
+    const unknown = flowCard(42, 'Manual starter', 0);
+    expect(service.analyzeHand([unknown], undefined, { '42': 'starter' }).kind).toBe('combo');
+  });
+
+  it('does not concatenate different starters into the same line', () => {
+    const hand = [flowCard(STARTER_SCRIPT.cardId, 'Myrmeleo', 0), flowCard(PLAIN_STARTER_SCRIPT.cardId, 'Plain', 1)];
+    const analysis = service.analyzeHand(hand);
+    expect(analysis.starters.length).toBe(2);
+    expect(new Set(analysis.lines.map(l => l.cardId).filter(Boolean)).size).toBe(1);
+  });
+
+  it('excludes absent and side-deck-only targets', () => {
+    const hand = [flowCard(CURATED_STARTER_SCRIPT.cardId, 'Starter', 0)];
+    const analysis = service.analyzeHand(hand, { main: hand, extra: [flowCard(100, 'Target A', 0)], side: [flowCard(101, 'Target B', 0)] });
+    expect(analysis.lines.some(l => l.detail.includes('Curated Target A'))).toBeTrue();
+    expect(analysis.lines.some(l => l.detail.includes('Curated Target B'))).toBeFalse();
+    const absent = service.analyzeHand(hand, { main: hand, extra: [], side: [] });
+    expect(absent.lines.some(l => l.detail.includes('Curated Target'))).toBeFalse();
   });
 });

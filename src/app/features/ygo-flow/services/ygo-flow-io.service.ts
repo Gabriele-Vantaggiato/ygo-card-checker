@@ -13,7 +13,7 @@ export function isYgoFlowDocument(value: unknown): value is YgoFlowDocument {
   if (!value || typeof value !== 'object') return false;
   const doc = value as Partial<YgoFlowDocument>;
   if (
-    doc.version !== 1 ||
+    (doc.version !== 1 && doc.version !== 2) ||
     typeof doc.ydke !== 'string' ||
     !doc.canvas ||
     !Array.isArray(doc.canvas.nodes) ||
@@ -21,6 +21,43 @@ export function isYgoFlowDocument(value: unknown): value is YgoFlowDocument {
     !doc.roles ||
     typeof doc.roles !== 'object' ||
     Array.isArray(doc.roles)
+  )
+    return false;
+  if (typeof doc.savedAt !== 'string' || (doc.savedAt && !Number.isFinite(Date.parse(doc.savedAt))))
+    return false;
+  if (doc.id !== undefined && (typeof doc.id !== 'string' || doc.id.length > 120)) return false;
+  if (doc.seed !== undefined && (typeof doc.seed !== 'string' || doc.seed.length > 200))
+    return false;
+  if (doc.handSize !== undefined && doc.handSize !== 5 && doc.handSize !== 6) return false;
+  if (doc.context !== undefined) {
+    const c = doc.context;
+    if (
+      !c ||
+      (c.deckId !== null && typeof c.deckId !== 'string') ||
+      typeof c.deckName !== 'string' ||
+      typeof c.deckUpdatedAt !== 'string' ||
+      typeof c.formatId !== 'string' ||
+      (c.banlistDate !== null && typeof c.banlistDate !== 'string')
+    )
+      return false;
+  }
+  if (
+    doc.cards !== undefined &&
+    (!Array.isArray(doc.cards) ||
+      doc.cards.length > 300 ||
+      doc.cards.some(
+        (c) =>
+          !c ||
+          !Number.isSafeInteger(c.id) ||
+          c.id <= 0 ||
+          typeof c.name !== 'string' ||
+          typeof c.type !== 'string' ||
+          typeof c.desc !== 'string' ||
+          !Array.isArray(c.card_images) ||
+          c.card_images.some(
+            (i) => !i || typeof i.image_url !== 'string' || typeof i.image_url_small !== 'string',
+          ),
+      ))
   )
     return false;
   if (doc.canvas.nodes.length > 1500 || doc.canvas.edges.length > 5000) return false;
@@ -114,7 +151,7 @@ export function isYgoFlowDocument(value: unknown): value is YgoFlowDocument {
     edgeIds.add(edge.id);
   }
   return Object.values(doc.roles).every((role) =>
-    ['starter', 'extender', 'handtrap', 'untagged'].includes(role),
+    ['starter', 'extender', 'handtrap', 'interaction', 'untagged'].includes(role),
   );
 }
 

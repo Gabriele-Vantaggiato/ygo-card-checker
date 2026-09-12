@@ -1,0 +1,1320 @@
+<main class="lab-page">
+  <input
+    #flowFile
+    type="file"
+    accept=".ygoflow,.json,application/json"
+    hidden
+    (change)="onImportFile($event)"
+  />
+  <header class="lab-hero">
+    <div class="lab-hero-copy">
+      <span class="lab-eyebrow"
+        ><span class="lab-live-dot"></span> FLOW STUDIO /
+        {{ t('IL TUO LABORATORIO DI GIOCO', 'YOUR PLAY LAB') }}</span
+      >
+      <h1>
+        {{ t('Ogni mano,', 'Every hand,') }}<br /><em>{{ t('un piano.', 'a plan.') }}</em>
+      </h1>
+      <p>
+        {{
+          t(
+            'Costruisci la tua linea. Prepara le alternative. Arriva al tavolo con una decisione in più.',
+            'Build your line. Prepare your alternatives. Bring one more decision to the table.'
+          )
+        }}
+      </p>
+      <div class="lab-actions">
+        <button class="lab-btn lab-btn-primary" (click)="newFlow()">
+          + {{ t('Crea un Flow', 'Create a Flow') }}
+        </button>
+        <button class="lab-btn" (click)="section.set('hands')">
+          {{ t('Prova il tuo mazzo', 'Test your deck') }} ↗
+        </button>
+      </div>
+      <span class="lab-subtle">{{
+        t(
+          'Salvataggio sul dispositivo · Nessun account richiesto',
+          'Saved on your device · No account required'
+        )
+      }}</span>
+    </div>
+    <div class="lab-hero-art" aria-hidden="true">
+      <div class="lab-orbit"></div>
+      <div class="lab-orbit lab-orbit-inner"></div>
+      <svg class="lab-art-path" viewBox="0 0 520 340" fill="none">
+        <path d="M90 165 H200 Q225 165 225 140 V90 Q225 70 245 70 H355" />
+        <path d="M225 150 V235 Q225 255 245 255 H375" stroke-dasharray="5 8" />
+        <circle cx="225" cy="165" r="7" />
+        <circle cx="358" cy="70" r="4" />
+        <circle cx="378" cy="255" r="4" />
+      </svg>
+      <div class="lab-art-card lab-art-start">
+        <span>01 / STARTER</span><b>✦</b><small>{{ t('Il primo passo', 'The first step') }}</small>
+      </div>
+      <div class="lab-art-card lab-art-end">
+        <span>02 / OUTCOME</span><b>↗</b><small>{{ t('La tua linea', 'Your line') }}</small>
+      </div>
+      <div class="lab-art-plan">
+        <span class="lab-live-dot"></span>
+        {{ t('C’è sempre un piano B.', 'There’s always a plan B.') }}
+      </div>
+      <span class="lab-art-coordinate">THINK. TEST. REPEAT.</span>
+    </div>
+  </header>
+
+  <div class="lab-context">
+    <label class="lab-deck-select"
+      ><span class="lab-eyebrow">{{ t('MAZZO DI STUDIO', 'STUDY DECK') }}</span
+      ><select
+        [value]="store.context()?.deckId || ''"
+        (change)="changeDeck($any($event.target).value)"
+      >
+        <option value="" disabled>{{ store.hasDeck() ? (store.selectedDeckName() || t('Mazzo importato', 'Imported deck')) : t('Scegli un mazzo', 'Choose a deck') }}</option>
+        @if (importedDeck(); as imported) {
+          <option [value]="imported.deckId">{{ imported.deckName }} · snapshot</option>
+        }
+        @for (deck of store.deckOptions(); track deck.id) {
+          <option [value]="deck.id">{{ deck.name }} · {{ deck.count }}</option>
+        }
+      </select></label
+    >
+    <div class="lab-deck-counts">
+      <span
+        ><b>{{ store.main().length }}</b> MAIN</span
+      ><span
+        ><b>{{ store.extra().length }}</b> EXTRA</span
+      ><span
+        ><b>{{ store.side().length }}</b> SIDE</span
+      >
+    </div>
+    <label class="lab-format-select"
+      ><span class="lab-eyebrow">{{ t('CONTESTO', 'CONTEXT') }}</span
+      ><select [value]="formatId()" (change)="changeFormat($any($event.target).value)">
+        @for (f of format.formats(); track f.id) {
+          <option [value]="f.id">{{ t(f.name.it, f.name.en) }}</option>
+        }
+      </select></label
+    >
+    <a routerLink="/decklist" class="lab-text-link">{{ t('Gestisci mazzi', 'Manage decks') }} ↗</a>
+  </div>
+  @if (store.loading()) {
+    <p class="lab-notice" role="status">
+      <span class="loading loading-spinner loading-xs"></span
+      >{{ t('Sto caricando le carte del mazzo…', 'Loading your deck’s cards…') }}
+    </p>
+  }
+  @if (store.errorKey(); as key) {
+    <div class="lab-notice lab-warning" role="alert">
+      <span
+        >{{ key | translate }}
+        @if (store.missingIds().length) {
+          <small>ID: {{ store.missingIds().join(', ') }}</small>
+        }</span
+      ><button
+        class="lab-btn lab-btn-small"
+        (click)="store.loadYdke()"
+        [disabled]="store.loading() || !store.ydkeInput()"
+      >
+        {{ t('Riprova', 'Retry') }}
+      </button>
+    </div>
+  }
+  @if (store.library.saveFailed()) {
+    <div class="lab-notice lab-warning" role="alert">
+      <span>{{
+        t(
+          'Il salvataggio permanente non è disponibile. Esporta i Flow per conservare le modifiche.',
+          'Persistent saving is unavailable. Export your Flows to keep your changes.'
+        )
+      }}</span
+      ><button class="lab-btn lab-btn-small" (click)="exportArchive()">
+        {{ t('Esporta archivio', 'Export archive') }}
+      </button>
+    </div>
+  }
+  @if (outdated()) {
+    <div class="lab-notice">
+      <span>{{
+        t(
+          'Il mazzo è cambiato. Questo Flow conserva la versione usata per studiare.',
+          'The deck has changed. This Flow keeps the version you studied.'
+        )
+      }}</span
+      ><button class="lab-btn lab-btn-small" (click)="changeDeck(store.context()!.deckId!)">
+        {{ t('Studia la nuova versione', 'Study the new version') }}
+      </button>
+    </div>
+  }
+
+  <nav class="lab-tabs" [attr.aria-label]="t('Strumenti Flow Studio', 'Flow Studio tools')">
+    @for (tab of tabs; track tab.id) {
+      <button
+        [class.active]="section() === tab.id"
+        [attr.aria-pressed]="section() === tab.id"
+        (click)="section.set(tab.id)"
+      >
+        <span>{{ tab.number }}</span
+        >{{ t(tab.it, tab.en) }}
+        @if (tab.id === 'library' && store.library.documents().length) {
+          <small>{{ store.library.documents().length }}</small>
+        }
+      </button>
+    }
+  </nav>
+
+  @switch (section()) {
+    @case ('library') {
+      <section class="lab-content">
+        <div class="lab-section-head">
+          <div>
+            <span class="lab-eyebrow">{{ t('IL TUO PLAYBOOK', 'YOUR PLAYBOOK') }}</span>
+            <h2>
+              {{ t('Una linea oggi. Un’abitudine domani.', 'A line today. A habit tomorrow.') }}
+            </h2>
+            <p>
+              {{
+                t(
+                  'Ritrova le idee, prova le alternative e costruisci il tuo repertorio.',
+                  'Revisit ideas, test alternatives and build your repertoire.'
+                )
+              }}
+            </p>
+          </div>
+          <div class="lab-actions">
+            <button class="lab-btn" (click)="flowFile.click()">
+              ↥ {{ t('Importa', 'Import') }}</button
+            ><button
+              class="lab-btn"
+              [disabled]="!store.library.documents().length"
+              (click)="exportArchive()"
+            >
+              ↧ {{ t('Backup', 'Backup') }}
+            </button>
+          </div>
+        </div>
+        <div class="lab-library-tools">
+          <label class="lab-search"
+            ><span aria-hidden="true">⌕</span
+            ><input
+              type="search"
+              [attr.aria-label]="t('Cerca nei tuoi Flow', 'Search your Flows')"
+              [placeholder]="t('Cerca per Flow, carta o mazzo…', 'Search by Flow, card or deck…')"
+              [value]="query()"
+              (input)="query.set($any($event.target).value)" /></label
+          ><label class="lab-check"
+            ><input
+              type="checkbox"
+              [checked]="onlyDeck()"
+              [disabled]="!store.context()?.deckId"
+              (change)="onlyDeck.set($any($event.target).checked)"
+            />{{ t('Solo questo mazzo', 'This deck only') }}</label
+          >
+        </div>
+        @if (deleted()) {
+          <div class="lab-notice" role="status">
+            <span>{{ t('Flow rimosso.', 'Flow removed.') }}</span
+            ><button class="lab-text-link" (click)="undoDelete()">
+              ↶ {{ t('Annulla', 'Undo') }}
+            </button>
+          </div>
+        }
+        @if (documents().length) {
+          <div class="lab-flow-grid">
+            @for (doc of documents(); track doc.id || $index) {
+              <article class="lab-flow-card">
+                <button
+                  class="lab-flow-preview"
+                  (click)="open(doc)"
+                  [attr.aria-label]="t('Apri ', 'Open ') + doc.name"
+                >
+                  <div class="lab-preview-track">
+                    @for (node of doc.canvas.nodes.slice(0, 4); track node.id) {
+                      <span class="lab-preview-node">
+                        @if (node.imageSmall) {
+                          <img [src]="node.imageSmall" alt="" loading="lazy" />
+                        } @else {
+                          <b>{{
+                            node.kind === 'condition' ? '◇' : node.kind === 'outcome' ? '↗' : '✦'
+                          }}</b>
+                        }
+                      </span>
+                    }
+                  </div>
+                  <span class="lab-preview-badge"
+                    >{{ doc.canvas.nodes.length }} {{ t('passaggi', 'steps') }} ·
+                    {{ doc.canvas.edges.length }} {{ t('collegamenti', 'links') }}</span
+                  >
+                </button>
+                <div class="lab-flow-body">
+                  <span class="lab-eyebrow">{{
+                    doc.context?.deckName || t('FLOW LIBERO', 'STANDALONE FLOW')
+                  }}</span>
+                  <h3>
+                    <button (click)="open(doc)">{{ doc.name || 'Flow' }}</button>
+                  </h3>
+                  <p>{{ t('Salvato', 'Saved') }} {{ doc.savedAt | date: 'dd/MM/yyyy · HH:mm' }}</p>
+                  <div class="lab-flow-actions">
+                    <button
+                      class="lab-btn lab-btn-small lab-btn-primary"
+                      (click)="startPractice(doc)"
+                      [disabled]="!doc.canvas.nodes.length"
+                    >
+                      ▷ {{ t('Allenati', 'Practice') }}</button
+                    ><button
+                      class="lab-icon-btn"
+                      (click)="duplicate(doc)"
+                      [attr.aria-label]="t('Duplica ', 'Duplicate ') + doc.name"
+                      [title]="t('Duplica', 'Duplicate')"
+                    >
+                      ⧉</button
+                    ><button
+                      class="lab-icon-btn"
+                      (click)="remove(doc)"
+                      [attr.aria-label]="t('Rimuovi ', 'Remove ') + doc.name"
+                      [title]="t('Rimuovi', 'Remove')"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="lab-empty">
+            <span class="lab-empty-icon">⌘</span>
+            <h3>
+              {{
+                store.library.documents().length
+                  ? t('Nessun Flow trovato', 'No Flows found')
+                  : t('La prossima linea è tua.', 'Your next line starts here.')
+              }}
+            </h3>
+            <p>
+              {{
+                store.library.documents().length
+                  ? t(
+                      'Prova un’altra ricerca o disattiva il filtro.',
+                      'Try another search or turn off the filter.'
+                    )
+                  : t(
+                      'Parti da un modello qui sotto oppure crea un Flow libero. Puoi iniziare anche senza un mazzo.',
+                      'Start from a template below or create a standalone Flow. You can begin without a deck.'
+                    )
+              }}
+            </p>
+            <button class="lab-btn lab-btn-primary" (click)="newFlow()">
+              + {{ t('Crea il tuo primo Flow', 'Create your first Flow') }}
+            </button>
+          </div>
+        }
+        <div class="lab-section-head lab-template-heading">
+          <div>
+            <span class="lab-eyebrow">{{ t('UN PUNTO DI PARTENZA', 'A STARTING POINT') }}</span>
+            <h2>{{ t('Quale situazione vuoi preparare?', 'What do you want to prepare for?') }}</h2>
+            <p>
+              {{
+                t(
+                  'Quattro tracce da completare con le tue carte, condizioni e scelte.',
+                  'Four outlines to complete with your cards, conditions and choices.'
+                )
+              }}
+            </p>
+          </div>
+        </div>
+        <div class="lab-template-grid">
+          @for (template of templates; track template.id) {
+            <button class="lab-template" (click)="newFlow(template.id)">
+              <span class="lab-template-icon">{{ template.icon }}</span
+              ><span class="lab-template-number">0{{ $index + 1 }}</span
+              ><strong>{{ t(template.title, template.en) }}</strong>
+              <p>{{ t(template.copy, template.copyEn) }}</p>
+              <span class="lab-text-link">{{ t('Usa il modello', 'Use template') }} ↗</span>
+            </button>
+          }
+        </div>
+        <details class="lab-import-details">
+          <summary>
+            {{ t('Importazione avanzata · JSON o Base64', 'Advanced import · JSON or Base64') }}
+          </summary>
+          <label class="lab-field"
+            >{{ t('Contenuto del Flow', 'Flow content')
+            }}<textarea
+              rows="4"
+              [value]="importText()"
+              (input)="importText.set($any($event.target).value)"
+              placeholder="{ … }"
+            ></textarea>
+          </label>
+          <div class="lab-actions">
+            <button
+              class="lab-btn"
+              [disabled]="!importText().trim()"
+              (click)="importDocument(importText())"
+            >
+              {{ t('Importa JSON', 'Import JSON') }}</button
+            ><button
+              class="lab-btn"
+              [disabled]="!importText().trim()"
+              (click)="importDocument(importText(), true)"
+            >
+              {{ t('Importa Base64', 'Import Base64') }}
+            </button>
+          </div>
+        </details>
+      </section>
+    }
+    @case ('canvas') {
+      <section class="lab-content">
+        <div class="lab-section-head">
+          <div>
+            <span class="lab-eyebrow">{{ t('DALL’IDEA AL PERCORSO', 'FROM IDEA TO PATH') }}</span>
+            <h2>{{ t('Dai forma alle tue decisioni.', 'Give your decisions a shape.') }}</h2>
+            <p>
+              {{
+                t(
+                  'Ogni ramo è una risposta possibile. Specifica costi, condizioni e risultato.',
+                  'Every branch is a possible response. Specify costs, conditions and outcomes.'
+                )
+              }}
+            </p>
+          </div>
+          <div class="lab-actions">
+            <button class="lab-btn" (click)="duplicate()" [disabled]="!store.canvas().nodes.length">
+              ⧉ {{ t('Duplica', 'Duplicate') }}</button
+            ><button
+              class="lab-btn lab-btn-primary"
+              (click)="startPractice()"
+              [disabled]="!store.canvas().nodes.length"
+            >
+              ▷ {{ t('Prova il percorso', 'Practice the path') }}
+            </button>
+          </div>
+        </div>
+        <app-flow-builder
+          (importFlow)="flowFile.click()"
+          (exportFlow)="exportJson()"
+          (exportImage)="exportPng()"
+          [exportingImage]="exportingPng()"
+        />
+        <div class="lab-export-row">
+          <p>
+            {{
+              t(
+                'Il Flow conserva una copia del mazzo e i ruoli assegnati. Le modifiche al Deck Studio non alterano questa versione.',
+                'The Flow keeps a snapshot of the deck and assigned roles. Deck Studio edits do not alter this version.'
+              )
+            }}
+          </p>
+          <button class="lab-btn lab-btn-small" (click)="exportBase64()">Base64 ↧</button
+          ><button
+            class="lab-btn lab-btn-small"
+            (click)="exportYdk()"
+            [disabled]="!store.hasDeck()"
+          >
+            .ydk ↧
+          </button>
+        </div>
+      </section>
+    }
+    @case ('training') {
+      <section class="lab-content">
+        <div class="lab-section-head">
+          <div>
+            <span class="lab-eyebrow">{{ t('ALLENA LA DECISIONE', 'PRACTICE THE DECISION') }}</span>
+            <h2>{{ t('Conosci la tua prossima mossa?', 'Do you know your next move?') }}</h2>
+            <p>
+              {{
+                t(
+                  'Percorri un ramo alla volta, poi annota cosa hai imparato. La verifica degli effetti resta manuale.',
+                  'Walk one branch at a time, then record what you learned. Card effects are verified manually.'
+                )
+              }}
+            </p>
+          </div>
+          <label class="lab-check"
+            ><input
+              type="checkbox"
+              [checked]="challenge()"
+              (change)="challenge.set($any($event.target).checked); reveal.set(!challenge())"
+            />{{ t('Nascondi i suggerimenti', 'Hide hints') }}</label
+          >
+        </div>
+        @if (currentStep(); as step) {
+          <div class="lab-training-grid">
+            <aside class="lab-training-path">
+              <span class="lab-eyebrow">{{ practiceName() }}</span>
+              <h3>{{ t('Il percorso scelto', 'Your chosen path') }}</h3>
+              @if (roots().length > 1) {
+                <label class="lab-field"
+                  >{{ t('Punto di partenza', 'Starting point')
+                  }}<select
+                    [value]="practicePath()[0]"
+                    (change)="chooseRoot($any($event.target).value)"
+                  >
+                    @for (root of roots(); track root.id) {
+                      <option [value]="root.id">{{ root.name }}</option>
+                    }
+                  </select></label
+                >
+              }
+              <ol>
+                @for (node of pathSteps(); track $index) {
+                  <li [class.current]="node.id === step.id">
+                    <span>{{ $index + 1 }}</span
+                    ><strong>{{ node.name }}</strong>
+                  </li>
+                }
+              </ol>
+              <button class="lab-text-link" [disabled]="practicePath().length < 2" (click)="back()">
+                ← {{ t('Un passo indietro', 'One step back') }}
+              </button>
+            </aside>
+            <article class="lab-practice-card">
+              <div class="lab-practice-top">
+                <span class="lab-pill"
+                  >{{ t('PASSAGGIO', 'STEP') }} {{ practicePath().length }}</span
+                ><span class="lab-eyebrow">{{ step.kind || 'action' }}</span>
+              </div>
+              @if (step.imageSmall) {
+                <img
+                  class="lab-practice-image"
+                  [src]="step.imageSmall"
+                  [alt]="step.name"
+                  [cardPreview]="step.card || null"
+                />
+              }
+              <h3>{{ step.name }}</h3>
+              @if (reveal()) {
+                <div class="lab-step-copy">
+                  <p>
+                    {{
+                      step.action ||
+                        t('Aggiungi un’azione nel builder.', 'Add an action in the builder.')
+                    }}
+                  </p>
+                  @if (step.notes) {
+                    <blockquote>{{ step.notes }}</blockquote>
+                  }
+                </div>
+              } @else {
+                <div class="lab-hint">
+                  <span>◇</span>
+                  <p>
+                    {{
+                      t(
+                        'Fermati un momento. Qual è la tua scelta, e perché?',
+                        'Pause for a moment. What is your choice, and why?'
+                      )
+                    }}
+                  </p>
+                  <button class="lab-btn" (click)="reveal.set(true)">
+                    {{ t('Mostra il suggerimento', 'Show hint') }}
+                  </button>
+                </div>
+              }
+              @if (nextSteps().length) {
+                <div class="lab-branch-list">
+                  <span class="lab-eyebrow">{{ t('COME PROSEGUE?', 'WHAT COMES NEXT?') }}</span>
+                  @for (next of nextSteps(); track next.node.id) {
+                    <button (click)="advance(next.node.id)">
+                      <span
+                        ><strong>{{ next.label }}</strong
+                        ><small>{{ next.node.name }}</small></span
+                      ><b>↗</b>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <div class="lab-practice-complete">
+                  <span class="lab-eyebrow">{{ t('PERCORSO COMPLETATO', 'PATH COMPLETED') }}</span
+                  ><label class="lab-field"
+                    >{{ t('Cosa vuoi ricordare?', 'What do you want to remember?')
+                    }}<textarea
+                      rows="3"
+                      maxlength="2000"
+                      [value]="practiceNote()"
+                      (input)="practiceNote.set($any($event.target).value)"
+                      [disabled]="practiceSaved()"
+                      [placeholder]="
+                        t(
+                          'Un timing, un costo, un’alternativa…',
+                          'A timing, a cost, an alternative…'
+                        )
+                      "
+                    ></textarea>
+                  </label>
+                  @if (practiceSaved()) {
+                    <p class="lab-success" role="status">
+                      ✓ {{ t('Sessione aggiunta al diario.', 'Session added to your journal.') }}
+                    </p>
+                  } @else {
+                    <div class="lab-actions">
+                      <button class="lab-btn lab-btn-primary" (click)="savePractice('learned')">
+                        ✓ {{ t('Lo padroneggio', 'I know this line') }}</button
+                      ><button class="lab-btn" (click)="savePractice('review')">
+                        ↻ {{ t('Da ripassare', 'Needs review') }}
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+            </article>
+          </div>
+        } @else {
+          <div class="lab-empty">
+            <span class="lab-empty-icon">▷</span>
+            <h3>
+              {{ t('Scegli una linea. Mettila alla prova.', 'Pick a line. Put it to the test.') }}
+            </h3>
+            <p>
+              {{
+                t(
+                  'Apri un Flow dall’archivio o allena quello che stai costruendo.',
+                  'Open a Flow from your library or practice the one you are building.'
+                )
+              }}
+            </p>
+            <div class="lab-actions">
+              <button class="lab-btn lab-btn-primary" (click)="section.set('library')">
+                {{ t('Scegli un Flow', 'Choose a Flow') }}</button
+              ><button
+                class="lab-btn"
+                [disabled]="!store.canvas().nodes.length"
+                (click)="startPractice()"
+              >
+                {{ t('Usa il Flow aperto', 'Use the open Flow') }}
+              </button>
+            </div>
+          </div>
+        }
+        <div class="lab-section-head lab-template-heading">
+          <div>
+            <span class="lab-eyebrow">{{ t('PROGRESSI PERSONALI', 'PERSONAL PROGRESS') }}</span>
+            <h2>{{ t('Il diario di allenamento', 'Your practice journal') }}</h2>
+            <p>
+              {{
+                t(
+                  'Ultime 100 sessioni su questo dispositivo. Le valutazioni sono tue.',
+                  'Last 100 sessions on this device. Assessments are your own.'
+                )
+              }}
+            </p>
+          </div>
+          <button
+            class="lab-btn lab-btn-small"
+            (click)="exportJournal()"
+            [disabled]="!history().length"
+          >
+            {{ t('Esporta diario', 'Export journal') }} ↧
+          </button>
+        </div>
+        @if (history().length) {
+          <div class="lab-journal">
+            @for (entry of history().slice(0, 8); track entry.id) {
+              <article>
+                <span class="lab-journal-status" [class.review]="entry.result === 'review'">{{
+                  entry.result === 'learned' ? '✓' : '↻'
+                }}</span>
+                <div>
+                  <h3>
+                    {{ entry.name }} <small>{{ entry.date | date: 'dd/MM · HH:mm' }}</small>
+                  </h3>
+                  <p>{{ entry.steps.join(' → ') }}</p>
+                  @if (entry.note) {
+                    <blockquote>{{ entry.note }}</blockquote>
+                  }
+                </div>
+                <span class="lab-pill">{{
+                  entry.result === 'learned'
+                    ? t('Acquisito', 'Learned')
+                    : t('Da ripassare', 'Review')
+                }}</span>
+              </article>
+            }
+          </div>
+        } @else {
+          <p class="lab-subtle">
+            {{ t('La tua prima sessione apparirà qui.', 'Your first session will appear here.') }}
+          </p>
+        }
+      </section>
+    }
+    @case ('hands') {
+      <section class="lab-content">
+        <div class="lab-section-head">
+          <div>
+            <span class="lab-eyebrow">{{ t('DAL MAZZO ALLA MANO', 'FROM DECK TO HAND') }}</span>
+            <h2>{{ t('Scopri le tue possibilità.', 'Explore your possibilities.') }}</h2>
+            <p>
+              {{
+                t(
+                  'Pesca, ripeti o componi una mano con le copie reali del tuo mazzo.',
+                  'Draw, replay or compose a hand with the actual copies in your deck.'
+                )
+              }}
+            </p>
+          </div>
+          <button class="lab-btn" [disabled]="!store.hasDeck()" (click)="section.set('insights')">
+            {{ t('Guarda le probabilità', 'View the odds') }} ↗
+          </button>
+        </div>
+        @if (store.hasDeck()) {
+          <div class="lab-hand-controls">
+            <label class="lab-field"
+              >{{ t('Carte in mano', 'Cards in hand')
+              }}<select
+                [value]="store.handSize()"
+                (change)="changeHandSize($any($event.target).value)"
+              >
+                <option value="5">5 {{ t('carte', 'cards') }}</option>
+                <option value="6">
+                  6 {{ t('carte · include la pescata', 'cards · includes the draw') }}
+                </option>
+              </select></label
+            ><label class="lab-field lab-seed"
+              >{{ t('Seed ripetibile', 'Replay seed')
+              }}<input
+                maxlength="200"
+                [value]="store.seed()"
+                (input)="setSeed($any($event.target).value)" /></label
+            ><button
+              class="lab-btn"
+              [disabled]="store.main().length < store.handSize()"
+              (click)="draw(true)"
+            >
+              ↻ {{ t('Ripeti seed', 'Replay seed') }}</button
+            ><button
+              class="lab-btn lab-btn-primary"
+              [disabled]="store.main().length < store.handSize()"
+              (click)="draw()"
+            >
+              ✦ {{ t('Nuova mano', 'New hand') }}</button
+            ><button
+              class="lab-btn"
+              (click)="compose.set(!compose())"
+              [attr.aria-expanded]="compose()"
+            >
+              {{ t('Componi', 'Compose') }} +
+            </button>
+          </div>
+          <p class="lab-subtle">
+            {{ formatName() }} ·
+            {{
+              t(
+                'La scelta 5/6 carte dipende dal turno e dal formato. Gli spostamenti sul campo sono manuali.',
+                'Choose 5/6 cards for your turn and format. Field movements are manual.'
+              )
+            }}
+          </p>
+          @if (compose()) {
+            <div class="lab-compose">
+              <div class="lab-section-head">
+                <h3>
+                  {{ t('Scegli le tue', 'Choose your') }} {{ store.handSize() }}
+                  {{ t('carte', 'cards') }}
+                  <span class="lab-pill">{{ chosenHand().length }}/{{ store.handSize() }}</span>
+                </h3>
+                <div class="lab-actions">
+                  <button class="lab-btn lab-btn-small" (click)="chosenHand.set([])">
+                    {{ t('Svuota', 'Clear') }}</button
+                  ><button
+                    class="lab-btn lab-btn-small lab-btn-primary"
+                    [disabled]="chosenHand().length !== store.handSize()"
+                    (click)="useHand()"
+                  >
+                    {{ t('Usa questa mano', 'Use this hand') }}
+                  </button>
+                </div>
+              </div>
+              <div class="lab-compose-grid">
+                @for (entry of uniqueMain(); track entry.card.passcode) {
+                  <div class="lab-compose-card">
+                    <button
+                      (click)="chooseCard(entry.card.passcode)"
+                      [disabled]="
+                        chosenHand().length >= store.handSize() ||
+                        chosenCount(entry.card.passcode) >= entry.count
+                      "
+                    >
+                      <img [src]="entry.card.imageSmall" alt="" loading="lazy" /><span
+                        >{{ entry.card.name
+                        }}<small
+                          >{{ chosenCount(entry.card.passcode) }} / {{ entry.count }}</small
+                        ></span
+                      ><b>+</b></button
+                    ><button
+                      class="lab-icon-btn"
+                      [disabled]="!chosenCount(entry.card.passcode)"
+                      (click)="removeChosen(entry.card.passcode)"
+                      [attr.aria-label]="t('Togli ', 'Remove ') + entry.card.name"
+                    >
+                      −
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          <div class="lab-hand-stage">
+            <span class="lab-eyebrow lab-stage-label"
+              >{{ t('LA TUA MANO', 'YOUR HAND') }}
+              @if (store.handSession(); as session) {
+                · SEED {{ session.seed }}
+              }
+            </span>
+            @if (store.solitaire().hand.length) {
+              <div class="lab-hand-fan">
+                @for (card of store.solitaire().hand; track card.uid) {
+                  <button
+                    class="lab-hand-card"
+                    [class.selected]="selected()?.uid === card.uid"
+                    (click)="selectCard(card, 'hand')"
+                    [attr.aria-pressed]="selected()?.uid === card.uid"
+                    [attr.aria-label]="card.name + ' · ' + roleName(store.roleFor(card.passcode))"
+                    [style.--card-index]="$index"
+                  >
+                    <img
+                      [src]="card.image"
+                      [alt]="card.name"
+                      [cardPreview]="previewCard(card)"
+                    /><span [attr.data-role]="store.roleFor(card.passcode)">{{
+                      roleName(store.roleFor(card.passcode))
+                    }}</span>
+                  </button>
+                }
+              </div>
+            } @else {
+              <div class="lab-stage-empty">
+                <span>✦</span>
+                <h3>{{ t('Cinque carte. Molte strade.', 'Five cards. Many paths.') }}</h3>
+                <p>
+                  {{
+                    t(
+                      'Pesca la prima mano per iniziare a studiarla.',
+                      'Draw your first hand to start exploring it.'
+                    )
+                  }}
+                </p>
+              </div>
+            }
+            <div class="lab-stage-footer">
+              <span>{{ store.solitaire().deck.length }} {{ t('nel Deck', 'in Deck') }}</span
+              ><span>{{ t('Seleziona una carta per spostarla', 'Select a card to move it') }}</span>
+            </div>
+          </div>
+          @if (selected()) {
+            <div class="lab-move-bar" role="status">
+              <strong>{{ t('Sposta in', 'Move to') }}</strong
+              ><button class="lab-btn lab-btn-small" (click)="moveTo('hand')">
+                {{ t('Mano', 'Hand') }}
+              </button>
+              @for (zone of zones; track zone.id) {
+                <button
+                  class="lab-btn lab-btn-small"
+                  [disabled]="selected()?.zone === zone.id"
+                  (click)="moveTo(zone.id)"
+                >
+                  {{ t(zone.it, zone.en) }}
+                </button>
+              }
+              <button
+                class="lab-icon-btn"
+                (click)="selected.set(null)"
+                [attr.aria-label]="t('Annulla selezione', 'Clear selection')"
+              >
+                ×
+              </button>
+            </div>
+          }
+          @if (store.wizardHandAnalysis(); as analysis) {
+            <div class="lab-hand-reading">
+              <div>
+                <span class="lab-eyebrow">{{ t('LETTURA DEI RUOLI', 'ROLE PROFILE') }}</span>
+                <h3>
+                  {{
+                    analysis.kind === 'combo'
+                      ? t('Hai un punto di partenza.', 'You have a starting point.')
+                      : analysis.kind === 'control'
+                        ? t('Una mano con interazioni.', 'A hand with interaction.')
+                        : t('Una mano da approfondire.', 'A hand to explore.')
+                  }}
+                </h3>
+                <p>
+                  {{
+                    t(
+                      'I ruoli suggeriscono risorse, non garantiscono una combo eseguibile. Costi, timing e condizioni vanno controllati.',
+                      'Roles suggest resources, not a guaranteed executable combo. Check costs, timing and conditions.'
+                    )
+                  }}
+                </p>
+                @if (analysis.starters.length) {
+                  <span class="lab-pill">{{ analysis.starters[0].name }}</span>
+                }
+              </div>
+              <div class="lab-actions">
+                <button class="lab-btn" (click)="section.set('insights')">
+                  {{ t('Rivedi i ruoli', 'Review roles') }}
+                </button>
+                @if (analysis.lines.length) {
+                  <button class="lab-btn lab-btn-primary" (click)="createFromAnalysis(analysis)">
+                    {{ t('Crea traccia da verificare', 'Create an outline to verify') }} ↗
+                  </button>
+                }
+              </div>
+            </div>
+          }
+          <details
+            class="lab-board"
+            [open]="store.solitaire().monsters.length > 0 || store.solitaire().gy.length > 0"
+          >
+            <summary>
+              {{ t('Tavolo di prova manuale', 'Manual test board') }}
+              <span>{{
+                t('Extra · Campo · Cimitero · Bandite', 'Extra · Field · Graveyard · Banished')
+              }}</span>
+            </summary>
+            <div class="lab-board-tools">
+              <button
+                class="lab-btn lab-btn-small"
+                [disabled]="!store.solitaire().deck.length"
+                (click)="store.drawOne()"
+              >
+                + {{ t('Pesca una carta', 'Draw a card') }}</button
+              ><button
+                class="lab-btn lab-btn-small"
+                [disabled]="!store.solitaireHistory().length"
+                (click)="store.undoSolitaire(); selected.set(null)"
+              >
+                ↶ {{ t('Annulla mossa', 'Undo move') }}</button
+              ><span class="lab-subtle">{{
+                t(
+                  'Fino a 50 mosse annullabili. Il tavolo non applica automaticamente le regole.',
+                  'Undo up to 50 moves. The board does not enforce rules automatically.'
+                )
+              }}</span>
+            </div>
+            <div class="lab-zone-grid">
+              @for (zone of zones; track zone.id) {
+                <details class="lab-zone" [open]="zone.id !== 'deck'">
+                  <summary>
+                    {{ t(zone.it, zone.en) }} <b>{{ store.solitaire()[zone.id].length }}</b>
+                  </summary>
+                  <div class="lab-zone-cards">
+                    @for (card of store.solitaire()[zone.id]; track card.uid) {
+                      <button
+                        [class.selected]="selected()?.uid === card.uid"
+                        (click)="selectCard(card, zone.id)"
+                        [attr.aria-pressed]="selected()?.uid === card.uid"
+                        [attr.aria-label]="card.name"
+                      >
+                        <img
+                          [src]="card.imageSmall"
+                          [alt]="card.name"
+                          loading="lazy"
+                          [cardPreview]="previewCard(card)"
+                        />
+                      </button>
+                    } @empty {
+                      <span class="lab-subtle">{{ t('Nessuna carta', 'No cards') }}</span>
+                    }
+                  </div>
+                </details>
+              }
+            </div>
+            @if (store.solitaire().log.length) {
+              <details class="lab-move-log">
+                <summary>{{ t('Registro mosse', 'Move log') }}</summary>
+                <ol>
+                  @for (line of store.solitaire().log; track $index) {
+                    <li>{{ line }}</li>
+                  }
+                </ol>
+              </details>
+            }
+          </details>
+        } @else {
+          <div class="lab-empty">
+            <span class="lab-empty-icon">✦</span>
+            <h3>{{ t('Porta il tuo mazzo al tavolo.', 'Bring your deck to the table.') }}</h3>
+            <p>
+              {{
+                t(
+                  'Seleziona un mazzo in alto oppure importalo nel Deck Studio. Puoi anche importare un Flow con il suo mazzo.',
+                  'Select a deck above or import it in Deck Studio. You can also import a Flow with its deck snapshot.'
+                )
+              }}
+            </p>
+            <a class="lab-btn lab-btn-primary" routerLink="/decklist"
+              >{{ t('Apri il Deck Studio', 'Open Deck Studio') }} ↗</a
+            >
+          </div>
+        }
+      </section>
+    }
+    @case ('insights') {
+      <section class="lab-content">
+        <div class="lab-section-head">
+          <div>
+            <span class="lab-eyebrow">{{ t('MISURA LA CONSISTENZA', 'MEASURE CONSISTENCY') }}</span>
+            <h2>{{ t('Meno intuizioni. Più riscontri.', 'Fewer guesses. More evidence.') }}</h2>
+            <p>
+              {{
+                t(
+                  'Probabilità esatte di accesso ai ruoli, per il mazzo e la mano selezionati.',
+                  'Exact role access probabilities for your selected deck and hand size.'
+                )
+              }}
+            </p>
+          </div>
+          <label class="lab-field"
+            >{{ t('Carte pescate', 'Cards drawn')
+            }}<select
+              [value]="store.handSize()"
+              (change)="changeHandSize($any($event.target).value)"
+            >
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select></label
+          >
+        </div>
+        @if (store.hypergeo(); as profile) {
+          <div class="lab-odds-grid">
+            <article class="lab-odds-card lab-odds-featured">
+              <span class="lab-eyebrow">{{ t('ALMENO UNO STARTER', 'AT LEAST ONE STARTER') }}</span
+              ><strong>{{ percent(profile.pAtLeastOneStarter) }}</strong>
+              <div class="lab-meter">
+                <span [style.width.%]="profile.pAtLeastOneStarter * 100"></span>
+              </div>
+              <p>
+                {{ profile.starters }} {{ t('copie su', 'copies in') }} {{ profile.deckSize }} ·
+                {{ store.handSize() }} {{ t('pescate', 'draws') }}
+              </p>
+            </article>
+            <article class="lab-odds-card">
+              <span class="lab-eyebrow">{{ t('STARTER + SUPPORTO', 'STARTER + SUPPORT') }}</span
+              ><strong>{{ percent(profile.pStarterPlusExtenderOrTrap) }}</strong>
+              <div class="lab-meter">
+                <span [style.width.%]="profile.pStarterPlusExtenderOrTrap * 100"></span>
+              </div>
+              <p>
+                {{
+                  t(
+                    'Almeno uno starter e un extender o un’interazione.',
+                    'At least one starter and an extender or interaction.'
+                  )
+                }}
+              </p>
+            </article>
+            <article class="lab-odds-card">
+              <span class="lab-eyebrow">{{ t('SENZA STARTER', 'NO STARTER') }}</span
+              ><strong>{{ percent(profile.pBrick) }}</strong>
+              <div class="lab-meter"><span [style.width.%]="profile.pBrick * 100"></span></div>
+              <p>
+                {{
+                  t(
+                    'Non significa automaticamente mano ingiocabile.',
+                    'Does not automatically mean an unplayable hand.'
+                  )
+                }}
+              </p>
+            </article>
+          </div>
+          <div class="lab-baseline">
+            <div>
+              <span class="lab-eyebrow">{{ t('CONFRONTO TRA VERSIONI', 'COMPARE VERSIONS') }}</span>
+              @if (baseline(); as base) {
+                <h3>
+                  {{ base.name }} <small>{{ base.date | date: 'dd/MM · HH:mm' }}</small>
+                </h3>
+                @if (baselineCompatible()) {
+                  <p>
+                    {{ t('Accesso starter', 'Starter access') }}
+                    <b>{{ delta(profile.pAtLeastOneStarter, base.profile.pAtLeastOneStarter) }}</b>
+                    · {{ t('Starter + supporto', 'Starter + support') }}
+                    <b>{{
+                      delta(
+                        profile.pStarterPlusExtenderOrTrap,
+                        base.profile.pStarterPlusExtenderOrTrap
+                      )
+                    }}</b>
+                  </p>
+                } @else {
+                  <p>
+                    {{
+                      t(
+                        'Per confrontare usa lo stesso formato e numero di carte pescate del riferimento.',
+                        'Use the same format and draw count as the baseline to compare.'
+                      )
+                    }}
+                    ({{ base.formatId }}, {{ base.draws }})
+                  </p>
+                }
+              } @else {
+                <h3>
+                  {{
+                    t('Le tue modifiche fanno la differenza?', 'Do your changes make a difference?')
+                  }}
+                </h3>
+                <p>
+                  {{
+                    t(
+                      'Salva questo riferimento, poi cambia mazzo o ruoli e confronta le probabilità.',
+                      'Save this baseline, then change decks or roles and compare the odds.'
+                    )
+                  }}
+                </p>
+              }
+            </div>
+            <button class="lab-btn" (click)="saveBaseline()">
+              {{
+                baseline()
+                  ? t('Aggiorna riferimento', 'Update baseline')
+                  : t('Salva riferimento', 'Save baseline')
+              }}
+              ⧉
+            </button>
+          </div>
+          <div class="lab-insights-grid">
+            <article class="lab-role-panel">
+              <div class="lab-panel-heading">
+                <div>
+                  <span class="lab-eyebrow">{{
+                    t('I RUOLI LI DECIDI TU', 'YOU DEFINE THE ROLES')
+                  }}</span>
+                  <h3>{{ t('Ogni carta, un compito.', 'Every card, a purpose.') }}</h3>
+                </div>
+                <span class="lab-pill"
+                  >{{ uniqueMain().length }} {{ t('carte uniche', 'unique cards') }}</span
+                >
+              </div>
+              <p class="lab-panel-description">
+                {{
+                  t(
+                    'Un ruolo principale per carta. I valori iniziali sono suggerimenti dagli script: personalizzali per il tuo piano di gioco.',
+                    'One primary role per card. Initial values are script suggestions: adjust them to your game plan.'
+                  )
+                }}
+              </p>
+              <div class="lab-role-list">
+                @for (entry of uniqueMain(); track entry.card.passcode) {
+                  <div class="lab-role-row">
+                    <img
+                      [src]="entry.card.imageSmall"
+                      [alt]="entry.card.name"
+                      loading="lazy"
+                      [cardPreview]="previewCard(entry.card)"
+                    />
+                    <div>
+                      <strong>{{ entry.card.name }}</strong
+                      ><small
+                        >{{ entry.count }}× · {{ access(entry.count) }}
+                        {{ t('di aprirne almeno una', 'to open at least one') }}</small
+                      >
+                    </div>
+                    <select
+                      [value]="entry.card.role"
+                      (change)="setRole(entry.card.passcode, $any($event.target).value)"
+                      [attr.aria-label]="t('Ruolo di ', 'Role of ') + entry.card.name"
+                    >
+                      @for (role of roles; track role.id) {
+                        <option [value]="role.id">{{ t(role.it, role.en) }}</option>
+                      }
+                    </select>
+                  </div>
+                }
+              </div>
+            </article>
+            <aside class="lab-doctor">
+              <span class="lab-eyebrow">DECK CHECK</span>
+              <h3>{{ t('Prima del prossimo test.', 'Before your next test.') }}</h3>
+              <ul>
+                <li [class.warning]="profile.deckSize < 40 || profile.deckSize > 60">
+                  <span>{{ profile.deckSize >= 40 && profile.deckSize <= 60 ? '✓' : '!' }}</span>
+                  <div>
+                    <strong
+                      >{{ profile.deckSize }}
+                      {{ t('carte nel Main Deck', 'cards in the Main Deck') }}</strong
+                    >
+                    <p>
+                      {{
+                        t(
+                          'Il normale intervallo 40–60 è un controllo di dimensione, non una verifica completa della legalità.',
+                          'The usual 40–60 range checks size, not complete deck legality.'
+                        )
+                      }}
+                    </p>
+                  </div>
+                </li>
+                <li [class.warning]="unassigned() > 0">
+                  <span>{{ unassigned() ? '!' : '✓' }}</span>
+                  <div>
+                    <strong
+                      >{{ unassigned() }}
+                      {{ t('copie senza ruolo', 'copies without a role') }}</strong
+                    >
+                    <p>
+                      {{
+                        t(
+                          'Rivedi i ruoli prima di interpretare i numeri.',
+                          'Review roles before interpreting the numbers.'
+                        )
+                      }}
+                    </p>
+                  </div>
+                </li>
+                <li>
+                  <span>↗</span>
+                  <div>
+                    <strong
+                      >{{ profile.starters }} starter · {{ profile.extenders }} extender</strong
+                    >
+                    <p>
+                      {{
+                        t(
+                          'L’accesso misura la pescata, non la riuscita di una combo.',
+                          'Access measures drawing, not combo success.'
+                        )
+                      }}
+                    </p>
+                  </div>
+                </li>
+                <li [class.warning]="!profile.handtraps">
+                  <span>◇</span>
+                  <div>
+                    <strong>{{ profile.handtraps }} {{ t('interazioni', 'interactions') }}</strong>
+                    <p>
+                      {{
+                        t(
+                          'Include hand trap e altre carte assegnate a interazione.',
+                          'Includes hand traps and other cards assigned to interaction.'
+                        )
+                      }}
+                    </p>
+                  </div>
+                </li>
+              </ul>
+              <a class="lab-text-link" routerLink="/decklist"
+                >{{ t('Rivedi la lista nel Deck Studio', 'Review the list in Deck Studio') }} ↗</a
+              >
+            </aside>
+          </div>
+          <article class="lab-batch">
+            <div class="lab-section-head">
+              <div>
+                <span class="lab-eyebrow">TEST BENCH / 100</span>
+                <h3>
+                  {{ t('Cento mani. Uno sguardo d’insieme.', 'One hundred hands. A wider view.') }}
+                </h3>
+                <p>
+                  {{
+                    t(
+                      'Campione ripetibile per ruoli, senza simulare effetti o vittorie. Seed:',
+                      'Repeatable role sample, without simulating effects or wins. Seed:'
+                    )
+                  }}
+                  {{ store.seed() }}
+                </p>
+              </div>
+              <button class="lab-btn lab-btn-primary" (click)="runBatch()">
+                ▷ {{ t('Prova 100 mani', 'Test 100 hands') }}
+              </button>
+            </div>
+            @if (batch(); as result) {
+              <div class="lab-batch-results">
+                <div>
+                  <b
+                    >{{ result.starters }}<small>/{{ result.total }}</small></b
+                  ><span>{{ t('Con starter', 'With starter') }}</span>
+                </div>
+                <div>
+                  <b>{{ result.control }}</b
+                  ><span>{{ t('Interazioni, senza starter', 'Interaction, no starter') }}</span>
+                </div>
+                <div>
+                  <b>{{ result.unclassified }}</b
+                  ><span>{{ t('Senza starter o interazioni', 'No starter or interaction') }}</span>
+                </div>
+              </div>
+              @if (result.examples.length) {
+                <h4>
+                  {{ t('Mani senza starter da approfondire', 'Hands without starters to explore') }}
+                </h4>
+                <div class="lab-example-list">
+                  @for (example of result.examples; track example.seed) {
+                    <button (click)="replayExample(example.seed)">
+                      <span>{{ example.hand.map(cardName).join(' · ') }}</span
+                      ><b>{{ t('Riprova', 'Replay') }} ↗</b>
+                    </button>
+                  }
+                </div>
+              }
+            }
+          </article>
+          <details class="lab-starters">
+            <summary>
+              {{ t('Esplora gli starter del mazzo', 'Explore your deck’s starters') }}
+            </summary>
+            <p class="lab-subtle">
+              {{
+                t(
+                  'Una traccia candidata per starter. Verifica requisiti, effetti alternativi e bersagli prima di trasformarla in una linea.',
+                  'One candidate outline per starter. Check requirements, alternative effects and targets before treating it as a line.'
+                )
+              }}
+            </p>
+            <div class="lab-starter-grid">
+              @for (analysis of store.wizardAllStarters(); track analysis.starters[0].passcode) {
+                <article>
+                  <h3>{{ analysis.starters[0].name }}</h3>
+                  <p>
+                    {{ analysis.lines.length }} {{ t('spunti da verificare', 'prompts to verify') }}
+                  </p>
+                  <button class="lab-btn lab-btn-small" (click)="createFromAnalysis(analysis)">
+                    {{ t('Apri nel builder', 'Open in builder') }} ↗
+                  </button>
+                </article>
+              } @empty {
+                <p>
+                  {{
+                    t(
+                      'Assegna almeno uno starter per iniziare.',
+                      'Assign at least one starter to begin.'
+                    )
+                  }}
+                </p>
+              }
+            </div>
+          </details>
+        } @else {
+          <div class="lab-empty">
+            <span class="lab-empty-icon">◴</span>
+            <h3>
+              {{ t('Servono carte per fare i conti.', 'We need cards to work out the odds.') }}
+            </h3>
+            <p>
+              {{
+                t(
+                  'Seleziona un mazzo con almeno tante carte quante vuoi pescarne.',
+                  'Select a deck with at least as many cards as you want to draw.'
+                )
+              }}
+            </p>
+            <a class="lab-btn lab-btn-primary" routerLink="/decklist"
+              >{{ t('Apri il Deck Studio', 'Open Deck Studio') }} ↗</a
+            >
+          </div>
+        }
+      </section>
+    }
+  }
+  <footer class="lab-footer">
+    <span>YGO CHECKER / FLOW STUDIO</span>
+    <p>
+      {{
+        t('Prepara il piano. La decisione resta tua.', 'Prepare the plan. The decision is yours.')
+      }}
+    </p>
+    <span>✦</span>
+  </footer>
+</main>

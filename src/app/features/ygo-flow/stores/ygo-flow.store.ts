@@ -1,3 +1,5 @@
+import { FlowLibraryService } from '../services/flow-library.service';
+import { openingProfile, seededShuffle } from '../services/flow-study.utils';
 import { createsCycle, layoutFlow } from '../services/flow-graph.utils';
 import { isYgoFlowDocument } from '../services/ygo-flow-io.service';
 import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
@@ -23,18 +25,15 @@ import { EffectScriptService } from '../../../services/effect-script.service';
 import { I18nService } from '../../../services/i18n.service';
 import { YdkeSections, YdkeService } from '../../../services/ydke.service';
 import { YgoApiService } from '../../../services/ygo-api.service';
-import {
-  clamp01,
-  hypergeometricAtLeastOne,
-  hypergeometricBothClasses,
-} from '../../../utils/hypergeo.utils';
 import { DecklistStore } from '../../decklist/stores/decklist.store';
 import { ComboWizardService } from '../services/combo-wizard.service';
 
-export type FlowZoneKey = 'deck' | 'hand' | 'monsters' | 'spellTraps' | 'gy';
+export type FlowZoneKey = 'deck' | 'hand' | 'monsters' | 'spellTraps' | 'gy' | 'extra' | 'banish';
 
 const EMPTY_CANVAS: FlowCanvasState = { nodes: [], edges: [], zoom: 1, panX: 0, panY: 0 };
 const EMPTY_SOLITAIRE: SolitaireState = {
+  extra: [],
+  banish: [],
   deck: [],
   hand: [],
   monsters: [],
@@ -42,7 +41,6 @@ const EMPTY_SOLITAIRE: SolitaireState = {
   gy: [],
   log: [],
 };
-const HAND_SIZE = 5;
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 2;
 const CANVAS_STEP_X = 324;
@@ -52,15 +50,6 @@ let idCounter = 0;
 function nextId(prefix: string): string {
   idCounter += 1;
   return `${prefix}-${Date.now().toString(36)}-${idCounter}`;
-}
-
-function shuffled<T>(items: readonly T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j] as T, copy[i] as T];
-  }
-  return copy;
 }
 
 /** Page-scoped signal store for the YgoFlow / Engine Lab route (decklist → canvas, solitaire, wizard). */
@@ -73,6 +62,16 @@ export class YgoFlowStore {
   private readonly i18n = inject(I18nService);
   private readonly comboWizard = inject(ComboWizardService);
   private readonly decklistStore = inject(DecklistStore);
+
+  readonly library = inject(FlowLibraryService);
+  readonly documentId = signal<string>(crypto.randomUUID());
+  readonly context = signal<YgoFlowDocument['context']>(undefined);
+  readonly handSize = signal<5 | 6>(5);
+  readonly seed = signal('duelist-1');
+  readonly missingIds = signal<number[]>([]);
+  readonly solitaireHistory = signal<SolitaireState[]>([]);
+  readonly handSession = signal<{ seed: string; handSize: number } | null>(null);
+  private snapshotCards: YgoCard[] | undefined;
 
   private pendingCanvas: FlowCanvasState | null = null;
   private pendingRoles: Record<string, CardRoleTag> | null = null;
@@ -99,6 +98,7 @@ export class YgoFlowStore {
   );
 
   readonly selectedDeckName = computed(() => {
+    if (this.context()) return this.context()!.deckName;
     const id = this.selectedDeckId();
     return this.decklistStore.decklists().find((deck) => deck.id === id)?.name ?? null;
   });
@@ -108,41 +108,29 @@ export class YgoFlowStore {
   readonly side = computed<FlowCard[]>(() => this.applyRoles(this.resolvedDeck()?.side ?? []));
   readonly hasDeck = computed(() => this.resolvedDeck() !== null);
 
-  readonly hypergeo = computed<HypergeoResult | null>(() => {
-    const main = this.main();
-    const deckSize = main.length;
-    if (deckSize === 0) {
-      return null;
-    }
-    const starters = main.filter((c) => c.role === 'starter').length;
-    const extenders = main.filter((c) => c.role === 'extender').length;
-    const handtraps = main.filter((c) => c.role === 'handtrap').length;
-    return {
-      deckSize,
-      starters,
-      extenders,
-      handtraps,
-      pAtLeastOneStarter: hypergeometricAtLeastOne(deckSize, starters, HAND_SIZE),
-      pBrick: clamp01(
-        1 - hypergeometricAtLeastOne(deckSize, starters + extenders + handtraps, HAND_SIZE),
-      ),
-      pStarterPlusExtenderOrTrap: hypergeometricBothClasses(
-        deckSize,
-        starters,
-        extenders + handtraps,
-        HAND_SIZE,
-      ),
-    };
-  });
+  readonly hypergeo = computed<HypergeoResult | null>(() =>
+    openingProfile(this.main(), this.handSize()),
+  );
 
   readonly wizardHandAnalysis = computed<WizardAnalysis | null>(() => {
     const hand = this.solitaire().hand;
-    return hand.length === 0 ? null : this.comboWizard.analyzeHand(hand);
+    return hand.length === 0
+      ? null
+      : this.comboWizard.analyzeHand(
+          this.applyRoles(hand),
+          this.resolvedDeck() ?? undefined,
+          this.roles(),
+        );
   });
 
   readonly wizardAllStarters = computed<WizardAnalysis[]>(() => {
     const main = this.main();
-    return main.length === 0 ? [] : this.comboWizard.analyzeAllStarters({ main });
+    return main.length === 0
+      ? []
+      : this.comboWizard.analyzeAllStarters(
+          { main, extra: this.extra(), side: this.side() },
+          this.roles(),
+        );
   });
 
   readonly wizardChokepoints = computed<string[]>(() => {
@@ -160,6 +148,12 @@ export class YgoFlowStore {
       const raw = localStorage.getItem('ygo-flow-workspace-v2');
       const doc: unknown = raw ? JSON.parse(raw) : null;
       if (isYgoFlowDocument(doc)) {
+        this.documentId.set(doc.id || crypto.randomUUID());
+        this.context.set(doc.context);
+        this.handSize.set(doc.handSize ?? 5);
+        this.seed.set(doc.seed ?? 'duelist-1');
+        this.snapshotCards = doc.cards;
+        this.pendingRoles = doc.roles;
         this.canvas.set(doc.canvas);
         this.roles.set(doc.roles);
         this.flowName.set(doc.name || 'Il mio Flow');
@@ -171,13 +165,20 @@ export class YgoFlowStore {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const save = () => {
       try {
-        localStorage.setItem('ygo-flow-workspace-v2', JSON.stringify(this.exportDocument()));
+        const doc = this.exportDocument();
+        this.persistNow();
+        localStorage.setItem('ygo-flow-workspace-v2', JSON.stringify(doc));
         this.saveState.set('Salvato su questo dispositivo');
       } catch {
         this.saveState.set('Salvataggio non riuscito: esporta il Flow');
       }
     };
     effect(() => {
+      this.documentId();
+      this.context();
+      this.handSize();
+      this.seed();
+      this.resolvedDeck();
       this.canvas();
       this.roles();
       this.flowName();
@@ -278,6 +279,19 @@ export class YgoFlowStore {
     }
 
     this.selectedDeckId.set(id);
+    this.context.set({
+      ...this.context(),
+      deckId: id,
+      deckName: deck.name,
+      deckUpdatedAt: deck.updatedAt,
+      formatId: this.context()?.formatId ?? '',
+      banlistDate: this.context()?.banlistDate ?? null,
+    });
+    this.snapshotCards = undefined;
+    this.pendingRoles = null;
+    this.resolvedDeck.set(null);
+    this.roles.set({});
+    this.missingIds.set([]);
 
     if (deck.cards.length === 0) {
       this.pendingCanvas = null;
@@ -289,6 +303,7 @@ export class YgoFlowStore {
 
     const sections = this.ydkeService.splitSections(deck.cards);
     const ydke = this.decklistStore.encodeYdke(id) ?? '';
+    this.ydkeInput.set(ydke);
     this.resolveSections(sections, ydke);
   }
 
@@ -325,13 +340,18 @@ export class YgoFlowStore {
     }
 
     this.loading.set(true);
+    this.missingIds.set([]);
+    this.resolvedDeck.set(null);
     this.errorKey.set(null);
     const lang = this.i18n.lang();
 
     this.deckRequest?.unsubscribe();
     this.deckRequest = forkJoin({
-      cards: this.ygoApi.getCardsByIds$(allIds, lang),
-      scripts: this.effectScripts.ensureLoaded$().pipe(catchError(() => of(null))),
+      cards:
+        this.snapshotCards && allIds.every((id) => this.snapshotCards!.some((c) => c.id === id))
+          ? of(this.snapshotCards)
+          : this.ygoApi.getCardsByIds$(allIds, lang),
+      scripts: this.effectScripts.ensureStudyLoaded$().pipe(catchError(() => of(null))),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -339,12 +359,17 @@ export class YgoFlowStore {
           this.loading.set(false);
           if (cards.length === 0) {
             this.pendingCanvas = null;
-            this.pendingRoles = null;
             this.errorKey.set('flow.error.apiFailed');
             return;
           }
 
           const byId = new Map(cards.map((card) => [card.id, card]));
+          const missing = [...new Set(allIds.filter((id) => !byId.has(id)))];
+          if (missing.length) {
+            this.missingIds.set(missing);
+            this.errorKey.set('studio.error.missingCards');
+            return;
+          }
           const build = (ids: readonly number[]): FlowCard[] =>
             ids
               .map((id) => byId.get(id))
@@ -359,7 +384,6 @@ export class YgoFlowStore {
 
           if (main.length === 0 && extra.length === 0 && side.length === 0) {
             this.pendingCanvas = null;
-            this.pendingRoles = null;
             this.errorKey.set('flow.error.apiFailed');
             return;
           }
@@ -375,7 +399,6 @@ export class YgoFlowStore {
         error: () => {
           this.loading.set(false);
           this.pendingCanvas = null;
-          this.pendingRoles = null;
           this.errorKey.set('flow.error.apiFailed');
         },
       });
@@ -549,26 +572,56 @@ export class YgoFlowStore {
 
   drawHand(): void {
     const main = this.main();
-    if (main.length === 0) {
-      return;
-    }
-    const pool = shuffled(main);
+    if (main.length < this.handSize()) return;
+    const pool = seededShuffle(
+      [...main].sort((a, b) => a.passcode - b.passcode),
+      this.seed(),
+    );
+    this.solitaireHistory.set([]);
+    this.handSession.set({ seed: this.seed(), handSize: this.handSize() });
     this.solitaire.set({
-      deck: pool.slice(HAND_SIZE),
-      hand: pool.slice(0, HAND_SIZE),
-      monsters: [],
-      spellTraps: [],
-      gy: [],
-      log: [this.i18n.t('flow.solitaire.log.draw', { count: String(HAND_SIZE) })],
+      ...EMPTY_SOLITAIRE,
+      extra: this.extra(),
+      deck: pool.slice(this.handSize()),
+      hand: pool.slice(0, this.handSize()),
+      log: [this.i18n.t('flow.solitaire.log.draw', { count: String(this.handSize()) })],
     });
   }
 
   redrawHand(): void {
+    this.seed.set(crypto.randomUUID().slice(0, 8));
     this.drawHand();
   }
 
   resetSolitaire(): void {
     this.solitaire.set(EMPTY_SOLITAIRE);
+    this.solitaireHistory.set([]);
+    this.handSession.set(null);
+  }
+
+  undoSolitaire(): void {
+    const history = this.solitaireHistory();
+    if (!history.length) return;
+    this.solitaire.set(history[history.length - 1]);
+    this.solitaireHistory.set(history.slice(0, -1));
+  }
+
+  composeHand(passcodes: number[]): boolean {
+    if (passcodes.length !== this.handSize()) return false;
+    const deck = [...this.main()];
+    const hand: FlowCard[] = [];
+    for (const id of passcodes) {
+      const index = deck.findIndex((c) => c.passcode === id);
+      if (index < 0) return false;
+      hand.push(...deck.splice(index, 1));
+    }
+    this.resetSolitaire();
+    this.solitaire.set({ ...EMPTY_SOLITAIRE, deck, hand, extra: this.extra() });
+    return true;
+  }
+
+  private checkpointSolitaire(): void {
+    this.solitaireHistory.update((h) => [...h.slice(-49), this.solitaire()]);
   }
 
   drawOne(): void {
@@ -577,6 +630,7 @@ export class YgoFlowStore {
     if (!next) {
       return;
     }
+    this.checkpointSolitaire();
     this.solitaire.set({
       ...state,
       deck: rest,
@@ -594,6 +648,7 @@ export class YgoFlowStore {
     if (!card) {
       return;
     }
+    this.checkpointSolitaire();
     this.solitaire.set({
       ...state,
       [from]: state[from].filter((c) => c.uid !== uid),
@@ -611,30 +666,62 @@ export class YgoFlowStore {
   // ---- Import / export ------------------------------------------------------
 
   exportDocument(): YgoFlowDocument {
-    const ydke =
-      (this.selectedDeckId() ? this.decklistStore.encodeYdke(this.selectedDeckId()!) : null) ??
-      this.ydkeInput() ??
-      this.resolvedDeck()?.ydke ??
-      '';
     return {
-      version: 1,
+      version: 2,
+      id: this.documentId(),
       name: this.flowName(),
-      ydke,
+      ydke: this.resolvedDeck()?.ydke || this.ydkeInput(),
+      context: this.context(),
+      handSize: this.handSize(),
+      seed: this.seed(),
+      cards: this.resolvedDeck() ? [...this.resolvedDeck()!.byId.values()] : this.snapshotCards,
       canvas: this.canvas(),
       roles: this.roles(),
       savedAt: new Date().toISOString(),
     };
   }
 
+  persistNow(): void {
+    const doc = this.exportDocument();
+    if (doc.canvas.nodes.length || this.library.documents().some(d => d.id === doc.id)) {
+      this.library.save(doc);
+    }
+  }
+
+  newDocument(name = 'Il mio Flow', canvas: FlowCanvasState = EMPTY_CANVAS): void {
+    this.persistNow();
+    this.documentId.set(crypto.randomUUID());
+    this.flowName.set(name);
+    this.canvas.set(structuredClone(canvas));
+    this.undoStack.set([]);
+    this.redoStack.set([]);
+    this.linkingFrom.set(null);
+  }
+
+  duplicateDocument(): void {
+    this.newDocument(`${this.flowName()} · copia`, this.canvas());
+    this.persistNow();
+  }
+
   loadDocument(doc: YgoFlowDocument): void {
+    this.persistNow();
     this.deckRequest?.unsubscribe();
     this.loading.set(false);
-    this.checkpoint();
-    this.selectedDeckId.set(null);
+    this.undoStack.set([]);
+    this.redoStack.set([]);
+    this.linkingFrom.set(null);
+    this.resetSolitaire();
+    this.documentId.set(doc.id || crypto.randomUUID());
+    this.context.set(doc.context);
+    this.snapshotCards = doc.cards;
+    this.handSize.set(doc.handSize ?? 5);
+    this.seed.set(doc.seed ?? 'duelist-1');
+    this.selectedDeckId.set(doc.context?.deckId ?? null);
     this.resolvedDeck.set(null);
     this.errorKey.set(null);
-    this.canvas.set(doc.canvas);
-    this.roles.set(doc.roles);
+    this.missingIds.set([]);
+    this.canvas.set(structuredClone(doc.canvas));
+    this.roles.set({ ...doc.roles });
     this.flowName.set(doc.name || 'Flow importato');
     this.ydkeInput.set(doc.ydke);
     this.pendingRoles = doc.roles;

@@ -1,3 +1,4 @@
+import { RouterLink } from '@angular/router';
 import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Decklist, DecklistCard } from '../../models/decklist.model';
@@ -13,6 +14,7 @@ import { FormatStore } from '../../core/stores/format.store';
   standalone: true,
   imports: [
     FormsModule,
+    RouterLink,
     TranslatePipe,
     DeckStatsStripComponent,
     DuelPanelComponent,
@@ -73,6 +75,8 @@ import { FormatStore } from '../../core/stores/format.store';
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
+        <a class="btn btn-primary btn-sm" routerLink="/flow" [queryParams]="{ deckId: deck().id, section: 'hands' }">{{ 'studio.entry.test' | translate }} ↗</a>
+        <a class="btn btn-outline btn-sm" routerLink="/flow" [queryParams]="{ deckId: deck().id, section: 'insights' }">{{ 'studio.entry.analyze' | translate }}</a>
         <button type="button" class="btn btn-outline btn-sm" (click)="importText.emit()">{{ 'decklist.importText' | translate }}</button>
         <button type="button" class="btn btn-primary btn-sm" (click)="completeDeck.emit()">
           {{ 'decklist.completeDeck' | translate }}

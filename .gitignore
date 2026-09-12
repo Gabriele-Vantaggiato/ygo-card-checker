@@ -54,3 +54,5 @@ Thumbs.db
 assist-debug.png
 tools/card-knowledge-db/src/assist-browser-probe.mjs
 NUL
+
+/public/assets/data/effect-scripts/study.json

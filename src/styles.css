@@ -1,4 +1,5 @@
 @import "tailwindcss" source("./app");
+@import "./styles/flow-lab.css";
 
 @plugin "daisyui" {
   themes: duel --default;

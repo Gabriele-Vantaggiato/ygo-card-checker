@@ -3,7 +3,7 @@ import { YgoCard } from './ygo-card.model';
 
 export type FlowZone = 'hand' | 'monster' | 'spellTrap' | 'gy' | 'deck' | 'extra' | 'banish';
 
-export type CardRoleTag = 'starter' | 'extender' | 'handtrap' | 'untagged';
+export type CardRoleTag = 'starter' | 'extender' | 'handtrap' | 'interaction' | 'untagged';
 
 export type FlowInterrupt = 'veiler' | 'maxx_c' | 'bottomless' | 'nightmare';
 
@@ -52,6 +52,8 @@ export interface FlowCanvasState {
 }
 
 export interface SolitaireState {
+  extra: FlowCard[];
+  banish: FlowCard[];
   deck: FlowCard[];
   hand: FlowCard[];
   monsters: FlowCard[];
@@ -79,15 +81,27 @@ export interface WizardLineStep {
 }
 
 export interface WizardAnalysis {
-  kind: 'combo' | 'brick';
+  kind: 'combo' | 'control' | 'unclassified';
   starters: FlowCard[];
   lines: WizardLineStep[];
   advice: string[];
 }
 
 export interface YgoFlowDocument {
+  id?: string;
   name?: string;
-  version: 1;
+  version: 1 | 2;
+  context?: {
+    deckId: string | null;
+    deckName: string;
+    deckUpdatedAt: string;
+    formatId: string;
+    banlistDate: string | null;
+  };
+  /** Card data for the exact YDKE snapshot, including offline restoration. */
+  cards?: YgoCard[];
+  handSize?: 5 | 6;
+  seed?: string;
   ydke: string;
   canvas: FlowCanvasState;
   roles: Record<string, CardRoleTag>;
@@ -133,7 +147,10 @@ export function scriptToRoles(script: EffectScript | undefined): CardRoleTag {
   if (script.roles.includes('handtrap')) {
     return 'handtrap';
   }
-  if (script.roles.includes('extender') || script.roles.includes('trap')) {
+  if (script.roles.includes('trap')) {
+    return 'interaction';
+  }
+  if (script.roles.includes('extender')) {
     return 'extender';
   }
   return 'untagged';

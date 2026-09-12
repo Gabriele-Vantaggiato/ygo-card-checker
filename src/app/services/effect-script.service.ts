@@ -18,17 +18,33 @@ export class EffectScriptService {
   private readonly indexSignal = signal<EffectScriptIndex>(emptyEffectScriptIndex());
   private load$: Observable<EffectScriptIndex> | null = null;
 
+  private studyLoad$: Observable<EffectScriptIndex> | null = null;
+  private fullIndexLoaded = false;
+
   readonly scripts = computed(() => this.indexSignal().scripts);
 
   ensureLoaded$(): Observable<EffectScriptIndex> {
     if (!this.load$) {
       this.load$ = this.http.get<EffectScriptIndex>(SCRIPTS_URL).pipe(
         catchError(() => this.loadHatFallback$()),
-        tap((index) => this.indexSignal.set(index)),
+        tap((index) => { this.fullIndexLoaded = true; this.indexSignal.set(index); }),
         shareReplay({ bufferSize: 1, refCount: false }),
       );
     }
     return this.load$;
+  }
+
+  /** Study metadata excludes raw Lua, which remains available to the advanced inspector. */
+  ensureStudyLoaded$(): Observable<EffectScriptIndex> {
+    if (this.fullIndexLoaded) return of(this.indexSignal());
+    if (!this.studyLoad$) {
+      this.studyLoad$ = this.http.get<EffectScriptIndex>('/assets/data/effect-scripts/study.json').pipe(
+        catchError(() => this.loadHatFallback$()),
+        tap(index => { if (!this.fullIndexLoaded) this.indexSignal.set(index); }),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+    }
+    return this.studyLoad$;
   }
 
   getScript(cardId: number): EffectScript | undefined {
