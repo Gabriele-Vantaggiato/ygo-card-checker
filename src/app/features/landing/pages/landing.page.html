@@ -1,0 +1,519 @@
+<main #landing class="duel-landing">
+  <section class="lp-hero" data-scene aria-labelledby="lp-title">
+    <div class="lp-stars lp-layer" aria-hidden="true"></div>
+    <div class="lp-hero-inner">
+      <div class="lp-hero-copy">
+        <p class="lp-eyebrow">
+          <span class="lp-diamond" aria-hidden="true"></span> THE DUELIST’S WORKSPACE
+        </p>
+        <h1 id="lp-title">
+          {{ t('Il tuo mazzo.', 'Your deck.') }}<br /><em>{{
+            t('La tua leggenda.', 'Your legend.')
+          }}</em>
+        </h1>
+        <p class="lp-lead">
+          {{
+            t(
+              'Costruisci il mazzo. Studia ogni effetto. Entra nel prossimo duello con un piano.',
+              'Build your deck. Learn every effect. Enter your next duel with a plan.'
+            )
+          }}
+        </p>
+        <div class="lp-actions">
+          <a routerLink="/decklist" class="lp-button lp-button-gold"
+            >{{ t('Entra in Deck Studio', 'Enter Deck Studio')
+            }}<span aria-hidden="true">↗</span></a
+          >
+          <a href="#lp-deck" class="lp-text-link"
+            >{{ t('Esplora il tuo potenziale', 'Explore your potential')
+            }}<span aria-hidden="true">↓</span></a
+          >
+        </div>
+        <p class="lp-hero-note">
+          {{
+            t(
+              'Il tuo spazio Yu-Gi-Oh! · Nessun account necessario',
+              'Your Yu-Gi-Oh! workspace · No account needed'
+            )
+          }}
+        </p>
+      </div>
+      <div class="lp-summon" aria-hidden="true">
+        <div class="lp-aura lp-layer"></div>
+        <div class="lp-sigil lp-layer"><i></i><b></b><span>✦</span></div>
+        <div class="lp-orbit-label lp-orbit-label-top">DARK · LIGHT · DESTINY</div>
+        <div class="lp-card-fan">
+          <img
+            class="lp-card lp-card-magician lp-layer"
+            src="/assets/landing/46986414.jpg"
+            width="421"
+            height="614"
+            alt=""
+            decoding="async"
+          />
+          <img
+            class="lp-card lp-card-utopia lp-layer"
+            src="/assets/landing/84013237.jpg"
+            width="421"
+            height="614"
+            alt=""
+            decoding="async"
+          />
+          <img
+            class="lp-card lp-card-dragon lp-layer"
+            src="/assets/landing/89631139.jpg"
+            width="421"
+            height="614"
+            alt=""
+            fetchpriority="high"
+          />
+        </div>
+        <span class="lp-summon-spark lp-spark-one">✦</span
+        ><span class="lp-summon-spark lp-spark-two">✧</span>
+        <div class="lp-orbit-label lp-orbit-label-bottom">TRUST YOUR CARDS. MASTER YOUR GAME.</div>
+      </div>
+    </div>
+    <div class="lp-hero-bottom">
+      <a href="#lp-deck" class="lp-scroll-cue"
+        ><span class="lp-scroll-line" aria-hidden="true"></span
+        >{{ t('SCORRI. IL DUELLO INIZIA QUI.', 'SCROLL. YOUR DUEL STARTS HERE.') }}</a
+      >
+      <label class="lp-motion-control"
+        ><input type="checkbox" data-motion-toggle checked /><span>{{
+          t('Effetti scroll', 'Scroll effects')
+        }}</span></label
+      >
+    </div>
+    <p class="lp-reduced-note">
+      {{
+        t(
+          'Movimento ridotto secondo le impostazioni del dispositivo.',
+          'Reduced motion follows your device settings.'
+        )
+      }}
+    </p>
+  </section>
+
+  <nav class="lp-chapters" [attr.aria-label]="t('Esplora gli strumenti', 'Explore the tools')">
+    <a href="#lp-deck" data-chapter="lp-deck"><span>01</span> DECK</a>
+    <a href="#lp-search" data-chapter="lp-search"><span>02</span> {{ t('RICERCA', 'SEARCH') }}</a>
+    <a href="#lp-flow" data-chapter="lp-flow"><span>03</span> FLOW</a>
+    <a href="#lp-overlay" data-chapter="lp-overlay"><span>04</span> OVERLAY</a>
+    <div class="lp-journey-track" aria-hidden="true"><span></span></div>
+  </nav>
+
+  <section id="lp-deck" class="lp-scene lp-deck-scene" data-scene aria-labelledby="lp-deck-title">
+    <div class="lp-scene-number lp-layer" aria-hidden="true">01</div>
+    <div class="lp-scene-layout">
+      <div class="lp-scene-copy">
+        <p class="lp-eyebrow">
+          <span class="lp-diamond" aria-hidden="true"></span> DRAW PHASE / DECK STUDIO
+        </p>
+        <h2 id="lp-deck-title">
+          {{ t('Una strategia.', 'One strategy.') }}<br /><em>{{
+            t('Infinite possibilità.', 'Endless possibilities.')
+          }}</em>
+        </h2>
+        <p>
+          {{
+            t(
+              'Ogni carta ha un posto nel tuo piano. Organizza Main, Extra e Side Deck, importa la tua lista e prepara la prossima versione del mazzo.',
+              'Every card has a place in your plan. Organize your Main, Extra and Side Deck, import your list and prepare your next deck version.'
+            )
+          }}
+        </p>
+        <ul class="lp-feature-list">
+          <li>{{ t('Importa ed esporta le tue liste', 'Import and export your lists') }}</li>
+          <li>{{ t('Tieni più mazzi a portata di mano', 'Keep multiple decks at hand') }}</li>
+          <li>{{ t('Passa dal deck alle mani di prova', 'Go from deck to test hands') }}</li>
+        </ul>
+        <a routerLink="/decklist" class="lp-button lp-button-outline"
+          >{{ t('Costruisci il tuo mazzo', 'Build your deck') }}<span aria-hidden="true">↗</span></a
+        >
+      </div>
+      <div
+        class="lp-deck-visual"
+        role="img"
+        [attr.aria-label]="
+          t(
+            'Carte che si dispongono sul campo di gioco durante lo scroll',
+            'Cards arranging themselves on the playing field as you scroll'
+          )
+        "
+      >
+        <div class="lp-table-grid lp-layer" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="lp-deck-halo lp-layer" aria-hidden="true"></div>
+        <div class="lp-deck-card lp-deck-card-a lp-layer">
+          <img
+            src="/assets/landing/46986414.jpg"
+            width="421"
+            height="614"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div class="lp-deck-card lp-deck-card-b lp-layer">
+          <img
+            src="/assets/landing/89631139.jpg"
+            width="421"
+            height="614"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div class="lp-deck-card lp-deck-card-c lp-layer">
+          <img
+            src="/assets/landing/84013237.jpg"
+            width="421"
+            height="614"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div class="lp-deck-tabs" aria-hidden="true">
+          <span>MAIN DECK</span><span>EXTRA</span><span>SIDE</span>
+        </div>
+        <p class="lp-art-caption" aria-hidden="true">
+          {{ t('IL TUO CAMPO. LE TUE SCELTE.', 'YOUR FIELD. YOUR CHOICES.') }}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section
+    id="lp-search"
+    class="lp-scene lp-search-scene"
+    data-scene
+    aria-labelledby="lp-search-title"
+  >
+    <div class="lp-scene-number lp-layer" aria-hidden="true">02</div>
+    <div class="lp-magic-haze lp-layer" aria-hidden="true"></div>
+    <div class="lp-scene-layout lp-layout-reverse">
+      <div class="lp-scene-copy">
+        <p class="lp-eyebrow">
+          <span class="lp-diamond" aria-hidden="true"></span> SPELLBOOK / CARD SEARCH
+        </p>
+        <h2 id="lp-search-title">
+          {{ t('La conoscenza', 'Knowledge') }}<br /><em>{{
+            t('è la tua magia.', 'is your magic.')
+          }}</em>
+        </h2>
+        <p>
+          {{
+            t(
+              'Un nome, un codice, un’intuizione. Trova la carta e leggi testo, statistiche e dettagli senza perdere il filo della tua strategia.',
+              'A name, a code, an idea. Find your card and read its text, stats and details without losing track of your strategy.'
+            )
+          }}
+        </p>
+        <a routerLink="/search" class="lp-button lp-button-outline"
+          >{{ t('Cerca la prossima carta', 'Find your next card')
+          }}<span aria-hidden="true">↗</span></a
+        >
+      </div>
+      <div class="lp-spell-visual">
+        <div class="lp-spell-circle lp-layer" aria-hidden="true"><span>✦</span></div>
+        <img
+          class="lp-spell-card lp-layer"
+          src="/assets/landing/46986414.jpg"
+          width="421"
+          height="614"
+          [alt]="t('Mago Nero', 'Dark Magician')"
+          loading="lazy"
+          decoding="async"
+        />
+        <div class="lp-spell-detail lp-layer">
+          <span class="lp-detail-eyebrow">{{
+            t('INCANTATORE / NORMALE', 'SPELLCASTER / NORMAL')
+          }}</span>
+          <strong>{{ t('Mago Nero', 'Dark Magician') }}</strong>
+          <span class="lp-card-level" aria-hidden="true">● ● ● ● ● ● ●</span>
+          <p>
+            {{
+              t(
+                'Il mago definitivo in termini di attacco e difesa.',
+                'The ultimate wizard in terms of attack and defense.'
+              )
+            }}
+          </p>
+          <div class="lp-card-stats">
+            <span>ATK <b>2500</b></span
+            ><span>DEF <b>2100</b></span
+            ><span>{{ t('LIV.', 'LV.') }} <b>7</b></span>
+          </div>
+        </div>
+        <p class="lp-art-caption">
+          {{ t('OGNI EFFETTO, UNA NUOVA POSSIBILITÀ.', 'EVERY EFFECT, A NEW POSSIBILITY.') }}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="lp-flow" class="lp-scene lp-flow-scene" data-scene aria-labelledby="lp-flow-title">
+    <div class="lp-scene-number lp-layer" aria-hidden="true">03</div>
+    <div class="lp-scene-layout">
+      <div class="lp-scene-copy">
+        <p class="lp-eyebrow">
+          <span class="lp-diamond" aria-hidden="true"></span> MAIN PHASE / FLOW STUDIO
+        </p>
+        <h2 id="lp-flow-title">
+          {{ t('Pensa una mossa', 'Think one move') }}<br /><em>{{
+            t('più avanti.', 'ahead.')
+          }}</em>
+        </h2>
+        <p>
+          {{
+            t(
+              'Disegna le tue linee di gioco. Prepara una risposta alle interruzioni e allenati sulle decisioni, una mano alla volta.',
+              'Map your lines of play. Prepare an answer to interruptions and practice your decisions, one hand at a time.'
+            )
+          }}
+        </p>
+        <ul class="lp-feature-list">
+          <li>
+            {{
+              t(
+                'Flow salvati e modelli da personalizzare',
+                'Saved flows and customizable templates'
+              )
+            }}
+          </li>
+          <li>
+            {{
+              t(
+                'Mani ripetibili per confrontare le scelte',
+                'Repeatable hands to compare decisions'
+              )
+            }}
+          </li>
+          <li>
+            {{ t('Allenamento guidato sui tuoi percorsi', 'Guided practice through your lines') }}
+          </li>
+        </ul>
+        <a routerLink="/flow" class="lp-button lp-button-outline"
+          >{{ t('Disegna il tuo Flow', 'Design your Flow') }}<span aria-hidden="true">↗</span></a
+        >
+        <p class="lp-fine-print">
+          {{
+            t(
+              'Uno spazio per studiare: le regole di gioco non sono validate automaticamente.',
+              'A space to study: game rules are not automatically validated.'
+            )
+          }}
+        </p>
+      </div>
+      <div class="lp-flow-visual">
+        <div class="lp-flow-grid lp-layer" aria-hidden="true"></div>
+        <p class="lp-visual-label">
+          {{ t('ESEMPIO DI PERCORSO', 'EXAMPLE LINE OF PLAY') }} <span aria-hidden="true">↳</span>
+        </p>
+        <div class="lp-flow-node lp-flow-starter lp-layer">
+          <span class="lp-node-symbol" aria-hidden="true">01</span>
+          <div>
+            <small>STARTER</small
+            ><strong>{{ t('La tua prima mossa', 'Your opening move') }}</strong>
+          </div>
+          <span class="lp-node-dot" aria-hidden="true"></span>
+        </div>
+        <div class="lp-flow-wire lp-wire-first" aria-hidden="true"></div>
+        <div class="lp-flow-node lp-flow-question lp-layer">
+          <span class="lp-question-diamond" aria-hidden="true">?</span
+          ><strong>{{ t('Il rivale ti interrompe?', 'Does your opponent interrupt?') }}</strong>
+        </div>
+        <div class="lp-flow-branches">
+          <div>
+            <div class="lp-flow-wire lp-wire-branch" aria-hidden="true"></div>
+            <span class="lp-branch-label">NO</span>
+            <div class="lp-flow-node lp-flow-plan-a lp-layer">
+              <small>{{ t('PIANO A', 'PLAN A') }}</small
+              ><strong>{{ t('Continua la linea', 'Continue your line') }}</strong>
+            </div>
+          </div>
+          <div>
+            <div class="lp-flow-wire lp-wire-branch" aria-hidden="true"></div>
+            <span class="lp-branch-label">{{ t('SÌ', 'YES') }}</span>
+            <div class="lp-flow-node lp-flow-plan-b lp-layer">
+              <small>{{ t('PIANO B', 'PLAN B') }}</small
+              ><strong>{{ t('Cambia percorso', 'Change your route') }}</strong>
+            </div>
+          </div>
+        </div>
+        <p class="lp-art-caption">
+          {{ t('IL PIANO MIGLIORE HA UN PIANO B.', 'THE BEST PLAN HAS A PLAN B.') }}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section
+    id="lp-overlay"
+    class="lp-scene lp-overlay-scene"
+    data-scene
+    aria-labelledby="lp-overlay-title"
+  >
+    <div class="lp-scene-number lp-layer" aria-hidden="true">04</div>
+    <div class="lp-scene-layout lp-layout-reverse">
+      <div class="lp-scene-copy">
+        <p class="lp-eyebrow">
+          <span class="lp-diamond" aria-hidden="true"></span> REVEAL / OVERLAY
+        </p>
+        <h2 id="lp-overlay-title">
+          {{ t('Vista sul campo.', 'Seen on the field.') }}<br /><em>{{
+            t('Trovata nel database.', 'Found in the database.')
+          }}</em>
+        </h2>
+        <p>
+          {{
+            t(
+              'Hai una carta davanti agli occhi? Parti da un’immagine o dalla cattura dello schermo, controlla il riconoscimento e apri i dettagli.',
+              'Have a card in front of you? Start with an image or a screen capture, check the recognition and open its details.'
+            )
+          }}
+        </p>
+        <a routerLink="/overlay" class="lp-button lp-button-outline"
+          >{{ t('Apri Overlay', 'Open Overlay') }}<span aria-hidden="true">↗</span></a
+        >
+        <p class="lp-fine-print">
+          {{
+            t(
+              'Il riconoscimento può richiedere una correzione manuale.',
+              'Recognition may require a manual correction.'
+            )
+          }}
+        </p>
+      </div>
+      <div
+        class="lp-scan-visual"
+        role="img"
+        [attr.aria-label]="
+          t(
+            'Anteprima illustrativa: un fascio luminoso scorre sulla carta Drago Bianco Occhi Blu',
+            'Illustrative preview: a beam of light scans the Blue-Eyes White Dragon card'
+          )
+        "
+      >
+        <div class="lp-scan-orbit lp-layer" aria-hidden="true"></div>
+        <div class="lp-scan-frame lp-layer" aria-hidden="true">
+          <img
+            src="/assets/landing/89631139.jpg"
+            width="421"
+            height="614"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+          <i class="lp-scan-corner lp-corner-tl"></i><i class="lp-scan-corner lp-corner-tr"></i
+          ><i class="lp-scan-corner lp-corner-bl"></i><i class="lp-scan-corner lp-corner-br"></i>
+          <div class="lp-scan-beam"></div>
+        </div>
+        <div class="lp-scan-result lp-layer" aria-hidden="true">
+          <span class="lp-result-mark">↗</span>
+          <div>
+            <small>{{ t('ANTEPRIMA CARTA', 'CARD PREVIEW') }}</small
+            ><strong>{{ t('Drago Bianco Occhi Blu', 'Blue-Eyes White Dragon') }}</strong>
+          </div>
+          <span class="lp-scan-id">#89631139</span>
+        </div>
+        <p class="lp-art-caption" aria-hidden="true">
+          {{ t('DALL’IMMAGINE ALLA STRATEGIA.', 'FROM IMAGE TO STRATEGY.') }}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <aside class="lp-resume" [attr.aria-label]="t('Il tuo spazio di lavoro', 'Your workspace')">
+    <div>
+      <span class="lp-eyebrow">{{
+        t('IL TUO SPAZIO TI ASPETTA', 'YOUR WORKSPACE IS WAITING')
+      }}</span
+      ><strong>{{ decks.activeDecklist().name }}</strong>
+    </div>
+    <a
+      routerLink="/flow"
+      [queryParams]="{ deckId: decks.activeDecklist().id, section: 'hands' }"
+      class="lp-text-link"
+      >{{ t('Prova una mano', 'Test a hand') }}<span aria-hidden="true">↗</span></a
+    >
+    <a routerLink="/flow" [queryParams]="{ section: 'library' }" class="lp-text-link"
+      >{{ t('I tuoi Flow', 'Your Flows') }}
+      <span class="lp-count">{{ library.documents().length }}</span
+      ><span aria-hidden="true">↗</span></a
+    >
+  </aside>
+
+  <section class="lp-faq" aria-labelledby="lp-faq-title">
+    <div>
+      <p class="lp-eyebrow">BEFORE THE DUEL</p>
+      <h2 id="lp-faq-title">{{ t('Le carte in tavola.', 'Cards on the table.') }}</h2>
+    </div>
+    <div class="lp-faq-items">
+      <details>
+        <summary>
+          {{ t('Devo creare un account?', 'Do I need an account?')
+          }}<span aria-hidden="true">+</span>
+        </summary>
+        <p>
+          {{
+            t(
+              'No. Puoi iniziare subito a cercare carte, costruire mazzi e preparare i tuoi Flow.',
+              'No. You can start searching cards, building decks and preparing your Flows right away.'
+            )
+          }}
+        </p>
+      </details>
+      <details>
+        <summary>
+          {{ t('Dove vengono salvati mazzi e Flow?', 'Where are decks and Flows saved?')
+          }}<span aria-hidden="true">+</span>
+        </summary>
+        <p>
+          {{
+            t(
+              'Nel browser che stai usando. Esporta una copia per conservarli o spostarli su un altro dispositivo: non vengono sincronizzati automaticamente.',
+              'In the browser you are using. Export a copy to keep them safe or move them to another device: they are not automatically synced.'
+            )
+          }}
+        </p>
+      </details>
+      <details>
+        <summary>
+          {{ t('Flow Studio gioca al posto mio?', 'Does Flow Studio play for me?')
+          }}<span aria-hidden="true">+</span>
+        </summary>
+        <p>
+          {{
+            t(
+              'Flow Studio ti aiuta a studiare e provare le tue decisioni. Non simula tutte le regole e non certifica la validità delle combo.',
+              'Flow Studio helps you study and practice your decisions. It does not simulate all game rules or certify combo legality.'
+            )
+          }}
+        </p>
+      </details>
+    </div>
+  </section>
+
+  <section class="lp-finale" data-scene aria-labelledby="lp-finale-title">
+    <div class="lp-finale-ring lp-layer" aria-hidden="true"></div>
+    <span class="lp-finale-star" aria-hidden="true">✦</span>
+    <p class="lp-eyebrow">IT’S TIME TO DUEL</p>
+    <h2 id="lp-finale-title">
+      {{ t('La prossima mossa', 'The next move') }}<br /><em>{{ t('è tua.', 'is yours.') }}</em>
+    </h2>
+    <a routerLink="/decklist" class="lp-button lp-button-gold"
+      >{{ t('Prepara il tuo duello', 'Prepare for your duel') }}<span aria-hidden="true">↗</span></a
+    >
+    <p class="lp-fan-note">
+      {{
+        t(
+          'Creato per i duellanti. Fatto per la tua prossima idea.',
+          'Created for duelists. Made for your next idea.'
+        )
+      }}
+    </p>
+  </section>
+</main>
