@@ -1,0 +1,1053 @@
+/* Cinematic scroll direction: assemble, reveal, branch, scan. */
+.lp-cinema {
+  --pointer-x: 0;
+  --pointer-y: 0;
+  --pin-progress: 0.5;
+  --reveal: 1;
+  background: #08090b;
+}
+.lp-cinema [data-scene] {
+  --pin-progress: 0.5;
+  --reveal: 1;
+}
+.lp-cinema .lp-hero,
+.lp-cinema .lp-scene {
+  padding: 0;
+  overflow: visible;
+}
+.lp-cinema .lp-pin {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  padding: 64px max(6%, calc((100% - 1320px) / 2));
+}
+.lp-cinema .lp-pin-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+.lp-cinema [data-pin-active] {
+  height: calc(var(--pin-height) * 2.05);
+}
+.lp-cinema [data-pin-active] > .lp-pin {
+  position: sticky;
+  top: var(--pin-offset);
+  height: var(--pin-height);
+  padding-block: 16px;
+  display: flex;
+  align-items: center;
+}
+.lp-cinema .lp-hero .lp-pin {
+  background: radial-gradient(ellipse at 74% 53%, #573b251f, transparent 62%), #08090b;
+}
+.lp-cinema .lp-hero-inner {
+  min-height: 0;
+  grid-template-columns: 1.04fr 1fr;
+  gap: 10px;
+}
+.lp-cinema .lp-hero-copy {
+  padding: 0;
+}
+.lp-cinema .lp-hero h1 {
+  font-size: clamp(49px, 6.4cqw, 90px);
+  line-height: 1.06;
+  margin: 28px 0;
+  letter-spacing: -0.058em;
+}
+.lp-cinema .lp-title-line {
+  display: block;
+  overflow: clip;
+  padding: 3px 0 7px;
+}
+.lp-cinema .lp-title-line > * {
+  display: block;
+  transform: translate3d(0, calc((1 - var(--reveal)) * 95%), 0);
+}
+.lp-cinema .lp-title-line em {
+  background: linear-gradient(100deg, #f6e3bc, #b9945b 55%, #edd6a9);
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lp-cinema .lp-hero-copy .lp-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+.lp-cinema .lp-lead {
+  font-size: 15px;
+  max-width: 385px;
+  line-height: 1.85;
+}
+.lp-cinema .lp-hero-note {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.lp-cinema .lp-hero-note > span {
+  margin: 0 10px;
+  color: #d7b676;
+}
+.lp-cinema .lp-live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #e8cd96;
+  box-shadow: 0 0 14px #e8cd9680;
+  animation: lp-signal 3.5s ease-in-out infinite;
+}
+.lp-cinema .lp-hero-bottom {
+  padding: 16px 0 0;
+}
+.lp-cinema .lp-atmosphere {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+.lp-cinema .lp-nebula {
+  position: absolute;
+  width: 75%;
+  height: 95%;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #ba864926, transparent 65%);
+  animation: lp-cloud 19s ease-in-out infinite alternate;
+}
+.lp-cinema .lp-nebula-a {
+  right: -10%;
+  top: -15%;
+}
+.lp-cinema .lp-nebula-b {
+  left: -20%;
+  bottom: -45%;
+  background: radial-gradient(ellipse, #755b9220, transparent 67%);
+  animation-delay: -9s;
+}
+.lp-cinema .lp-summon {
+  height: 520px;
+  max-width: 570px;
+  perspective: 1000px;
+}
+.lp-cinema .lp-portal-depth {
+  position: absolute;
+  width: 102%;
+  aspect-ratio: 1;
+  left: -1%;
+  top: 50%;
+  translate: 0 -50%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    #d7b67600 0deg 16deg,
+    #d7b67615 17deg 18deg,
+    #d7b67600 19deg 30deg
+  );
+  mask-image: radial-gradient(circle, transparent 29%, #000 30%, #000 52%, transparent 69%);
+  animation: lp-orbit 95s linear infinite;
+  transform: scale(calc(0.83 + var(--pin-progress) * 0.35));
+}
+.lp-cinema .lp-aura {
+  inset: -5% -15%;
+  background: radial-gradient(ellipse, #bd87272e, transparent 64%);
+  animation: lp-breathe 7s ease-in-out infinite;
+}
+.lp-cinema .lp-sigil {
+  width: 88%;
+  border-color: #e3b86d65;
+  box-shadow:
+    0 0 32px #d7b67608,
+    inset 0 0 40px #d7b6760a;
+  transform: translate(-50%, -50%) rotate(calc(var(--pin-progress) * 110deg));
+}
+.lp-cinema .lp-sigil i {
+  animation: lp-orbit 44s linear infinite;
+}
+.lp-cinema .lp-sigil b {
+  animation: lp-orbit 67s linear infinite reverse;
+}
+.lp-cinema .lp-portal-ring {
+  position: absolute;
+  width: 94%;
+  aspect-ratio: 1;
+  border: 1px solid #e9c78b50;
+  border-radius: 50%;
+  left: 3%;
+  top: 50%;
+  translate: 0 -50%;
+  pointer-events: none;
+}
+.lp-cinema .lp-portal-ring-a {
+  transform: rotateX(67deg) rotateZ(calc(-20deg + var(--pin-progress) * 95deg));
+  animation: lp-ring-light 8s ease-in-out infinite;
+}
+.lp-cinema .lp-portal-ring-b {
+  width: 72%;
+  left: 14%;
+  border-color: #d2b4e233;
+  transform: rotateY(64deg) rotateZ(calc(30deg - var(--pin-progress) * 80deg));
+}
+.lp-cinema .lp-card-fan {
+  transform-style: preserve-3d;
+  transform: rotateX(calc(var(--pointer-y) * -7deg)) rotateY(calc(var(--pointer-x) * 11deg));
+}
+.lp-cinema .lp-card {
+  width: 37%;
+  box-shadow: none;
+  transform-style: preserve-3d;
+}
+.lp-cinema .lp-card-float {
+  position: relative;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow:
+    0 22px 50px #000c,
+    0 0 0 1px #ecd3a24d;
+  animation: lp-levitate 6s ease-in-out infinite;
+}
+.lp-cinema .lp-card img {
+  width: 100%;
+  border-radius: 5px;
+}
+.lp-cinema .lp-card-magician {
+  transform: translate3d(
+      calc(-68% - var(--pin-progress) * 87%),
+      calc(-52% + var(--pin-progress) * 18%),
+      -75px
+    )
+    rotateY(calc(27deg - var(--pin-progress) * 42deg))
+    rotateZ(calc(-6deg - var(--pin-progress) * 22deg));
+}
+.lp-cinema .lp-card-utopia {
+  transform: translate3d(
+      calc(-30% + var(--pin-progress) * 84%),
+      calc(-50% + var(--pin-progress) * 19%),
+      -45px
+    )
+    rotateY(calc(-28deg + var(--pin-progress) * 39deg))
+    rotateZ(calc(6deg + var(--pin-progress) * 24deg));
+}
+.lp-cinema .lp-card-dragon {
+  width: 45%;
+  transform: translate3d(-50%, calc(-49% - var(--pin-progress) * 11%), 65px)
+    rotateY(calc(-15deg + var(--pin-progress) * 30deg))
+    rotateZ(calc(-4deg + var(--pin-progress) * 9deg));
+}
+.lp-cinema .lp-card-utopia .lp-card-float {
+  animation-delay: -2s;
+}
+.lp-cinema .lp-card-magician .lp-card-float {
+  animation-delay: -4s;
+}
+.lp-cinema .lp-card-foil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    112deg,
+    transparent 20%,
+    #b1b9fb26 40%,
+    #fff4d66e 49%,
+    #b5f1eb22 58%,
+    transparent 75%
+  );
+  mix-blend-mode: screen;
+  transform: translateX(calc(-100% + var(--pin-progress) * 170% + var(--pointer-x) * 24%));
+}
+.lp-cinema .lp-orbit-label-top {
+  top: 9px;
+  font-size: 9px;
+  letter-spacing: 0.32em;
+}
+.lp-cinema .lp-orbit-label-bottom {
+  bottom: 11px;
+  font-size: 9px;
+}
+.lp-cinema .lp-summon-spark {
+  animation: lp-spark 5s ease-in-out infinite;
+}
+.lp-cinema .lp-spark-two {
+  animation-delay: -2s;
+}
+.lp-cinema .lp-scroll-line {
+  animation: lp-scroll-hint 2.6s ease-in-out infinite;
+}
+.lp-cinema .lp-button {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  transition:
+    transform 0.3s,
+    box-shadow 0.3s,
+    background 0.3s;
+}
+.lp-cinema .lp-button::after {
+  content: '';
+  position: absolute;
+  inset: -40% -20%;
+  background: linear-gradient(115deg, transparent 30%, #ffffff38 50%, transparent 70%);
+  transform: translateX(-130%);
+  pointer-events: none;
+  transition: transform 0.65s;
+}
+.lp-cinema .lp-button:hover {
+  transform: translateY(-3px);
+}
+.lp-cinema .lp-button:hover::after {
+  transform: translateX(130%);
+}
+.lp-cinema .lp-button span {
+  transition: transform 0.3s;
+}
+.lp-cinema .lp-button:hover span {
+  transform: translate(3px, -3px);
+}
+.lp-cinema .lp-manifesto {
+  position: relative;
+  overflow: clip;
+  text-align: center;
+  padding: 115px 20px 85px;
+  background: #0b0c0f;
+}
+.lp-cinema .lp-manifesto .lp-eyebrow {
+  justify-content: center;
+}
+.lp-cinema .lp-manifesto h2 {
+  position: relative;
+  font:
+    500 clamp(37px, 6.4cqw, 90px)/1.12 'Cinzel',
+    Georgia,
+    serif;
+  letter-spacing: -0.05em;
+  margin: 28px 0 22px;
+}
+.lp-cinema .lp-manifesto h2 span,
+.lp-cinema .lp-manifesto h2 em {
+  display: block;
+  transform: translate3d(calc((1 - var(--reveal)) * -40px), 0, 0);
+}
+.lp-cinema .lp-manifesto h2 em {
+  transform: translate3d(calc((1 - var(--reveal)) * 40px), 0, 0);
+  color: #e5c68c;
+}
+.lp-cinema .lp-manifesto > p:last-of-type {
+  position: relative;
+  color: #b0a99a;
+  font-size: 13px;
+}
+.lp-cinema .lp-manifesto-orbit {
+  position: absolute;
+  width: 550px;
+  aspect-ratio: 1;
+  border: 1px solid #d7b6761f;
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(calc(0.7 + var(--scene-progress) * 0.8));
+}
+.lp-cinema .lp-manifesto-orbit::before {
+  content: '';
+  position: absolute;
+  inset: 18px;
+  border: 1px dashed #d7b67624;
+  border-radius: 50%;
+  animation: lp-orbit 80s linear infinite;
+}
+.lp-cinema .lp-marquee {
+  overflow: clip;
+  margin: 60px -20px -40px;
+  border-block: 1px solid #d7b67618;
+  padding: 17px 0;
+  rotate: -3deg;
+}
+.lp-cinema .lp-marquee > div {
+  width: max-content;
+  font:
+    500 23px 'Rajdhani',
+    sans-serif;
+  letter-spacing: 0.22em;
+  word-spacing: 20px;
+  color: #aa9570;
+  animation: lp-marquee-drift 40s linear infinite;
+}
+.lp-cinema .lp-chapters {
+  top: var(--lp-header, 76px);
+  background: #0e1013f5;
+}
+.lp-cinema .lp-chapters a {
+  position: relative;
+}
+.lp-cinema .lp-chapters a::after {
+  content: '';
+  position: absolute;
+  bottom: 11px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #e5c68c;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+.lp-cinema .lp-chapters a[aria-current]::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+.lp-cinema .lp-scene {
+  scroll-margin-top: calc(var(--lp-header, 76px) + var(--lp-chapter, 52px));
+}
+.lp-cinema .lp-scene .lp-pin::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 75% 52%,
+    color-mix(in srgb, var(--lp-accent) 8%, transparent),
+    transparent 65%
+  );
+  transform: translate3d(calc(var(--pointer-x) * -18px), calc(var(--scene-shift) * -80px), 0);
+}
+.lp-cinema .lp-scene-layout {
+  gap: 6%;
+}
+.lp-cinema .lp-scene-copy > * {
+  transform: translate3d(0, calc((1 - var(--reveal)) * 35px), 0);
+  opacity: calc(0.35 + var(--reveal) * 0.65);
+}
+.lp-cinema .lp-scene-copy h2 {
+  font-size: clamp(33px, 4.1cqw, 58px);
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+.lp-cinema .lp-scene-copy h2 em {
+  display: inline;
+  background-image: linear-gradient(90deg, var(--lp-accent), #f6eddb);
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lp-cinema .lp-scene-number {
+  top: -60px;
+  right: -20px;
+  font-size: clamp(160px, 26cqw, 350px);
+  color: color-mix(in srgb, var(--lp-accent) 7%, transparent);
+  transform: translate3d(calc(var(--pin-progress) * -35px), calc(var(--pin-progress) * 50px), 0)
+    rotate(calc(-8deg + var(--pin-progress) * 12deg));
+}
+.lp-cinema .lp-art-caption {
+  bottom: 3px;
+  opacity: calc(0.45 + var(--reveal) * 0.55);
+}
+.lp-cinema .lp-deck-visual,
+.lp-cinema .lp-spell-visual,
+.lp-cinema .lp-scan-visual {
+  height: 440px;
+  perspective: 900px;
+}
+.lp-cinema .lp-deck-halo {
+  animation: lp-breathe 7s ease-in-out infinite;
+}
+.lp-cinema .lp-table-grid {
+  opacity: 0.65;
+  transform: perspective(650px) rotateX(calc(65deg - var(--pin-progress) * 15deg))
+    rotateZ(calc(-24deg + var(--pin-progress) * 16deg)) translateY(calc(var(--pin-progress) * 50px));
+}
+.lp-cinema .lp-deck-card {
+  transform-style: preserve-3d;
+}
+.lp-cinema .lp-deck-card img {
+  animation: lp-levitate 7s ease-in-out infinite;
+}
+.lp-cinema .lp-deck-card-a img {
+  animation-delay: -3s;
+}
+.lp-cinema .lp-deck-card-c img {
+  animation-delay: -5s;
+}
+.lp-cinema .lp-deck-card-a {
+  transform: translate3d(
+      calc(-60% - var(--pin-progress) * 90%),
+      calc(-90% + var(--pin-progress) * 70%),
+      calc(-120px + var(--pin-progress) * 160px)
+    )
+    rotateX(calc(45deg - var(--pin-progress) * 45deg))
+    rotateZ(calc(-43deg + var(--pin-progress) * 32deg));
+}
+.lp-cinema .lp-deck-card-b {
+  transform: translate3d(-50%, calc(-61% + var(--pin-progress) * 28%), 70px)
+    rotateY(calc(var(--pointer-x) * 12deg)) rotateZ(-4deg);
+}
+.lp-cinema .lp-deck-card-c {
+  transform: translate3d(
+      calc(-35% + var(--pin-progress) * 100%),
+      calc(-80% + var(--pin-progress) * 90%),
+      calc(-80px + var(--pin-progress) * 120px)
+    )
+    rotateX(calc(35deg - var(--pin-progress) * 35deg))
+    rotateZ(calc(38deg - var(--pin-progress) * 25deg));
+}
+.lp-cinema .lp-deck-tabs {
+  transform: translateX(-50%) translateY(calc((1 - var(--reveal)) * 20px));
+}
+.lp-cinema .lp-search-scene {
+  background: #120f1b;
+}
+.lp-cinema .lp-magic-haze {
+  animation: lp-cloud 16s ease-in-out infinite alternate;
+}
+.lp-cinema .lp-spell-circle {
+  box-shadow:
+    inset 0 0 55px #b789eb1c,
+    0 0 70px #9464b810;
+  transform: rotateX(calc(30deg - var(--pin-progress) * 25deg))
+    rotate(calc(var(--pin-progress) * -85deg));
+}
+.lp-cinema .lp-spell-circle::before {
+  animation: lp-orbit 33s linear infinite reverse;
+}
+.lp-cinema .lp-spell-circle::after {
+  animation: lp-orbit 50s linear infinite;
+}
+.lp-cinema .lp-spell-card {
+  left: 16%;
+  width: 43%;
+  transform: translate3d(
+      calc((0.5 - var(--pin-progress)) * -65px),
+      calc((0.5 - var(--pin-progress)) * 65px),
+      50px
+    )
+    rotateY(calc(53deg - var(--pin-progress) * 75deg))
+    rotateZ(calc(-19deg + var(--pin-progress) * 22deg));
+  animation: lp-levitate 7s ease-in-out infinite;
+}
+.lp-cinema .lp-spell-detail {
+  transform: translate3d(
+      calc((1 - var(--reveal)) * 50px),
+      calc((0.5 - var(--pin-progress)) * 60px),
+      70px
+    )
+    rotateY(calc(var(--pointer-x) * -5deg));
+  border-color: #bca1ef70;
+  box-shadow: 0 28px 50px #0008;
+}
+.lp-cinema .lp-spell-detail::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 20px;
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e6cdff, transparent);
+  animation: lp-signal 4s ease-in-out infinite;
+}
+.lp-cinema .lp-flow-visual {
+  transform: perspective(1100px) rotateY(calc(var(--pointer-x) * -5deg))
+    rotateX(calc(var(--pointer-y) * 3deg));
+}
+.lp-cinema .lp-flow-grid {
+  background-size: 28px 28px;
+  transform: perspective(500px) rotateX(14deg) translate3d(0, calc(var(--pin-progress) * 50px), 0);
+}
+.lp-cinema .lp-flow-starter {
+  animation: lp-node-glow 6s ease-in-out infinite;
+}
+.lp-cinema .lp-node-dot {
+  animation: lp-signal 2.5s ease-in-out infinite;
+}
+.lp-cinema .lp-flow-wire::after {
+  background: linear-gradient(180deg, #8abbb5, #e2ffed, #8abbb5);
+  background-size: 100% 200%;
+  animation: lp-wire-travel 2.4s linear infinite;
+  transform: scaleY(clamp(0, calc(var(--pin-progress) * 3), 1));
+}
+.lp-cinema .lp-wire-branch::after {
+  animation-delay: -1s;
+  transform: scaleY(clamp(0, calc(var(--pin-progress) * 3 - 0.8), 1));
+}
+.lp-cinema .lp-flow-plan-a {
+  transform: translate3d(calc((1 - var(--reveal)) * -35px), calc((1 - var(--reveal)) * 30px), 0);
+  animation: lp-node-glow 6s ease-in-out infinite -2s;
+}
+.lp-cinema .lp-flow-plan-b {
+  transform: translate3d(calc((1 - var(--reveal)) * 35px), calc((1 - var(--reveal)) * 30px), 0);
+  animation: lp-node-glow 6s ease-in-out infinite -4s;
+}
+.lp-cinema .lp-flow-question {
+  box-shadow: 0 0 30px #bca1ef0f;
+}
+.lp-cinema .lp-scan-orbit::before {
+  animation: lp-orbit 45s linear infinite;
+}
+.lp-cinema .lp-scan-frame {
+  transform: translate3d(0, calc((0.5 - var(--pin-progress)) * 40px), 0)
+    rotateY(calc(40deg - var(--pin-progress) * 60deg))
+    rotateZ(calc(-7deg + var(--pin-progress) * 10deg));
+}
+.lp-cinema .lp-scan-corner {
+  animation: lp-ring-light 4s ease-in-out infinite;
+}
+.lp-cinema .lp-scan-beam {
+  transform: translate3d(0, calc(var(--pin-progress) * 80%), 0);
+  animation: lp-scan-idle 6s ease-in-out infinite;
+}
+.lp-cinema .lp-scan-result {
+  transform: translate3d(calc((1 - var(--reveal)) * 40px), calc((1 - var(--reveal)) * 25px), 30px);
+  box-shadow:
+    0 18px 45px #0009,
+    0 0 30px #a4c9ed0c;
+}
+.lp-cinema .lp-result-mark {
+  animation: lp-signal 3s ease-in-out infinite;
+}
+.lp-cinema .lp-resume > *,
+.lp-cinema .lp-faq > * {
+  transform: translateY(calc((1 - var(--reveal)) * 36px));
+  opacity: calc(0.3 + var(--reveal) * 0.7);
+}
+.lp-cinema .lp-resume {
+  background: linear-gradient(115deg, #33281922, #151619);
+}
+.lp-cinema .lp-faq summary {
+  transition:
+    color 0.25s,
+    padding 0.25s;
+}
+.lp-cinema .lp-faq summary:hover {
+  padding-left: 8px;
+  color: #ead3a6;
+}
+.lp-cinema .lp-faq details[open] p {
+  animation: lp-answer-in 0.35s ease-out both;
+}
+.lp-cinema .lp-finale {
+  padding-block: 110px;
+  background: radial-gradient(ellipse at 50% 80%, #98671f26, transparent 64%), #0a0b0d;
+}
+.lp-cinema .lp-finale-ring {
+  width: 800px;
+  top: 90px;
+  transform: translate(-50%, calc(var(--scene-shift) * 95px))
+    scale(calc(0.8 + var(--scene-progress) * 0.5));
+}
+.lp-cinema .lp-finale-ring::before {
+  animation: lp-orbit 70s linear infinite;
+}
+.lp-cinema .lp-finale-star {
+  animation: lp-spark 5s ease-in-out infinite;
+}
+.lp-cinema .lp-finale h2 {
+  font-size: clamp(37px, 6.5cqw, 90px);
+  transform: translateY(calc((1 - var(--reveal)) * 45px));
+}
+.lp-cinema *,
+.lp-cinema *::before,
+.lp-cinema *::after {
+  animation-play-state: paused;
+}
+.lp-cinema [data-in-view] *,
+.lp-cinema [data-in-view] *::before,
+.lp-cinema [data-in-view] *::after {
+  animation-play-state: running;
+}
+@keyframes lp-orbit {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes lp-levitate {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -10px;
+  }
+}
+@keyframes lp-cloud {
+  from {
+    translate: -3% -3%;
+    scale: 0.95;
+  }
+  to {
+    translate: 5% 7%;
+    scale: 1.13;
+  }
+}
+@keyframes lp-breathe {
+  0%,
+  100% {
+    opacity: 0.62;
+    scale: 0.92;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.1;
+  }
+}
+@keyframes lp-ring-light {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes lp-signal {
+  0%,
+  100% {
+    opacity: 0.48;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes lp-spark {
+  0%,
+  100% {
+    opacity: 0.5;
+    scale: 0.8;
+    rotate: 0deg;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.1;
+    rotate: 35deg;
+  }
+}
+@keyframes lp-scroll-hint {
+  0%,
+  100% {
+    translate: 0 -3px;
+    opacity: 0.5;
+  }
+  50% {
+    translate: 0 4px;
+    opacity: 1;
+  }
+}
+@keyframes lp-marquee-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes lp-wire-travel {
+  to {
+    background-position: 0 200%;
+  }
+}
+@keyframes lp-node-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 8px 22px #0005,
+      0 0 0 1px #8ed1cc00;
+  }
+  50% {
+    box-shadow:
+      0 12px 30px #0006,
+      0 0 20px #8ed1cc13,
+      0 0 0 1px #8ed1cc30;
+  }
+}
+@keyframes lp-scan-idle {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 28px;
+  }
+}
+@keyframes lp-answer-in {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@container duel (max-width:900px) {
+  .lp-cinema .lp-hero-inner {
+    grid-template-columns: 1fr;
+  }
+  .lp-cinema .lp-hero h1 {
+    font-size: clamp(42px, 7.6cqw, 67px);
+    margin-block: 18px;
+  }
+  .lp-cinema .lp-hero-copy {
+    padding: 0;
+  }
+  .lp-cinema .lp-summon {
+    width: 75%;
+    height: 390px;
+    margin: 5px auto 0;
+  }
+  .lp-cinema .lp-scene-layout {
+    gap: 20px;
+  }
+  .lp-cinema .lp-scene-copy h2 {
+    font-size: clamp(33px, 5cqw, 43px);
+    margin-block: 15px;
+  }
+  .lp-cinema .lp-scene-copy .lp-feature-list {
+    display: none;
+  }
+  .lp-cinema .lp-scene-copy > p:not(.lp-eyebrow):not(.lp-fine-print) {
+    font-size: 13px;
+    line-height: 1.75;
+  }
+  .lp-cinema .lp-scene-copy .lp-fine-print {
+    margin-top: 10px;
+  }
+  .lp-cinema .lp-deck-visual,
+  .lp-cinema .lp-spell-visual,
+  .lp-cinema .lp-scan-visual {
+    max-width: 410px;
+    height: 340px;
+  }
+  .lp-cinema .lp-flow-visual {
+    max-width: 410px;
+    min-height: 350px;
+  }
+  .lp-cinema .lp-scene-number {
+    top: -20px;
+  }
+}
+@container duel (max-width:640px) {
+  .lp-cinema .lp-pin {
+    padding: 48px 23px;
+  }
+  .lp-cinema .lp-hero .lp-pin {
+    padding-block: 26px;
+  }
+  .lp-cinema [data-pin-active] > .lp-pin {
+    padding-block: 16px;
+  }
+  .lp-cinema .lp-hero h1 {
+    font-size: clamp(34px, 9.6cqw, 49px);
+    line-height: 1.06;
+    margin: 16px 0 12px;
+  }
+  .lp-cinema .lp-title-line {
+    padding-bottom: 5px;
+  }
+  .lp-cinema .lp-lead {
+    font-size: 13px;
+    line-height: 1.7;
+    max-width: 325px;
+  }
+  .lp-cinema .lp-hero-copy .lp-eyebrow {
+    font-size: 8px;
+  }
+  .lp-cinema .lp-actions {
+    margin-top: 18px;
+  }
+  .lp-cinema .lp-hero-note {
+    font-size: 8px;
+    margin-top: 10px;
+  }
+  .lp-cinema .lp-hero-note > span {
+    margin: 0 5px;
+  }
+  .lp-cinema .lp-summon {
+    width: 100%;
+    height: clamp(240px, 67cqw, 320px);
+    margin-top: 4px;
+  }
+  .lp-cinema .lp-card {
+    width: 34%;
+  }
+  .lp-cinema .lp-card-dragon {
+    width: 40%;
+  }
+  .lp-cinema .lp-sigil {
+    width: 78%;
+  }
+  .lp-cinema .lp-portal-depth {
+    width: 92%;
+    left: 4%;
+  }
+  .lp-cinema .lp-portal-ring {
+    width: 86%;
+    left: 7%;
+  }
+  .lp-cinema .lp-portal-ring-b {
+    width: 72%;
+    left: 14%;
+  }
+  .lp-cinema .lp-orbit-label-top {
+    top: 0;
+    font-size: 7px;
+    letter-spacing: 0.2em;
+  }
+  .lp-cinema .lp-orbit-label-bottom {
+    bottom: 1px;
+    font-size: 7px;
+  }
+  .lp-cinema .lp-hero-bottom {
+    padding: 5px 0 0;
+  }
+  .lp-cinema .lp-manifesto {
+    padding: 70px 23px 60px;
+  }
+  .lp-cinema .lp-manifesto h2 {
+    font-size: clamp(30px, 9cqw, 44px);
+  }
+  .lp-cinema .lp-manifesto > p:last-of-type {
+    font-size: 12px;
+  }
+  .lp-cinema .lp-marquee {
+    margin-top: 40px;
+    font-size: 18px;
+  }
+  .lp-cinema .lp-chapters a {
+    min-height: 50px;
+  }
+  .lp-cinema .lp-chapters a::after {
+    bottom: 7px;
+    width: 3px;
+    height: 3px;
+  }
+  .lp-cinema .lp-scene-layout {
+    gap: 16px;
+  }
+  .lp-cinema .lp-scene-copy h2 {
+    font-size: clamp(27px, 7.8cqw, 36px);
+    margin: 12px 0;
+  }
+  .lp-cinema .lp-scene-copy .lp-eyebrow {
+    font-size: 8px;
+  }
+  .lp-cinema .lp-scene-copy .lp-button {
+    margin-top: 16px;
+    min-height: 44px;
+  }
+  .lp-cinema .lp-scene-copy .lp-fine-print {
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .lp-cinema .lp-deck-visual {
+    height: 255px;
+    max-width: 340px;
+  }
+  .lp-cinema .lp-deck-tabs {
+    bottom: 29px;
+    font-size: 9px;
+  }
+  .lp-cinema .lp-deck-card {
+    width: 27%;
+  }
+  .lp-cinema .lp-spell-visual {
+    height: 285px;
+    max-width: 340px;
+  }
+  .lp-cinema .lp-spell-card {
+    top: 4px;
+    width: 39%;
+    left: 12%;
+  }
+  .lp-cinema .lp-spell-circle {
+    width: 73%;
+    left: 4%;
+  }
+  .lp-cinema .lp-spell-detail {
+    padding: 13px 16px;
+    bottom: 30px;
+    width: 72%;
+  }
+  .lp-cinema .lp-spell-detail > strong {
+    font-size: 19px;
+    margin: 8px 0 6px;
+  }
+  .lp-cinema .lp-spell-detail p {
+    font-size: 11px;
+    margin: 10px 0;
+  }
+  .lp-cinema .lp-card-stats {
+    padding-top: 10px;
+    gap: 12px;
+  }
+  .lp-cinema .lp-card-stats b {
+    font-size: 13px;
+  }
+  .lp-cinema .lp-flow-visual {
+    padding: 10px 0 36px;
+    min-height: 315px;
+    max-width: 340px;
+  }
+  .lp-cinema .lp-visual-label {
+    margin-bottom: 15px;
+    font-size: 9px;
+  }
+  .lp-cinema .lp-flow-starter {
+    padding: 10px;
+  }
+  .lp-cinema .lp-node-symbol {
+    width: 29px;
+    height: 35px;
+  }
+  .lp-cinema .lp-flow-question {
+    min-height: 44px;
+  }
+  .lp-cinema .lp-wire-first {
+    height: 24px;
+  }
+  .lp-cinema .lp-wire-branch {
+    height: 25px;
+  }
+  .lp-cinema .lp-flow-branches .lp-flow-node {
+    padding: 13px 7px;
+  }
+  .lp-cinema .lp-scan-visual {
+    height: 292px;
+    max-width: 340px;
+  }
+  .lp-cinema .lp-scan-frame {
+    width: 46%;
+    padding: 11px;
+  }
+  .lp-cinema .lp-scan-result {
+    bottom: 29px;
+    padding: 13px;
+  }
+  .lp-cinema .lp-art-caption {
+    font-size: 8px;
+  }
+  .lp-cinema .lp-finale {
+    padding-block: 80px;
+  }
+  .lp-cinema .lp-finale h2 {
+    font-size: clamp(31px, 9cqw, 45px);
+  }
+}
+/* Motion is optional; every tool and all text remain available in a static composition. */
+.lp-cinema[data-motion='off'] *,
+.lp-cinema[data-motion='off'] *::before,
+.lp-cinema[data-motion='off'] *::after,
+.lp-cinema[data-document-visible='false'] *,
+.lp-cinema[data-document-visible='false'] *::before,
+.lp-cinema[data-document-visible='false'] *::after {
+  animation-play-state: paused !important;
+}
+.lp-cinema[data-motion='off'] [data-scene] {
+  --reveal: 1 !important;
+  --pin-progress: 0.5 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-cinema *,
+  .lp-cinema *::before,
+  .lp-cinema *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .lp-cinema [data-scene] {
+    --reveal: 1 !important;
+    --pin-progress: 0.5 !important;
+  }
+  .lp-cinema .lp-atmosphere {
+    display: none;
+  }
+}

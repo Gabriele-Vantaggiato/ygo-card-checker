@@ -1,4 +1,4 @@
-import { createLandingMotion, scenePosition } from './landing-motion';
+import { canPin, createLandingMotion, pinPosition, scenePosition } from './landing-motion';
 
 describe('landing scroll motion', () => {
   let root: HTMLElement;
@@ -57,6 +57,37 @@ describe('landing scroll motion', () => {
     expect(scenePosition(900, 500, 800)).toEqual({ shift: -0.9375, progress: 0, visible: false });
     expect(scenePosition(-2000, 500, 800)).toEqual({ shift: 1, progress: 1, visible: false });
     expect(Number.isFinite(scenePosition(0, 0, 0).progress)).toBeTrue();
+  });
+
+  it('starts and completes a pinned sequence at its actual sticky boundaries', () => {
+    expect(pinPosition(200, 1400, 700, 116)).toBe(0);
+    expect(pinPosition(116, 1400, 700, 116)).toBe(0);
+    expect(pinPosition(-234, 1400, 700, 116)).toBe(0.5);
+    expect(pinPosition(-584, 1400, 700, 116)).toBe(1);
+    expect(pinPosition(-900, 1400, 700, 116)).toBe(1);
+    expect(Number.isFinite(pinPosition(0, 0, 0, 0))).toBeTrue();
+  });
+
+  it('keeps long content and short landscape screens in normal document flow', () => {
+    expect(canPin(600, 700, false)).toBeTrue();
+    expect(canPin(690, 700, false)).toBeFalse();
+    expect(canPin(300, 400, false)).toBeFalse();
+    expect(canPin(600, 700, true)).toBeFalse();
+  });
+
+  it('suspends decorative updates when the document is hidden and resumes them', () => {
+    const hidden = spyOnProperty(document, 'hidden', 'get').and.returnValue(false);
+    mount();
+    tick();
+    hidden.and.returnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    tick();
+    expect(root.dataset['documentVisible']).toBe('false');
+    expect(root.querySelector('section')!.hasAttribute('data-in-view')).toBeFalse();
+    hidden.and.returnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    tick();
+    expect(root.querySelector('section')!.hasAttribute('data-in-view')).toBeTrue();
   });
 
   it('updates parallax from geometry and marks the current chapter without interrupting native scrolling', () => {

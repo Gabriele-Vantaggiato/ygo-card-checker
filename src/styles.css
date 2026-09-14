@@ -1,6 +1,7 @@
 @import "tailwindcss" source("./app");
 @import "./styles/flow-lab.css";
 @import "./styles/landing.css";
+@import "./styles/landing-cinema.css";
 
 @plugin "daisyui" {
   themes: duel --default;

@@ -59,8 +59,11 @@ template = template.replace(/src="\/assets\/landing\/(\d+)\.jpg"/g, 'data-card-i
 if (template.includes('{{') || /\[(?:attr|queryParams|alt)/.test(template))
   throw new Error('Unresolved Angular expressions in preview.');
 
-const css = postcss.parse(await read('src/styles/landing.css'));
+const css = postcss.parse(
+  (await read('src/styles/landing.css')) + '\n' + (await read('src/styles/landing-cinema.css')),
+);
 css.walkRules((rule) => {
+  if (rule.parent?.type === 'atrule' && /keyframes$/.test(rule.parent.name)) return;
   rule.selectors = rule.selectors.map((selector) =>
     selector.startsWith('html:has(')
       ? `#${rootId} .lp-preview-scroll${selector.slice(4)}`
@@ -152,9 +155,22 @@ new (await import('node:vm')).Script(fragment.match(/<script>([\s\S]*?)<\/script
 await writeFile(resolve(output, 'ygo-landing-mobile.html'), fragment);
 // Export also works offline, with the existing system fonts as a fallback.
 const standalone =
-  '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>YGOCardChecker · Preview mobile</title><style>body{margin:0;padding:18px 10px;background:#17191d;color:#e9e4d8}body>div{margin:auto}</style></head><body>' +
-  fragment.replace('<script>', '<script>') +
-  '</body></html>';
+  `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>YGOCardChecker · Cinema preview</title>
+  <style>body{margin:0;background:#17191d;color:#e9e4d8}body>div{margin:auto}
+  .review-tools{height:48px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;font:12px system-ui}
+  .review-tools button{padding:6px 14px;border:1px solid #756342;border-radius:20px;background:transparent;color:#e9e4d8;cursor:pointer}
+  .review-tools button[aria-pressed="true"]{background:#d5b77a;color:#101215}
+  body #${rootId} .lp-preview-scroll{height:calc(100dvh - 118px)}
+  #${rootId} .lp-preview-caption{display:none}
+  #${rootId}.lp-preview-wide .lp-preview-device{width:100%;border-radius:0;border-inline:0}
+  @media(max-width:420px){body #${rootId} .lp-preview-device{width:100%;border:0;border-radius:0}}
+  </style></head><body>
+  <div class="review-tools" role="group" aria-label="Formato della preview"><span>PREVIEW</span><button type="button" data-review="phone" aria-pressed="true">Telefono</button><button type="button" data-review="desktop" aria-pressed="false">Desktop</button></div>` +
+  fragment +
+  `<script>document.querySelectorAll('[data-review]').forEach(button=>button.addEventListener('click',()=>{
+    document.getElementById('${rootId}').classList.toggle('lp-preview-wide',button.dataset.review==='desktop');
+    document.querySelectorAll('[data-review]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+  }));</script></body></html>`;
 await writeFile(resolve(output, 'YGOCardChecker-Preview-Mobile.html'), standalone);
 console.log(`Preview generated from source: ${Buffer.byteLength(fragment)} bytes`);
 console.log(resolve(output, 'ygo-landing-mobile.html'));
