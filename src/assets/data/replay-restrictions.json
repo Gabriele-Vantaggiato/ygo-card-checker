@@ -1,0 +1,1036 @@
+{
+  "version": 1,
+  "coverageNote": "YGO has 10k+ cards — this catalog is pattern-first and grows by passcode. Prefer adding onActivate locks for high-impact cards; Gemini coaches on top of computed locks, never invents legality.",
+  "kinds": [
+    "cannot_special_summon",
+    "cannot_normal_summon_or_set",
+    "cannot_special_summon_from_extra",
+    "cannot_special_summon_from_hand",
+    "cannot_special_summon_from_deck",
+    "cannot_special_summon_from_gy",
+    "cannot_activate_monster_effects",
+    "cannot_activate_spell_trap",
+    "cannot_conduct_battle_phase",
+    "cards_to_gy_are_banished",
+    "draw_instead_excavates",
+    "other"
+  ],
+  "cards": {
+    "581014": {
+      "name": "Summon Limit",
+      "tags": [
+        "floodgate",
+        "summon_count"
+      ],
+      "summary": "Neither player can Summon more than twice per turn while face-up.",
+      "onActivate": [
+        {
+          "kind": "other",
+          "scope": "both",
+          "until": "while_controlled",
+          "note": "Summon Limit: max 2 Summons per turn per player."
+        }
+      ]
+    },
+    "722458": {
+      "name": "Lightning Storm",
+      "tags": [
+        "boardwipe"
+      ]
+    },
+    "1139194": {
+      "name": "There Can Be Only One",
+      "tags": [
+        "floodgate",
+        "type"
+      ]
+    },
+    "1475311": {
+      "name": "Allure of Darkness",
+      "tags": [
+        "draw",
+        "dark"
+      ]
+    },
+    "1621413": {
+      "name": "Isolde, Two Tales of the Noble Knights",
+      "tags": [
+        "link",
+        "warrior"
+      ]
+    },
+    "1686814": {
+      "name": "Decode Talker",
+      "tags": [
+        "link"
+      ]
+    },
+    "1845224": {
+      "name": "Instant Fusion",
+      "tags": [
+        "fusion",
+        "ns_lock"
+      ],
+      "summary": "Fusion Summon Level 5 or lower; it is destroyed in End Phase. Often paired with NS timing checks.",
+      "onActivate": []
+    },
+    "1845225": {
+      "name": "Instant Fusion",
+      "tags": [
+        "fusion"
+      ]
+    },
+    "1861629": {
+      "name": "Decode Talker",
+      "tags": [
+        "link"
+      ]
+    },
+    "2281869": {
+      "name": "Preparation of Rites",
+      "tags": [
+        "ritual",
+        "search"
+      ]
+    },
+    "4031928": {
+      "name": "The Warrior Returning Alive",
+      "tags": [
+        "recycle"
+      ]
+    },
+    "4145852": {
+      "name": "Called by the Grave",
+      "tags": [
+        "tech"
+      ]
+    },
+    "4164924": {
+      "name": "A Hero Lives",
+      "tags": [
+        "hero",
+        "ss"
+      ]
+    },
+    "5318639": {
+      "name": "Mystical Space Typhoon",
+      "tags": [
+        "mst",
+        "backrow"
+      ]
+    },
+    "5466615": {
+      "name": "Solar Recharge",
+      "tags": [
+        "draw",
+        "lightsworn"
+      ]
+    },
+    "5851097": {
+      "name": "Vanity's Emptiness",
+      "tags": [
+        "floodgate",
+        "no_ss"
+      ],
+      "summary": "Neither player can Special Summon while face-up.",
+      "onActivate": [
+        {
+          "kind": "cannot_special_summon",
+          "scope": "both",
+          "until": "while_controlled",
+          "note": "Neither player can Special Summon."
+        }
+      ]
+    },
+    "6150044": {
+      "name": "Dimensional Barrier",
+      "tags": [
+        "floodgate",
+        "extra_type"
+      ],
+      "summary": "Declare Extra Deck monster type; neither player can Special Summon that type / apply type floodgate for the turn.",
+      "onActivate": [
+        {
+          "kind": "cannot_special_summon_from_extra",
+          "scope": "both",
+          "until": "end_of_turn",
+          "note": "Dimensional Barrier: declared Extra Deck summon type locked for the turn (approx.)."
+        }
+      ]
+    },
+    "6480233": {
+      "name": "Mathmech Equation",
+      "tags": [
+        "ss_gy"
+      ]
+    },
+    "6616912": {
+      "name": "One for One",
+      "tags": [
+        "ss_deck"
+      ]
+    },
+    "7572870": {
+      "name": "Evenly Matched",
+      "tags": [
+        "boardwipe",
+        "battle"
+      ]
+    },
+    "7572887": {
+      "name": "D.D. Crow",
+      "tags": [
+        "handtrap",
+        "banish"
+      ]
+    },
+    "8949584": {
+      "name": "E - Emergency Call",
+      "tags": [
+        "hero",
+        "search"
+      ]
+    },
+    "9418365": {
+      "name": "Bujin Hirume",
+      "tags": [
+        "bujin",
+        "ss"
+      ]
+    },
+    "9634865": {
+      "name": "Triple Tactics Thrust",
+      "tags": [
+        "tech",
+        "search"
+      ]
+    },
+    "10045474": {
+      "name": "Infinite Impermanence",
+      "tags": [
+        "handtrap",
+        "negate"
+      ]
+    },
+    "10158145": {
+      "name": "Infinite Impermanence",
+      "tags": [
+        "handtrap",
+        "negate"
+      ]
+    },
+    "11366199": {
+      "name": "Rivalry of Warlords",
+      "tags": [
+        "floodgate",
+        "type"
+      ]
+    },
+    "11747708": {
+      "name": "Lonefire Blossom",
+      "tags": [
+        "ss_deck",
+        "plant"
+      ]
+    },
+    "12444060": {
+      "name": "Artifact Sanctum",
+      "tags": [
+        "artifact",
+        "ss"
+      ]
+    },
+    "12580477": {
+      "name": "Raigeki",
+      "tags": [
+        "boardwipe"
+      ]
+    },
+    "14087893": {
+      "name": "Book of Moon",
+      "tags": [
+        "position",
+        "quick"
+      ]
+    },
+    "14558127": {
+      "name": "Ash Blossom & Joyous Spring",
+      "tags": [
+        "handtrap",
+        "negate"
+      ]
+    },
+    "14753111": {
+      "name": "Allure of Darkness",
+      "tags": [
+        "draw",
+        "dark"
+      ]
+    },
+    "15693423": {
+      "name": "Evenly Matched",
+      "tags": [
+        "boardwipe"
+      ]
+    },
+    "15857860": {
+      "name": "Triple Tactics Talent",
+      "tags": [
+        "tech",
+        "draw"
+      ]
+    },
+    "16195942": {
+      "name": "Dark Rebellion Xyz Dragon",
+      "tags": [
+        "xyz"
+      ]
+    },
+    "18144507": {
+      "name": "Harpie's Feather Duster",
+      "tags": [
+        "boardwipe",
+        "backrow"
+      ]
+    },
+    "19665973": {
+      "name": "Ghost Mourner & Moonlit Chill",
+      "tags": [
+        "handtrap"
+      ]
+    },
+    "20758643": {
+      "name": "Vision HERO Faris",
+      "tags": [
+        "hero"
+      ]
+    },
+    "21323861": {
+      "name": "Inspector Boarder",
+      "tags": [
+        "floodgate",
+        "monster_effects"
+      ]
+    },
+    "22888616": {
+      "name": "Emergency Teleport",
+      "tags": [
+        "ss_deck",
+        "psychic"
+      ]
+    },
+    "23434538": {
+      "name": "Maxx \"C\"",
+      "tags": [
+        "handtrap",
+        "draw"
+      ]
+    },
+    "23557835": {
+      "name": "Dimension Fortress Weapon",
+      "tags": [
+        "floodgate"
+      ]
+    },
+    "24094653": {
+      "name": "Polymerization",
+      "tags": [
+        "fusion"
+      ]
+    },
+    "24224830": {
+      "name": "Called by the Grave",
+      "tags": [
+        "tech",
+        "handtrap_hate"
+      ]
+    },
+    "25862681": {
+      "name": "Ancient Fairy Dragon",
+      "tags": [
+        "synchro",
+        "field"
+      ]
+    },
+    "26113301": {
+      "name": "Salamangreat Circle",
+      "tags": [
+        "search",
+        "salamangreat"
+      ]
+    },
+    "27204311": {
+      "name": "Nibiru, the Primal Being",
+      "tags": [
+        "handtrap",
+        "boardwipe"
+      ]
+    },
+    "27243130": {
+      "name": "Forbidden Lance",
+      "tags": [
+        "quick",
+        "protection"
+      ]
+    },
+    "27847700": {
+      "name": "Future Fusion",
+      "tags": [
+        "fusion"
+      ]
+    },
+    "29223325": {
+      "name": "Artifact Ignition",
+      "tags": [
+        "artifact",
+        "set"
+      ]
+    },
+    "29401950": {
+      "name": "Bottomless Trap Hole",
+      "tags": [
+        "trap",
+        "banish"
+      ]
+    },
+    "30459350": {
+      "name": "Macro Cosmos",
+      "tags": [
+        "floodgate",
+        "banish"
+      ],
+      "onActivate": [
+        {
+          "kind": "cards_to_gy_are_banished",
+          "scope": "both",
+          "until": "while_controlled",
+          "note": "Any card sent to GY is banished instead."
+        }
+      ]
+    },
+    "31386180": {
+      "name": "Tiras, Keeper of Genesis",
+      "tags": [
+        "xyz"
+      ]
+    },
+    "32339440": {
+      "name": "Bujin Yamato",
+      "tags": [
+        "bujin",
+        "search"
+      ]
+    },
+    "32807846": {
+      "name": "Reinforcement of the Army",
+      "tags": [
+        "search",
+        "warrior"
+      ]
+    },
+    "33731070": {
+      "name": "Trade-In",
+      "tags": [
+        "draw",
+        "level8"
+      ]
+    },
+    "35059553": {
+      "name": "Kaiser Colosseum",
+      "tags": [
+        "floodgate",
+        "summon_limit"
+      ]
+    },
+    "35261747": {
+      "name": "Pot of Desires",
+      "tags": [
+        "draw",
+        "pot",
+        "banish"
+      ],
+      "summary": "Banish 10 face-down; draw 2.",
+      "onActivate": []
+    },
+    "36319121": {
+      "name": "The Absolute King Back Jack",
+      "tags": [
+        "draw"
+      ]
+    },
+    "36668118": {
+      "name": "Union Carrier",
+      "tags": [
+        "link",
+        "equip"
+      ]
+    },
+    "37520316": {
+      "name": "Mind Control",
+      "tags": [
+        "control"
+      ]
+    },
+    "38495396": {
+      "name": "Constellar Ptolemy M7",
+      "tags": [
+        "xyz",
+        "bounce"
+      ]
+    },
+    "39701395": {
+      "name": "Cards of Consonance",
+      "tags": [
+        "draw",
+        "dragon"
+      ]
+    },
+    "40605147": {
+      "name": "Solemn Strike",
+      "tags": [
+        "counter",
+        "negate"
+      ]
+    },
+    "41420027": {
+      "name": "Solemn Judgment",
+      "tags": [
+        "counter",
+        "negate"
+      ]
+    },
+    "42009833": {
+      "name": "Fossil Dig",
+      "tags": [
+        "search",
+        "dinosaur"
+      ]
+    },
+    "42029874": {
+      "name": "Gozen Match",
+      "tags": [
+        "floodgate",
+        "attribute"
+      ]
+    },
+    "44095762": {
+      "name": "Mirror Force",
+      "tags": [
+        "battle_trap"
+      ]
+    },
+    "44394295": {
+      "name": "Shaddoll Fusion",
+      "tags": [
+        "fusion",
+        "shaddoll"
+      ]
+    },
+    "44508094": {
+      "name": "Stardust Dragon",
+      "tags": [
+        "synchro",
+        "negate"
+      ]
+    },
+    "47015937": {
+      "name": "Fossil Dyna Pachycephalo",
+      "tags": [
+        "floodgate",
+        "no_ss"
+      ],
+      "onActivate": [
+        {
+          "kind": "cannot_special_summon",
+          "scope": "both",
+          "until": "while_controlled"
+        }
+      ]
+    },
+    "48130397": {
+      "name": "Super Polymerization",
+      "tags": [
+        "fusion",
+        "quick"
+      ]
+    },
+    "48333324": {
+      "name": "Rank-Up-Magic Numeron Force",
+      "tags": [
+        "rankup"
+      ]
+    },
+    "48343627": {
+      "name": "Destiny HERO - Malicious",
+      "tags": [
+        "hero",
+        "ss_deck"
+      ]
+    },
+    "49238328": {
+      "name": "Pot of Extravagance",
+      "tags": [
+        "draw",
+        "pot",
+        "banish_extra"
+      ],
+      "summary": "Banish 3 or 6 from Extra face-down; draw 1 or 2. Cannot Special Summon from Extra the turn you activate this? (check current errata — engine stores note).",
+      "onActivate": [
+        {
+          "kind": "other",
+          "scope": "controller",
+          "until": "end_of_turn",
+          "note": "Pot of Extravagance: resolve draw after banishing Extra; verify Extra Deck SS locks with current card text."
+        }
+      ]
+    },
+    "50430160": {
+      "name": "Firewall Dragon",
+      "tags": [
+        "link"
+      ]
+    },
+    "52038441": {
+      "name": "Ghost Mourner & Moonlit Chill",
+      "tags": [
+        "handtrap"
+      ]
+    },
+    "52653092": {
+      "name": "Divine Arsenal AA-ZEUS - Sky Thunder",
+      "tags": [
+        "xyz",
+        "boardwipe"
+      ]
+    },
+    "53582587": {
+      "name": "Torrential Tribute",
+      "tags": [
+        "trap",
+        "boardwipe"
+      ]
+    },
+    "53678698": {
+      "name": "Bujin Mikazuchi",
+      "tags": [
+        "bujin",
+        "trigger_ss"
+      ],
+      "summary": "When a Beast-Warrior Bujin is destroyed: you can Special Summon this card from hand (optional When — timing/locks matter)."
+    },
+    "54447022": {
+      "name": "Soul Charge",
+      "tags": [
+        "ss_gy",
+        "cost_lp"
+      ],
+      "summary": "SS from GY; cannot conduct Battle Phase the turn you activate this.",
+      "onActivate": [
+        {
+          "kind": "cannot_conduct_battle_phase",
+          "scope": "controller",
+          "until": "end_of_turn",
+          "note": "You cannot conduct your Battle Phase the turn you activate this card."
+        }
+      ]
+    },
+    "55144522": {
+      "name": "Pot of Greed",
+      "tags": [
+        "draw",
+        "pot",
+        "forbidden"
+      ]
+    },
+    "56840427": {
+      "name": "Number C39: Utopia Ray",
+      "tags": [
+        "xyz"
+      ]
+    },
+    "57103969": {
+      "name": "Fire Formation - Tenki",
+      "tags": [
+        "search",
+        "beast_warrior"
+      ]
+    },
+    "57734012": {
+      "name": "Rank-Up-Magic - The Seventh One",
+      "tags": [
+        "rankup"
+      ]
+    },
+    "59438930": {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "tags": [
+        "handtrap",
+        "destroy"
+      ]
+    },
+    "60643553": {
+      "name": "Ghost Sister & Spooky Dogwood",
+      "tags": [
+        "handtrap"
+      ]
+    },
+    "62015408": {
+      "name": "Ghost Reaper & Winter Cherries",
+      "tags": [
+        "handtrap",
+        "extra"
+      ]
+    },
+    "64631466": {
+      "name": "Relinquished",
+      "tags": [
+        "ritual"
+      ]
+    },
+    "66970002": {
+      "name": "Number C39: Utopia Ray V",
+      "tags": [
+        "xyz"
+      ]
+    },
+    "67169062": {
+      "name": "Pot of Avarice",
+      "tags": [
+        "draw",
+        "pot",
+        "gy"
+      ],
+      "summary": "Shuffle 5 from GY; draw 2."
+    },
+    "67723438": {
+      "name": "Crossout Designator",
+      "tags": [
+        "tech",
+        "negate_name"
+      ]
+    },
+    "69120785": {
+      "name": "Dark Ruler No More",
+      "tags": [
+        "boardwipe",
+        "negate"
+      ]
+    },
+    "69840739": {
+      "name": "Artifact Durendal",
+      "tags": [
+        "xyz",
+        "artifact"
+      ]
+    },
+    "70368879": {
+      "name": "Upstart Goblin",
+      "tags": [
+        "draw"
+      ]
+    },
+    "70369110": {
+      "name": "Predaplant Verte Anaconda",
+      "tags": [
+        "link",
+        "fusion"
+      ]
+    },
+    "70908596": {
+      "name": "Constellar Kaus",
+      "tags": [
+        "constellar"
+      ]
+    },
+    "73642296": {
+      "name": "Ghost Belle & Haunted Mansion",
+      "tags": [
+        "handtrap",
+        "gy"
+      ]
+    },
+    "73964868": {
+      "name": "Constellar Pleiades",
+      "tags": [
+        "xyz",
+        "bounce"
+      ]
+    },
+    "78193831": {
+      "name": "Buster Blader",
+      "tags": [
+        "warrior"
+      ]
+    },
+    "78364470": {
+      "name": "Constellar Pollux",
+      "tags": [
+        "constellar"
+      ]
+    },
+    "79340868": {
+      "name": "Prohibition",
+      "tags": [
+        "lock_name"
+      ]
+    },
+    "80878332": {
+      "name": "Dimensional Fissure",
+      "tags": [
+        "floodgate",
+        "banish"
+      ],
+      "onActivate": [
+        {
+          "kind": "cards_to_gy_are_banished",
+          "scope": "both",
+          "until": "while_controlled",
+          "note": "Any monster sent to GY is banished instead."
+        }
+      ]
+    },
+    "81428848": {
+      "name": "Forbidden Droplet",
+      "tags": [
+        "quick",
+        "negate"
+      ]
+    },
+    "81439118": {
+      "name": "Reasoning",
+      "tags": [
+        "ss_deck"
+      ]
+    },
+    "81439173": {
+      "name": "Foolish Burial",
+      "tags": [
+        "mill",
+        "gy"
+      ]
+    },
+    "81439174": {
+      "name": "Foolish Burial Goods",
+      "tags": [
+        "mill",
+        "gy"
+      ]
+    },
+    "82732705": {
+      "name": "Skill Drain",
+      "tags": [
+        "floodgate",
+        "negate"
+      ],
+      "onActivate": [
+        {
+          "kind": "cannot_activate_monster_effects",
+          "scope": "both",
+          "until": "while_controlled",
+          "note": "Negate all face-up monsters' effects (continuous)."
+        }
+      ]
+    },
+    "83326048": {
+      "name": "Dimensional Barrier",
+      "tags": [
+        "floodgate"
+      ],
+      "onActivate": [
+        {
+          "kind": "cannot_special_summon_from_extra",
+          "scope": "both",
+          "until": "end_of_turn",
+          "note": "Dimensional Barrier: declared Extra type locked for the turn."
+        }
+      ]
+    },
+    "83764718": {
+      "name": "Monster Reborn",
+      "tags": [
+        "ss_gy"
+      ]
+    },
+    "83764719": {
+      "name": "Monster Reborn",
+      "tags": [
+        "ss_gy"
+      ]
+    },
+    "83994433": {
+      "name": "Stardust Spark Dragon",
+      "tags": [
+        "synchro"
+      ]
+    },
+    "84013237": {
+      "name": "Number 39: Utopia",
+      "tags": [
+        "xyz"
+      ]
+    },
+    "84749824": {
+      "name": "Solemn Warning",
+      "tags": [
+        "counter",
+        "negate_summon"
+      ]
+    },
+    "85103922": {
+      "name": "Artifact Moralltach",
+      "tags": [
+        "artifact",
+        "destroy"
+      ]
+    },
+    "86066372": {
+      "name": "Borreload Savage Dragon",
+      "tags": [
+        "synchro",
+        "negate"
+      ]
+    },
+    "89127526": {
+      "name": "Psi-Blocker",
+      "tags": [
+        "lock_name"
+      ]
+    },
+    "89882100": {
+      "name": "Monster Gate",
+      "tags": [
+        "ss_deck"
+      ]
+    },
+    "90307755": {
+      "name": "El Shaddoll Fusion",
+      "tags": [
+        "fusion",
+        "shaddoll"
+      ]
+    },
+    "90337190": {
+      "name": "Vanity's Fiend",
+      "tags": [
+        "floodgate",
+        "no_ss"
+      ],
+      "summary": "Neither player can Special Summon while this card is face-up.",
+      "onActivate": [
+        {
+          "kind": "cannot_special_summon",
+          "scope": "both",
+          "until": "while_controlled",
+          "note": "Neither player can Special Summon."
+        }
+      ]
+    },
+    "90448279": {
+      "name": "Accesscode Talker",
+      "tags": [
+        "link",
+        "otk"
+      ]
+    },
+    "90590303": {
+      "name": "Number 41: Bagooska the Terribly Tired Tapir",
+      "tags": [
+        "xyz",
+        "floodgate"
+      ]
+    },
+    "90835921": {
+      "name": "Pot of Prosperity",
+      "tags": [
+        "draw",
+        "pot",
+        "banish_extra"
+      ],
+      "summary": "Banish 3 or 6 from Extra face-down; excavate the same number; add 1. Effects that activate by banishing that card are negated that turn (text-dependent).",
+      "onActivate": [
+        {
+          "kind": "other",
+          "scope": "controller",
+          "until": "end_of_turn",
+          "note": "Prosperity: excavated card's banished-activated effects negated for the turn (see current text)."
+        }
+      ]
+    },
+    "93016201": {
+      "name": "Royal Oppression",
+      "tags": [
+        "floodgate",
+        "negate_ss"
+      ]
+    },
+    "93717133": {
+      "name": "Elemental HERO Stratos",
+      "tags": [
+        "search",
+        "hero"
+      ]
+    },
+    "94145021": {
+      "name": "Droll & Lock Bird",
+      "tags": [
+        "handtrap",
+        "lock_add"
+      ]
+    },
+    "94192482": {
+      "name": "Compulsory Evacuation Device",
+      "tags": [
+        "trap",
+        "bounce"
+      ]
+    },
+    "96729612": {
+      "name": "Pre-Preparation of Rites",
+      "tags": [
+        "ritual",
+        "search"
+      ]
+    },
+    "97077563": {
+      "name": "Call of the Haunted",
+      "tags": [
+        "trap",
+        "ss_gy"
+      ]
+    },
+    "97268402": {
+      "name": "Effect Veiler",
+      "tags": [
+        "handtrap",
+        "negate"
+      ]
+    },
+    "98645731": {
+      "name": "Pot of Duality",
+      "tags": [
+        "draw",
+        "pot",
+        "no_ss"
+      ],
+      "summary": "Excavate 3, add 1. Cannot Special Summon the turn you activate this.",
+      "blockedIf": [
+        "special_summoned_this_turn"
+      ],
+      "onActivate": [
+        {
+          "kind": "cannot_special_summon",
+          "scope": "controller",
+          "until": "end_of_turn",
+          "note": "Cannot Special Summon during the turn this card is activated."
+        }
+      ]
+    },
+    "98935722": {
+      "name": "Brilliant Fusion",
+      "tags": [
+        "fusion",
+        "gem"
+      ]
+    }
+  }
+}

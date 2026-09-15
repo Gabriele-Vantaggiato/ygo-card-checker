@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "node tools/start-dev.mjs",
+    "start:app": "ng serve --proxy-config proxy.conf.json",
+    "start:gemini-proxy": "node tools/gemini-dev-proxy.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
@@ -53,6 +55,8 @@
     "rxjs": "~7.8.0",
     "tesseract.js": "^5.1.1",
     "tslib": "^2.3.0",
+    "ygopro-yrp-encode": "^1.0.8",
+    "ygopro-yrp3d-encode": "^1.0.1",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {

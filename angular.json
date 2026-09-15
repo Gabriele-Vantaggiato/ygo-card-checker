@@ -46,7 +46,8 @@
               "tesseract.js",
               "regenerator-runtime",
               "is-electron",
-              "pixelmatch"
+              "pixelmatch",
+              "@cjser/lzma1"
             ]
           },
           "configurations": {
@@ -83,6 +84,9 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.json"
+          },
           "configurations": {
             "production": {
               "buildTarget": "ygo-card-checker:build:production"
