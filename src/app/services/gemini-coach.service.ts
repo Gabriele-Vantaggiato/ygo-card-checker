@@ -149,13 +149,34 @@ export class GeminiCoachService {
     if (!this.sessionKey) {
       return of('');
     }
+    // Match official curl: single user text part (system rules prepended).
+    const prompt = `${buildSystemPrompt(lang)}\n\n---\nBRIEF JSON:\n${JSON.stringify(brief, null, 2)}`;
+    return this.askGemini$(prompt);
+  }
+
+  /**
+   * Asks Gemini for a deck as plain text lines (`<qty> <name>` under `#main`/`#extra`/`#side`) —
+   * the exact grammar `parseDeckText` already accepts, so the result goes through the same
+   * name-resolution/legality pipeline as a manual text import. Gemini never touches the app's
+   * card catalog directly; any invented card name simply comes back unresolved at import time.
+   */
+  generateDeck$(prompt: string, lang: 'it' | 'en', currentDeckText?: string): Observable<string> {
+    if (!this.sessionKey) {
+      return of('');
+    }
+    const full = buildDeckGenPrompt(prompt, lang, currentDeckText);
+    return this.askGemini$(full);
+  }
+
+  private askGemini$(prompt: string): Observable<string> {
+    if (!this.sessionKey) {
+      return of('');
+    }
     this.lastUsedModel.set(null);
     this.lastErrorDetail.set(null);
     this.lastAttemptedModels.set([]);
 
     const key = this.sessionKey;
-    // Match official curl: single user text part (system rules prepended).
-    const prompt = `${buildSystemPrompt(lang)}\n\n---\nBRIEF JSON:\n${JSON.stringify(brief, null, 2)}`;
     const body = {
       contents: [
         {
@@ -320,6 +341,36 @@ function buildSystemPrompt(lang: 'it' | 'en'): string {
     'FORBIDDEN: abstract rules dumps; unexplained jargon; generic Extra Deck theory not tied to a real turn;',
     'do not paste the whole timeline; max ~350 words; direct and understandable.',
   ].join('\n');
+}
+
+function buildDeckGenPrompt(prompt: string, lang: 'it' | 'en', currentDeckText?: string): string {
+  const rules =
+    lang === 'it'
+      ? [
+          'Sei un generatore di decklist Yu-Gi-Oh! TCG. Rispondi SOLO con la lista, nessun testo prima o dopo.',
+          'Formato obbligatorio, una carta per riga: "<quantità> <Nome Ufficiale Inglese>".',
+          'Usa sezioni "#main", "#extra", "#side" (in questo ordine, anche se una sezione è vuota ometti la riga).',
+          'Usa SEMPRE il nome ufficiale inglese esatto della carta (come stampato in TCG/OCG), mai nomi tradotti o inventati.',
+          'Rispetta i limiti di copie (max 3, salvo Semi-Limited/Limited/Forbidden se noti) e le dimensioni standard di un mazzo TCG (Main 40–60, Extra 0–15, Side 0–15).',
+          'Se non sei sicuro che una carta esista con quel nome esatto, NON includerla: meglio un mazzo più corto ma corretto che carte inventate.',
+          'Nessun commento, nessuna spiegazione, nessun markdown: solo le righe della lista.',
+        ]
+      : [
+          'You are a Yu-Gi-Oh! TCG decklist generator. Reply with ONLY the list, no text before or after.',
+          'Mandatory format, one card per line: "<quantity> <Official English Name>".',
+          'Use "#main", "#extra", "#side" section markers (in this order; omit a section entirely if empty).',
+          'ALWAYS use the exact official English card name (as printed in TCG/OCG), never translated or invented names.',
+          'Respect copy limits (max 3, unless a card is known Semi-Limited/Limited/Forbidden) and standard TCG deck sizes (Main 40–60, Extra 0–15, Side 0–15).',
+          "If you are not certain a card exists under that exact name, do NOT include it: a shorter correct deck beats invented cards.",
+          'No commentary, no explanation, no markdown: just the list lines.',
+        ];
+  const context = currentDeckText?.trim()
+    ? lang === 'it'
+      ? `\n\n---\nMAZZO ATTUALE (parti da qui, applica la richiesta come modifica):\n${currentDeckText.trim()}`
+      : `\n\n---\nCURRENT DECK (start from this, apply the request as a change):\n${currentDeckText.trim()}`
+    : '';
+  const label = lang === 'it' ? 'RICHIESTA' : 'REQUEST';
+  return `${rules.join('\n')}${context}\n\n---\n${label}:\n${prompt.trim()}`;
 }
 
 export function looksLikeGeminiApiKey(key: string): boolean {
