@@ -46,6 +46,7 @@ export class ReplayStore {
   private analysisRun = 0;
   private coachRun = 0;
   readonly observedLines = this.lineMemory.observations;
+  readonly historyEntries = this.lineMemory.historyEntries;
   clearLearning(): void { this.lineMemory.clear(); this.clearResults(); }
 
   readonly deckAdviceEnabled = signal(false);

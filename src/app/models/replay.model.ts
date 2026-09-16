@@ -100,6 +100,25 @@ export interface ReplayAnalysis {
   restrictionTrace?: import('./replay-restriction.model').RestrictionTrace;
 }
 
+/**
+ * Trimmed, persistable record of a past analysis for the browsable local history —
+ * unlike ReplayAnalysis, deliberately drops `replay.events`/`decks` (the full duel log
+ * and deck lists) so a long history does not balloon localStorage.
+ */
+export interface ReplayHistoryEntry {
+  sha256: string;
+  fileName: string;
+  focusName: string;
+  opponentName: string;
+  focusWon: boolean | null;
+  turnCount: number;
+  masterRule: number;
+  savedAt: string;
+  stats: ReplayAnalysis['stats'];
+  findings: MissplayFinding[];
+  lineComparisons: import('./duel-line.model').LineComparison[];
+}
+
 export interface DeckAdviceItem {
   code: number;
   /** How many analyzed replays listed this card unused (or problematic). */

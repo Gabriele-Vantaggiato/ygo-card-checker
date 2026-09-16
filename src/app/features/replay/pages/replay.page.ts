@@ -491,6 +491,127 @@ import { ReplayStore } from '../stores/replay.store';
           </div>
         </app-duel-panel>
       }
+
+      @if (store.historyEntries().length) {
+        <app-duel-panel>
+          <div class="p-4 sm:p-5 space-y-3">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p class="duel-eyebrow">{{ 'replay.history.eyebrow' | translate }}</p>
+                <h2 class="text-lg font-bold">{{ 'replay.history.title' | translate }}</h2>
+              </div>
+              <span class="text-xs text-base-content/60">
+                {{ 'replay.history.count' | translate: { count: '' + store.historyEntries().length } }}
+              </span>
+            </div>
+            <p class="text-xs text-base-content/60">{{ 'replay.history.hint' | translate }}</p>
+
+            <ul class="space-y-2">
+              @for (entry of historyEntriesDesc(); track entry.sha256) {
+                <li class="rounded-lg border border-base-300/60 bg-base-200/30 overflow-hidden">
+                  <details>
+                    <summary class="cursor-pointer list-none px-3 py-2 flex flex-wrap items-center justify-between gap-2 select-none">
+                      <span class="min-w-0 truncate text-sm font-medium">{{ entry.fileName }}</span>
+                      <span class="flex items-center gap-2 text-xs text-base-content/60 shrink-0">
+                        <span class="truncate max-w-[10rem]">{{ entry.focusName }} <span class="opacity-50">vs</span> {{ entry.opponentName }}</span>
+                        @if (entry.focusWon === true) {
+                          <span class="badge badge-success badge-xs">{{ 'replay.result.win' | translate }}</span>
+                        } @else if (entry.focusWon === false) {
+                          <span class="badge badge-error badge-xs">{{ 'replay.result.loss' | translate }}</span>
+                        } @else {
+                          <span class="badge badge-ghost badge-xs">{{ 'replay.result.unknown' | translate }}</span>
+                        }
+                      </span>
+                    </summary>
+                    <div class="px-3 pb-3 pt-1 space-y-3 border-t border-base-300/40">
+                      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm pt-2">
+                        <div>
+                          <dt class="text-xs text-base-content/50">{{ 'replay.stats.turns' | translate }}</dt>
+                          <dd class="font-semibold">{{ entry.turnCount }}</dd>
+                        </div>
+                        <div>
+                          <dt class="text-xs text-base-content/50">{{ 'replay.stats.summons' | translate }}</dt>
+                          <dd class="font-semibold">{{ entry.stats.summons + entry.stats.spSummons }}</dd>
+                        </div>
+                        <div>
+                          <dt class="text-xs text-base-content/50">{{ 'replay.stats.chains' | translate }}</dt>
+                          <dd class="font-semibold">{{ entry.stats.chains }}</dd>
+                        </div>
+                        <div>
+                          <dt class="text-xs text-base-content/50">{{ 'replay.stats.missed' | translate }}</dt>
+                          <dd class="font-semibold">{{ entry.stats.missedEffects }}</dd>
+                        </div>
+                      </dl>
+
+                      @if (entry.findings.length) {
+                        <ul class="space-y-2">
+                          @for (f of entry.findings; track $index) {
+                            <li class="rounded-lg border border-base-300/60 bg-base-100/60 px-3 py-2">
+                              <div class="flex items-start gap-2">
+                                <span
+                                  class="badge badge-sm mt-0.5"
+                                  [class.badge-info]="f.severity === 'info'"
+                                  [class.badge-warning]="f.severity === 'warn'"
+                                  [class.badge-error]="f.severity === 'critical'"
+                                >
+                                  {{ f.severity }}
+                                </span>
+                                <div class="min-w-0 space-y-0.5">
+                                  <p class="text-sm font-medium">{{ f.titleKey | translate }}</p>
+                                  <p class="text-xs text-base-content/65">{{ f.detailKey | translate: findingParams(f) }}</p>
+                                  @if (f.code; as code) {
+                                    <p class="text-xs font-medium text-primary">{{ cardName(code) }}</p>
+                                  }
+                                </div>
+                              </div>
+                            </li>
+                          }
+                        </ul>
+                      } @else {
+                        <p class="text-sm text-base-content/60">{{ 'replay.noFindings' | translate }}</p>
+                      }
+
+                      @for (comparison of entry.lineComparisons; track $index) {
+                        <div class="rounded-lg border border-base-300/60 bg-base-100/60 px-3 py-2 space-y-2">
+                          <div class="flex items-start gap-2">
+                            <span
+                              class="badge badge-sm mt-0.5"
+                              [class.badge-success]="comparison.status === 'matched'"
+                              [class.badge-warning]="comparison.status === 'deviation'"
+                              [class.badge-ghost]="comparison.status === 'inconclusive'"
+                            >
+                              {{ ('replay.lines.' + comparison.status) | translate }}
+                            </span>
+                            <p class="text-xs text-base-content/65">{{ ('replay.lines.' + comparison.reason) | translate }}</p>
+                          </div>
+                          <div class="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-base-300/50">
+                            <div class="space-y-1.5 sm:pr-4">
+                              <h4 class="text-xs font-semibold text-base-content/70">{{ 'replay.lines.played' | translate }}</h4>
+                              <ol class="list-decimal pl-5 text-sm space-y-1">
+                                @for (action of comparison.played; track $index) {
+                                  <li>{{ ('flow.wizard.observed.' + action.kind) | translate: { name: cardName(action.cardId) } }}</li>
+                                }
+                              </ol>
+                            </div>
+                            <div class="space-y-1.5 sm:pl-4">
+                              <h4 class="text-xs font-semibold text-base-content/70">{{ 'replay.lines.recommended' | translate }}</h4>
+                              <ol class="list-decimal pl-5 text-sm space-y-1">
+                                @for (action of comparison.recommended; track $index) {
+                                  <li>{{ ('flow.wizard.observed.' + action.kind) | translate: { name: cardName(action.cardId) } }}</li>
+                                }
+                              </ol>
+                            </div>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </details>
+                </li>
+              }
+            </ul>
+          </div>
+        </app-duel-panel>
+      }
     </main>
   `,
 })
@@ -502,6 +623,7 @@ export class ReplayPage {
   readonly selectedTurns = signal<Set<number>>(new Set());
   readonly flowError = signal<string | null>(null);
   turns(): number[] { const r=this.store.primaryAnalysis()?.replay; return r ? replayFlowTurns(r) : []; }
+  historyEntriesDesc() { return [...this.store.historyEntries()].reverse(); }
   isTurnSelected(turn: number): boolean { return this.selectedTurns().has(turn); }
   toggleTurn(turn: number): void {
     this.selectedTurns.update((set) => {

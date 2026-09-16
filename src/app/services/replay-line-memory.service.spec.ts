@@ -1,10 +1,17 @@
-import { ReplayLineMemoryService, isObservedLine } from './replay-line-memory.service';
+import { ReplayLineMemoryService, isObservedLine, isReplayHistoryEntry } from './replay-line-memory.service';
 import { lineReplay } from '../testing/replay-line.fixtures';
 import { openingLine } from '../utils/replay-lines';
+import { ReplayAnalysis } from '../models/replay.model';
+
+const emptyStats = () => ({ summons: 0, spSummons: 0, chains: 0, attacks: 0, missedEffects: 0, damageTaken: 0, damageDealt: 0 });
 
 describe('ReplayLineMemoryService', () => {
   let memory: ReplayLineMemoryService;
-  beforeEach(() => { localStorage.removeItem('ygo-replay-lines-v1'); memory = new ReplayLineMemoryService(); });
+  beforeEach(() => {
+    localStorage.removeItem('ygo-replay-lines-v1');
+    localStorage.removeItem('ygo-replay-history-v1');
+    memory = new ReplayLineMemoryService();
+  });
   afterEach(() => memory.clear());
   const games = () => ['a','b','c'].map(id => lineReplay({sha256:id.repeat(64)}));
   it('requires repeated wins and same hand, separates rules, excludes the current replay', () => {
@@ -27,6 +34,35 @@ describe('ReplayLineMemoryService', () => {
     const key = openingLine(rows[0])!.deckKey;
     expect(memory.deckStats(key)).toEqual({ games: 3, wins: 1, losses: 1, unknown: 1 });
     expect(memory.deckStats('nonexistent|key')).toEqual({ games: 0, wins: 0, losses: 0, unknown: 0 });
+  });
+  it('persists analysis history (findings + line comparisons) across reload, survives fileName/player names, dedupes and caps', () => {
+    const replay = lineReplay();
+    const analysis: ReplayAnalysis = {
+      replay,
+      findings: [{ kind: 'no_interaction', severity: 'critical', titleKey: 'replay.findings.noInteraction.title', detailKey: 'replay.findings.noInteraction.detail', meta: { turns: 3 } }],
+      stats: emptyStats(),
+      lineComparisons: [{ turn: 1, status: 'deviation', reason: 'different_observed_sequence', played: [], recommended: [], missing: [], evidenceGames: 2, provenMisplay: false }],
+    };
+    memory.rememberAnalyses([analysis]);
+    expect(memory.historyEntries().length).toBe(1);
+    expect(memory.historyEntries()[0].fileName).toBe(replay.fileName);
+    expect(memory.historyEntries()[0].findings.length).toBe(1);
+    expect(memory.historyEntries()[0].lineComparisons.length).toBe(1);
+
+    const reloaded = new ReplayLineMemoryService();
+    expect(reloaded.historyEntries().length).toBe(1);
+    expect(reloaded.historyEntries()[0].sha256).toBe(replay.sha256);
+
+    // Re-remembering the same replay updates in place instead of duplicating.
+    memory.rememberAnalyses([{ ...analysis, findings: [] }]);
+    expect(memory.historyEntries().length).toBe(1);
+    expect(memory.historyEntries()[0].findings.length).toBe(0);
+
+    memory.clear();
+    expect(memory.historyEntries().length).toBe(0);
+    expect(new ReplayLineMemoryService().historyEntries().length).toBe(0);
+
+    expect(isReplayHistoryEntry({ sha256: 'not-a-hash' })).toBeFalse();
   });
   it('does not promote unknown results or sequences requiring opponent interaction', () => {
     const rows = games().map(r => ({...r,focusWon:null})); memory.record(rows);

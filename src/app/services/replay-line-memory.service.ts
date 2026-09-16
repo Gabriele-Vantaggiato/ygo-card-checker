@@ -1,18 +1,45 @@
 import { Injectable, signal } from '@angular/core';
 import { LineEvidence, ObservedLine } from '../models/duel-line.model';
-import { ParsedReplay, ReplayAnalysis } from '../models/replay.model';
+import { ParsedReplay, ReplayAnalysis, ReplayHistoryEntry } from '../models/replay.model';
 import { aggregateLines, openingLine } from '../utils/replay-lines';
+
+const HISTORY_KEY = 'ygo-replay-history-v1';
+const MAX_HISTORY = 40;
 
 /** Shared across page-scoped ReplayStore and FlowStore; bounded local evidence, no model training. */
 @Injectable({ providedIn: 'root' })
 export class ReplayLineMemoryService {
   private readonly rows = signal<ObservedLine[]>(this.load());
   private readonly games = signal<ReplayAnalysis[]>([]);
+  private readonly history = signal<ReplayHistoryEntry[]>(this.loadHistory());
   readonly recentGames = this.games.asReadonly();
+  /** Browsable, persisted-across-reloads record of past analyses (findings + line comparisons). */
+  readonly historyEntries = this.history.asReadonly();
   rememberAnalyses(analyses: readonly ReplayAnalysis[]): void {
     const merged = new Map(this.games().map(a => [a.replay.sha256, a]));
     for (const analysis of analyses) { merged.delete(analysis.replay.sha256); merged.set(analysis.replay.sha256, analysis); }
     this.games.set([...merged.values()].slice(-10));
+
+    const savedAt = new Date().toISOString();
+    const historyMerged = new Map(this.history().map(e => [e.sha256, e]));
+    for (const analysis of analyses) {
+      historyMerged.delete(analysis.replay.sha256);
+      historyMerged.set(analysis.replay.sha256, {
+        sha256: analysis.replay.sha256,
+        fileName: analysis.replay.fileName,
+        focusName: analysis.replay.focusName,
+        opponentName: analysis.replay.opponentName,
+        focusWon: analysis.replay.focusWon,
+        turnCount: analysis.replay.turnCount,
+        masterRule: analysis.replay.masterRule,
+        savedAt,
+        stats: analysis.stats,
+        findings: analysis.findings,
+        lineComparisons: analysis.lineComparisons ?? [],
+      });
+    }
+    this.history.set([...historyMerged.values()].slice(-MAX_HISTORY));
+    this.saveHistory();
   }
   private load(): ObservedLine[] {
     try {
@@ -22,6 +49,15 @@ export class ReplayLineMemoryService {
   }
   private save(): void {
     try { localStorage.setItem('ygo-replay-lines-v1', JSON.stringify(this.rows())); } catch { /* Session memory remains available. */ }
+  }
+  private loadHistory(): ReplayHistoryEntry[] {
+    try {
+      const raw: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]');
+      return Array.isArray(raw) ? raw.slice(-MAX_HISTORY).filter(isReplayHistoryEntry) : [];
+    } catch { return []; }
+  }
+  private saveHistory(): void {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(this.history())); } catch { /* Session memory remains available. */ }
   }
   readonly observations = this.rows.asReadonly();
   record(replays: readonly ParsedReplay[]): void {
@@ -33,7 +69,7 @@ export class ReplayLineMemoryService {
     this.rows.set([...merged.values()].slice(-200));
     this.save();
   }
-  clear(): void { this.rows.set([]); this.games.set([]); this.save(); }
+  clear(): void { this.rows.set([]); this.games.set([]); this.history.set([]); this.save(); this.saveHistory(); }
   evidence(key: string, excludeReplay?: string, masterRule?: number): LineEvidence[] {
     return aggregateLines(this.rows().filter(row => row.deckKey === key && row.replayId !== excludeReplay && (masterRule == null || row.masterRule === masterRule)));
   }
@@ -66,4 +102,17 @@ export function isObservedLine(value: unknown): value is ObservedLine {
     Array.isArray(v.openingHand) && v.openingHand.length >= 5 && v.openingHand.length <= 6 && v.openingHand.every(card) &&
     Array.isArray(v.actions) && v.actions.length >= 1 && v.actions.length <= 40 &&
     v.actions.every(a => a && ['normal_summon', 'special_summon', 'activate', 'set'].includes(a.kind) && card(a.cardId));
+}
+
+export function isReplayHistoryEntry(value: unknown): value is ReplayHistoryEntry {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Partial<ReplayHistoryEntry>;
+  const str = (s: unknown, max: number) => typeof s === 'string' && s.length <= max;
+  return /^[a-f0-9]{64}$/i.test(v.sha256 ?? '') &&
+    str(v.fileName, 260) && str(v.focusName, 100) && str(v.opponentName, 100) &&
+    (v.focusWon === true || v.focusWon === false || v.focusWon === null) &&
+    Number.isInteger(v.turnCount) && Number.isInteger(v.masterRule) &&
+    str(v.savedAt, 40) && !!v.stats && typeof v.stats === 'object' &&
+    Array.isArray(v.findings) && v.findings.length <= 100 &&
+    Array.isArray(v.lineComparisons) && v.lineComparisons.length <= 50;
 }
