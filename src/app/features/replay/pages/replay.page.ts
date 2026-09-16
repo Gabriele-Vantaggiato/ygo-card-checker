@@ -10,6 +10,7 @@ import { GeminiCoachService } from '../../../services/gemini-coach.service';
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
 import { DuelPanelComponent } from '../../../shared/ui/duel-panel/duel-panel.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
+import { GeminiKeyPanelComponent } from '../../../shared/ui/gemini-key-panel/gemini-key-panel.component';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { ReplaySlot } from '../../../models/replay.model';
 import { ReplayStore } from '../stores/replay.store';
@@ -24,6 +25,7 @@ import { ReplayStore } from '../stores/replay.store';
     PageHeaderComponent,
     DuelPanelComponent,
     EmptyStateComponent,
+    GeminiKeyPanelComponent,
   ],
   providers: [ReplayStore],
   template: `
@@ -98,70 +100,7 @@ import { ReplayStore } from '../stores/replay.store';
           </label>
 
           @if (store.geminiEnabled()) {
-            <div class="rounded-lg border border-base-300/60 bg-base-200/30 p-3 space-y-3">
-              <p class="text-xs text-base-content/65">{{ 'replay.gemini.privacy' | translate }}</p>
-              <p class="text-xs text-base-content/55">{{ 'replay.gemini.apiKeyHint' | translate }}</p>
-
-              <label class="form-control">
-                <span class="label-text text-xs">{{ 'replay.gemini.model' | translate }}</span>
-                <select
-                  class="select select-bordered select-sm"
-                  [ngModel]="gemini.selectedModel()"
-                  (ngModelChange)="gemini.setModel($event)"
-                >
-                  @for (m of gemini.modelOptions; track m) {
-                    <option [value]="m">{{ m }}</option>
-                  }
-                </select>
-              </label>
-
-              @if (!gemini.unlocked()) {
-                @if (!gemini.hasStoredKey()) {
-                  <label class="form-control">
-                    <span class="label-text text-xs">{{ 'replay.gemini.apiKey' | translate }}</span>
-                    <input
-                      type="password"
-                      class="input input-bordered input-sm"
-                      [(ngModel)]="apiKeyDraft"
-                      autocomplete="off"
-                    />
-                  </label>
-                }
-                <label class="form-control">
-                  <span class="label-text text-xs">{{ 'replay.gemini.passphrase' | translate }}</span>
-                  <input
-                    type="password"
-                    class="input input-bordered input-sm"
-                    [(ngModel)]="passphraseDraft"
-                    autocomplete="off"
-                  />
-                </label>
-                <div class="flex flex-wrap gap-2">
-                  @if (!gemini.hasStoredKey()) {
-                    <button type="button" class="btn btn-outline btn-sm" (click)="saveGeminiKey()">
-                      {{ 'replay.gemini.save' | translate }}
-                    </button>
-                  } @else {
-                    <button type="button" class="btn btn-outline btn-sm" (click)="unlockGemini()">
-                      {{ 'replay.gemini.unlock' | translate }}
-                    </button>
-                    <button type="button" class="btn btn-ghost btn-sm" (click)="gemini.clearStored()">
-                      {{ 'replay.gemini.clear' | translate }}
-                    </button>
-                  }
-                </div>
-                @if (geminiLocalError(); as gErr) {
-                  <p class="text-xs text-error">{{ gErr | translate }}</p>
-                }
-              } @else {
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="badge badge-success badge-sm">{{ 'replay.gemini.unlocked' | translate }}</span>
-                  <button type="button" class="btn btn-ghost btn-xs" (click)="gemini.lockSession()">
-                    {{ 'replay.gemini.lock' | translate }}
-                  </button>
-                </div>
-              }
-            </div>
+            <app-gemini-key-panel />
           }
 
           @if (store.formErrorKey(); as formErr) {
@@ -662,10 +601,6 @@ export class ReplayPage {
   protected readonly gemini = inject(GeminiCoachService);
   private readonly catalog = inject(PasscodeCatalogService);
 
-  apiKeyDraft = '';
-  passphraseDraft = '';
-  readonly geminiLocalError = signal<string | null>(null);
-
   constructor() {
     void this.catalog.ensureLoaded$().subscribe();
   }
@@ -714,32 +649,4 @@ export class ReplayPage {
     };
   }
 
-  async saveGeminiKey(): Promise<void> {
-    this.geminiLocalError.set(null);
-    try {
-      await this.gemini.saveEncryptedKey(this.apiKeyDraft, this.passphraseDraft);
-      this.apiKeyDraft = '';
-      this.passphraseDraft = '';
-    } catch (err) {
-      this.geminiLocalError.set(
-        err instanceof Error && err.message.startsWith('replay.')
-          ? err.message
-          : 'replay.gemini.error.save',
-      );
-    }
-  }
-
-  async unlockGemini(): Promise<void> {
-    this.geminiLocalError.set(null);
-    try {
-      await this.gemini.unlock(this.passphraseDraft);
-      this.passphraseDraft = '';
-    } catch (err) {
-      this.geminiLocalError.set(
-        err instanceof Error && err.message.startsWith('replay.')
-          ? err.message
-          : 'replay.gemini.error.badPassphrase',
-      );
-    }
-  }
 }

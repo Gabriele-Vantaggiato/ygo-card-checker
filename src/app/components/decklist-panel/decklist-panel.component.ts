@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { A11yModule } from '@angular/cdk/a11y';
 import { DecklistEditorComponent } from '../decklist-editor/decklist-editor.component';
 import { DecklistGridComponent } from '../decklist-grid/decklist-grid.component';
+import { AiDeckGenerateDialogComponent } from './ai-deck-generate-dialog.component';
 import { I18nService } from '../../services/i18n.service';
 import { DecklistStore } from '../../features/decklist/stores/decklist.store';
 
@@ -17,7 +18,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   selector: 'app-decklist-panel',
   standalone: true,
   imports: [A11yModule, FormsModule, DecklistGridComponent, DecklistEditorComponent,
-    TranslatePipe],
+    AiDeckGenerateDialogComponent, TranslatePipe],
   template: `
     <section class="flex flex-col min-h-0 gap-4">
       @if (createOpen()) {
@@ -35,13 +36,18 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               (ngModelChange)="newDeckName.set($event)"
               (keydown.enter)="submitCreateDeck()"
             />
-            <div class="modal-action">
-              <button type="button" class="btn btn-ghost" (click)="cancelCreateDeck()">
-                {{ 'decklist.dialog.cancel' | translate }}
+            <div class="modal-action justify-between">
+              <button type="button" class="btn btn-outline btn-sm gap-2" (click)="openAiGenerate()">
+                <span aria-hidden="true">✦</span>{{ 'decklist.aiGen.openButton' | translate }}
               </button>
-              <button type="button" class="btn btn-primary" (click)="submitCreateDeck()">
-                {{ 'decklist.create.confirm' | translate }}
-              </button>
+              <div class="flex gap-2">
+                <button type="button" class="btn btn-ghost" (click)="cancelCreateDeck()">
+                  {{ 'decklist.dialog.cancel' | translate }}
+                </button>
+                <button type="button" class="btn btn-primary" (click)="submitCreateDeck()">
+                  {{ 'decklist.create.confirm' | translate }}
+                </button>
+              </div>
             </div>
           </div>
           <form method="dialog" class="modal-backdrop">
@@ -49,6 +55,10 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           </form>
         </dialog>
       }
+
+      <app-ai-deck-generate-dialog
+        (deckReady)="onAiDeckReady($event)"
+      />
 
       @if (view() === 'grid') {
         <app-decklist-grid
@@ -71,11 +81,21 @@ export class DecklistPanelComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly aiDialog = viewChild(AiDeckGenerateDialogComponent);
 
   readonly view = signal<DecklistView>('grid');
   readonly createOpen = signal(false);
   readonly newDeckName = signal('');
   readonly focusCardId = signal<number | null>(null);
+
+  openAiGenerate(): void {
+    this.createOpen.set(false);
+    this.aiDialog()?.show();
+  }
+
+  onAiDeckReady(deckId: string): void {
+    this.openEditor(deckId);
+  }
 
   constructor() {
     this.route.queryParamMap
