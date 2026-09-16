@@ -1,3 +1,4 @@
+import { isPlayableInFormat } from '../../utils/format-legality.utils';
 import { Injectable, inject } from '@angular/core';
 import { Observable, combineLatest, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
@@ -64,9 +65,10 @@ export class CardRelatedKnowledgeService {
           available: true,
         };
 
+        const allowed = formatIndex?.formats.includes(format.id) ? (id: number) => isPlayableInFormat(formatIndex, id, format.id) : null;
         const excludeIds = new Set([card.id]);
         return this.synergyRetrieval
-          .retrieve$(card.id, rag.profile, excludeIds, { limit: MAX_CARD_RELATED_SUGGESTIONS })
+          .retrieve$(card.id, rag.profile, excludeIds, { limit: MAX_CARD_RELATED_SUGGESTIONS, isPlayable: id => allowed?.(id) ?? true })
           .pipe(
             switchMap((mergedRelated) => {
               if (mergedRelated.length === 0) {

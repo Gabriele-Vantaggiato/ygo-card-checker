@@ -23,7 +23,11 @@
             "op": "search",
             "from": "deck",
             "to": "hand",
-            "filter": "Hole normal trap",
+            "filter": "trap",
+            "constraints": {
+              "nameContains": "Hole",
+              "race": "Normal"
+            },
             "qty": 1
           }
         ],
@@ -32,20 +36,20 @@
         ]
       },
       {
-        "id": "spin",
-        "when": "flip_or_effect_destroy",
+        "id": "ss-destroy-st",
+        "when": "special_summon",
         "actions": [
           {
-            "op": "banish",
-            "from": "field",
-            "to": "banish",
-            "filter": "opponent set spell/trap",
+            "op": "destroy",
+            "from": "opponent_field",
+            "to": "gy",
+            "filter": "opponent spell/trap",
             "qty": 1
           }
         ]
       }
     ],
-    "luaSource": "-- Traptrix Myrmeleo\nfunction on_normal_summon(card)\n  search_deck(\"Hole normal trap\", 1)\nend\nfunction on_destroy_by_effect(card)\n  banish_opponent_set_st(1)\nend",
+    "luaSource": "-- Traptrix Myrmeleo\nfunction on_normal_summon(card)\n  search_deck(\"Hole normal trap\", 1)\nend\nfunction on_special_summon(card)\n  destroy_opponent_st(1)\nend",
     "source": "hat",
     "confidence": 1
   },
@@ -74,7 +78,11 @@
             "from": "gy",
             "to": "monster",
             "filter": "Traptrix",
-            "qty": 1
+            "constraints": {
+              "cardType": "Monster"
+            },
+            "qty": 1,
+            "note": "Defense Position"
           }
         ],
         "produces": [
@@ -87,10 +95,15 @@
         "actions": [
           {
             "op": "set",
-            "from": "deck",
+            "from": "gy",
             "to": "spellTrap",
-            "filter": "Hole normal trap",
-            "qty": 1
+            "filter": "trap",
+            "constraints": {
+              "nameContains": "Hole",
+              "race": "Normal"
+            },
+            "qty": 1,
+            "note": "once per turn; banish during your next End Phase if still on field"
           }
         ],
         "produces": [
@@ -98,7 +111,7 @@
         ]
       }
     ],
-    "luaSource": "-- Traptrix Dionaea\nfunction on_normal_summon(card)\n  ss_from_gy(\"Traptrix\", 1)\nend\nfunction on_special_summon(card)\n  set_from_deck(\"Hole normal trap\", 1)\nend",
+    "luaSource": "-- Traptrix Dionaea\nfunction on_normal_summon(card)\n  ss_from_gy(\"Traptrix\", 1)\nend\nfunction on_special_summon(card)\n  set_from_gy(\"Hole normal trap\", 1)\nend",
     "source": "hat",
     "confidence": 1
   },
@@ -124,8 +137,13 @@
             "op": "ss",
             "from": "deck",
             "to": "monster",
-            "filter": "Traptrix except Nepenthes",
-            "qty": 1
+            "filter": "Traptrix",
+            "constraints": {
+              "excludeSource": true,
+              "cardType": "Monster"
+            },
+            "qty": 1,
+            "note": "optional summon alternative; once per turn; outside Damage Step"
           }
         ],
         "produces": [

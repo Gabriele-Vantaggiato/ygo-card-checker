@@ -77,11 +77,8 @@ async function main(): Promise<void> {
       }
       matched += 1;
       const codes = decodeSetcode(row.setcode);
-      if (codes.length === 0) {
-        continue;
-      }
       update.run(JSON.stringify(codes), row.id);
-      updated += 1;
+      if (codes.length > 0) updated += 1;
     }
   });
 

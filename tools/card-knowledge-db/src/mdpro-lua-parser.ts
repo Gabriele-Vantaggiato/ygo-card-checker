@@ -159,7 +159,8 @@ function extractRaceFilter(lua: string): string | null {
   if (!race?.[1]) {
     return null;
   }
-  const label = race[1]
+  const canonical: Record<string, string> = { PSYCHO: 'Psychic', WINDBEAST: 'Winged Beast', BEASTWARRIOR: 'Beast-Warrior', SEASERPENT: 'Sea Serpent', DIVINE: 'Divine-Beast' };
+  const label = canonical[race[1]] ?? race[1]
     .toLowerCase()
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

@@ -1,5 +1,6 @@
+import { EffectScriptService } from './effect-script.service';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map, of } from 'rxjs';
+import { Observable, combineLatest, map, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CardKnowledgeIndex, CardKnowledgeRelated } from '../models/card-knowledge.model';
 import { CompletionScoringProfile } from '../utils/completion-prompt.utils';
@@ -13,6 +14,7 @@ import { CompletionRagService } from './completion-rag.service';
 
 @Injectable({ providedIn: 'root' })
 export class SynergyRetrievalService {
+  private readonly scripts = inject(EffectScriptService);
   private readonly indexService = inject(CardKnowledgeIndexService);
   private readonly completionRag = inject(CompletionRagService);
 
@@ -22,8 +24,8 @@ export class SynergyRetrievalService {
     excludeIds: ReadonlySet<number>,
     options?: DatasetSynergyOptions,
   ): Observable<CardKnowledgeRelated[]> {
-    return this.indexService.related$.pipe(
-      map((index) => {
+    return combineLatest([this.indexService.related$, this.scripts.ensureStudyLoaded$()]).pipe(
+      map(([index, scripts]) => {
         if (!index) {
           return [];
         }
@@ -58,6 +60,15 @@ export class SynergyRetrievalService {
             imageSmall: item.imageSmall,
           }));
 
+        const engine = this.indexService.engineFor(index);
+        const structured: CardKnowledgeRelated[] = engine.candidates(sourceId, scripts.scripts[String(sourceId)])
+          .filter(hit => !excludeIds.has(hit.targetId))
+          .map(hit => ({ ...engine.catalog.get(hit.targetId)!,
+            relation: 'search_target', score: hit.score + 1,
+          }));
+        const families: CardKnowledgeRelated[] = engine.familyPartners(sourceId)
+          .filter(id => !excludeIds.has(id))
+          .map(id => ({ ...engine.catalog.get(id)!, relation: 'archetype', score: 1.05 }));
         const precomputed = (sourceEntry.related ?? []).map((item) => ({
           ...item,
           // Keep curated GY/engine partners competitive vs noisy full-dataset hits.
@@ -66,16 +77,9 @@ export class SynergyRetrievalService {
             (item.relation === 'gy_synergy' ? 2.4 : item.relation === 'engine' ? 1.15 : 1.05),
         }));
 
-        return mergeRelatedById(dataset, [...precomputed, ...matchup])
-          .sort((a, b) => {
-            const prio = (relation: string) =>
-              relation === 'gy_synergy' ? 3 : relation === 'engine' ? 2 : relation === 'mechanic_synergy' ? 1 : 0;
-            const d = prio(b.relation) - prio(a.relation);
-            if (d !== 0) {
-              return d;
-            }
-            return b.score - a.score || a.name.localeCompare(b.name);
-          })
+        return mergeRelatedById(dataset, [...precomputed, ...matchup, ...families, ...structured])
+          .filter(item => !excludeIds.has(item.id) && (options?.isPlayable?.(item.id) ?? true))
+          .sort((a, b) => b.score - a.score || a.id - b.id)
           .slice(0, options?.limit ?? 64);
       }),
       catchError(() => of([])),

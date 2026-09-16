@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { HAT_2014_SCRIPTS } from './hat-2014-scripts';
+import { AssistanceEngine } from '../../../src/app/utils/assistance-engine';
+import { knowledgeFixture } from '../../../src/app/testing/assistance.fixtures';
+const myrmeleo = HAT_2014_SCRIPTS.find(script => script.cardId === 91812341)!;
+const dionaea = HAT_2014_SCRIPTS.find(script => script.cardId === 45803070)!;
+assert.equal(myrmeleo.steps.find(step => step.when === 'special_summon')!.actions[0].op, 'destroy');
+assert.equal(dionaea.steps.find(step => step.id === 'ss-set-hole')!.actions[0].from, 'gy');
+const index = knowledgeFixture();
+index.catalog!['2'] = { ...index.catalog!['2'], name: 'Example Hole', type: 'Trap Card', race: 'Normal' };
+index.catalog!['3'] = { ...index.catalog!['3'], name: 'Example Hole Continuous', type: 'Trap Card', race: 'Continuous' };
+const engine = new AssistanceEngine(index);
+assert.deepEqual(engine.actionTargets(myrmeleo.steps[0].actions[0], myrmeleo.cardId)?.map(hit => hit.id), [2]);
+console.log('HAT assistance regression checks passed');

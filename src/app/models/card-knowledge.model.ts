@@ -18,6 +18,12 @@ export interface CardKnowledgeEffect {
 }
 
 export interface CardKnowledgeEntry {
+  name?: string;
+  level?: number | null;
+  atk?: number | null;
+  def?: number | null;
+  setcodes?: number[];
+  isExtraDeck?: boolean;
   tags: string[];
   series: string[];
   mentions: string[];
@@ -52,6 +58,8 @@ export interface MatchupCatalogEntry {
 }
 
 export interface CardKnowledgeIndex {
+  /** Complete identity map, independent of capped suggestion buckets. */
+  catalog?: Record<string, CardKnowledgeRosterMember>;
   version: number;
   generatedAt: string;
   cardCount: number;

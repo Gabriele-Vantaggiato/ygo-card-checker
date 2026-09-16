@@ -54,6 +54,7 @@ export interface ComboStep {
 }
 
 export interface ComboLine {
+  status?: 'candidate';
   id: string;
   steps: ComboStep[];
 }

@@ -1,3 +1,5 @@
+import { CardAssistanceService } from '../../../services/card-assistance.service';
+import { AssistanceBoard } from '../../../models/assistance.model';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -64,6 +66,21 @@ interface Baseline {
 })
 export class YgoFlowPage implements OnInit {
   readonly store = inject(YgoFlowStore);
+  private readonly assistance = inject(CardAssistanceService);
+  readonly liveAssistance = computed(() => {
+    const state = this.store.solitaire();
+    const board: AssistanceBoard = {
+      hand: state.hand.map(card => card.passcode), deck: state.deck.map(card => card.passcode),
+      extra: state.extra.map(card => card.passcode), monsters: state.monsters.map(card => card.passcode),
+      spellTraps: state.spellTraps.map(card => card.passcode), gy: state.gy.map(card => card.passcode),
+      banish: state.banish.map(card => card.passcode),
+    };
+    return this.assistance.analyze(board, this.formatId());
+  });
+  readonly deckAssistance = computed(() => {
+    const deck = this.store.resolvedDeck();
+    return this.assistance.prepare([...(deck?.main ?? []), ...(deck?.extra ?? [])].map(card => card.passcode), this.formatId());
+  });
   readonly format = inject(FormatStore);
   readonly decks = inject(DecklistStore);
   private readonly route = inject(ActivatedRoute);

@@ -168,6 +168,7 @@ function payoffToActions(payoff: ComboPayoffParsed): EffectAction[] {
           from: 'deck',
           to: 'monster',
           filter: payoff.names.join(' | '),
+          constraints: { minLevel: payoff.minLevel },
           qty: 1,
           note: payoff.position !== 'any' ? payoff.position : undefined,
         },

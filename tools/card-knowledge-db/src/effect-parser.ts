@@ -76,9 +76,11 @@ export interface ParsedCardEffects {
 
 export function extractQuotedNames(text: string): string[] {
   const names = new Set<string>();
-  const pattern = /["']([^"']+)["']/g;
+  // PSCT uses double quotes; apostrophes are part of names and ordinary prose.
+  const pattern = /"([^"]+)"/g;
+  const normalized = text.replace(/[“”]/g, '"');
   let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text)) !== null) {
+  while ((match = pattern.exec(normalized)) !== null) {
     const name = match[1].trim();
     if (name.length > 1) {
       names.add(name);

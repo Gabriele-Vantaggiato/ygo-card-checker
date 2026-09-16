@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-09-14T19:23:34.082Z",
+  "inputs": {
+    "knowledge": "2026-09-14T19:16:35.781Z",
+    "scripts": "2026-09-14T19:23:29.788Z",
+    "combos": "2026-09-14T19:08:20.207Z"
+  },
+  "catalogCards": 14422,
+  "babelMembershipCards": 7922,
+  "structuredCards": 5678,
+  "segocProfiles": 13397,
+  "comboCards": 2098,
+  "comboCardsWithLines": 1370,
+  "targetActions": 4570,
+  "recognizedTargetFilters": 4458,
+  "filtersWithCatalogTargets": 4433,
+  "unknownTargetFilters": 112,
+  "commonUnknownFilters": [
+    [
+      "GY",
+      10
+    ],
+    [
+      "GY target",
+      5
+    ],
+    [
+      "Gem-Knight",
+      5
+    ],
+    [
+      "True Draco | True King",
+      3
+    ],
+    [
+      "Gravekeeper",
+      3
+    ],
+    [
+      "Nordic Relic",
+      3
+    ],
+    [
+      "R-Genex",
+      2
+    ],
+    [
+      "Goblin Biker",
+      2
+    ],
+    [
+      "s original ATK. You can only Special Summon",
+      2
+    ],
+    [
+      "Six Samurai | Shien",
+      2
+    ],
+    [
+      "Evolution Pill",
+      2
+    ],
+    [
+      "Earthbound Immortal",
+      2
+    ],
+    [
+      "ZW -",
+      2
+    ],
+    [
+      "Meklord Emperor",
+      2
+    ],
+    [
+      "The Phantom Knights",
+      2
+    ],
+    [
+      "Heraldic Beast",
+      2
+    ],
+    [
+      "The Phantom Knights of Doomed Soleret | The Phantom Knights",
+      2
+    ],
+    [
+      "eligible monster in GY",
+      2
+    ],
+    [
+      "s name becomes | . You can only Special Summon | s Apprentice | Shining Sarcophagus",
+      1
+    ],
+    [
+      "Rescue-ACE Arbitrator(s) | Rescue-ACE Hydrant | Rescue-ACE HQ",
+      1
+    ],
+    [
+      "s effects (even if this card leaves the field). Once per turn, if you Normal or Special Summon exactly 1 Normal Monster (and no other cards): Add 1",
+      1
+    ],
+    [
+      "Meklord Army",
+      1
+    ],
+    [
+      "s turn, when a card or effect is activated that would inflict damage to your opponent, while you have another",
+      1
+    ],
+    [
+      "Iron Core of Koa | or 1 Level 4 or lower | ki Meiru",
+      1
+    ],
+    [
+      "Smile",
+      1
+    ]
+  ],
+  "scanMs": 2890,
+  "interpretation": "Coverage of parsed data and target predicates, not a measured combo accuracy rate or proof of activation legality."
+}

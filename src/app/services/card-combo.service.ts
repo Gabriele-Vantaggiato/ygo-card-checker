@@ -8,7 +8,6 @@ import {
   ComboPartnerRecord,
   ComboResult,
   ComboScriptInfo,
-  ComboStep,
 } from '../models/card-combo.model';
 import {
   CardKnowledgeEntry,
@@ -65,11 +64,10 @@ export class CardComboService {
         return this.filterEntry$(
           card,
           comboEntry ?? this.emptyComboEntry(),
-          knowledgeEntry,
           knowledgeIndex,
           format,
           rag.profile,
-        ).pipe(map((result) => this.attachScript(card, result, knowledgeIndex)));
+        ).pipe(map((result) => this.attachScript(card, result)));
       }),
     );
   }
@@ -77,12 +75,22 @@ export class CardComboService {
   private filterEntry$(
     card: YgoCard,
     entry: ComboEntry,
-    knowledgeEntry: CardKnowledgeEntry | undefined,
     knowledgeIndex: CardKnowledgeIndex | null,
     format: YgoFormat,
     profile: Parameters<typeof scoreForCompletion>[2],
   ): Observable<ComboResult> {
     const entries = knowledgeIndex?.entries ?? {};
+    const engine = knowledgeIndex ? this.indexService.engineFor(knowledgeIndex) : null;
+    const script = this.effectScripts.getScript(card.id);
+    const candidates = engine?.candidates(card.id, script) ?? [];
+    const scriptLines: ComboLine[] = candidates.filter(hit => (hit.action.qty ?? 1) === 1).map(hit => {
+      const target = engine!.catalog.get(hit.targetId)!;
+      return { status: 'candidate', id: `script:${card.id}:${hit.stepId}:${hit.action.op}:${hit.targetId}`, steps: [
+        { role: 'source', cardId: card.id, name: card.name, reasonKey: 'combo.step.source', imageSmall: card.card_images?.[0]?.image_url_small ?? '' },
+        { role: 'target', cardId: target.id, name: target.name, reasonKey: 'combo.reason.scriptTarget',
+          reasonParams: { name: target.name, when: hit.stepId }, imageSmall: target.imageSmall },
+      ] };
+    });
     const partners = [...entry.enablers, ...entry.targets];
     const comboIds = new Set(partners.map((partner) => partner.id));
     const excludeIds = new Set<number>([card.id, ...comboIds]);
@@ -90,6 +98,13 @@ export class CardComboService {
     return this.synergyRetrieval.retrieve$(card.id, profile, excludeIds, { limit: 96 }).pipe(
       switchMap((synergyCandidates) => {
         const allStubs = [
+          card,
+          ...candidates.map(hit => this.relatedToYgoCard({ ...engine!.catalog.get(hit.targetId)!, relation: 'search_target', score: hit.score })),
+          ...entry.lines.flatMap(line => line.steps).map(step => {
+            const member = engine?.catalog.get(step.cardId);
+            return this.toYgoCard({ id: step.cardId, name: step.name, imageSmall: step.imageSmall, role: 'summon_target', score: 1,
+              tcgDate: member?.tcgDate, banTcg: member?.banTcg });
+          }),
           ...partners.map((partner) => this.toYgoCard(partner)),
           ...synergyCandidates.map((related) => this.relatedToYgoCard(related)),
         ];
@@ -119,21 +134,17 @@ export class CardComboService {
             const synergies = synergyCandidates
               .filter((item) => playable.has(item.id) && !playableIds.has(item.id))
               .map((item) => this.toSynergyPartner(item, card.name, entries, profile))
-              .map((item) => this.boostPartnerFromScript(card.id, item))
               .sort((a, b) => b.score - a.score)
               .slice(0, MAX_STRATEGY_SYNERGIES);
 
-            const lines = entry.lines
-              .map((line) => ({
-                ...line,
-                steps: line.steps.filter(
-                  (step) => step.role === 'source' || playableIds.has(step.cardId),
-                ),
-              }))
-              .filter((line) => line.steps.some((step) => step.role === 'target'))
+            // Validate the complete line. Never remove a required step to make it look playable.
+            const lines = [...entry.lines, ...scriptLines]
+              .filter(line => line.steps.length > 1 && line.steps.every(step => playable.has(step.cardId)))
+              .filter(line => line.steps.some(step => step.role === 'target'))
               .sort((a, b) => this.lineScore(b, profile, entries) - this.lineScore(a, profile, entries));
 
-            const result = this.toResult(entry, enablers, targets, synergies, lines.slice(0, 8));
+            const uniqueLines = [...new Map(lines.map(line => [line.steps.map(step => `${step.role}:${step.cardId}`).join('|'), line])).values()];
+            const result = this.toResult(entry, enablers, targets, synergies, uniqueLines.slice(0, 8).map(line => ({ ...line, status: 'candidate' })));
             return result;
           }),
         );
@@ -144,7 +155,6 @@ export class CardComboService {
   private attachScript(
     card: YgoCard,
     result: ComboResult,
-    knowledgeIndex: CardKnowledgeIndex | null = null,
   ): ComboResult {
     const script = this.effectScripts.getScript(card.id);
     if (!script) {
@@ -152,8 +162,7 @@ export class CardComboService {
     }
 
     const scriptInfo = this.toScriptInfo(script);
-    const scriptLines = this.linesFromScript(card, script, knowledgeIndex);
-    const mergedLines = [...scriptLines, ...result.lines].slice(0, 8);
+
     const roleEffects = script.roles.map((role) => ({
       kind: `script_role:${role}`,
       payload: { role },
@@ -163,7 +172,7 @@ export class CardComboService {
       ...result,
       available: true,
       effects: [...roleEffects, ...result.effects],
-      lines: mergedLines.length > 0 ? mergedLines : result.lines,
+      lines: result.lines,
       script: scriptInfo,
     };
   }
@@ -185,162 +194,6 @@ export class CardComboService {
           )
           .join('; '),
       })),
-    };
-  }
-
-  private linesFromScript(
-    card: YgoCard,
-    script: EffectScript,
-    knowledgeIndex: CardKnowledgeIndex | null,
-  ): ComboLine[] {
-    if (!knowledgeIndex || script.steps.length === 0) {
-      return [];
-    }
-
-    const imageSmall =
-      card.card_images?.[0]?.image_url_small ??
-      `https://images.ygoprodeck.com/images/cards_small/${card.id}.jpg`;
-
-    const lines: ComboLine[] = [];
-    for (const step of script.steps) {
-      const filters = step.actions
-        .map((action) => action.filter)
-        .filter((value): value is string => !!value && value.trim().length > 0);
-      if (filters.length === 0) {
-        continue;
-      }
-
-      const partners = this.findScriptPartners(filters, knowledgeIndex, card.id).slice(0, 3);
-      if (partners.length === 0) {
-        continue;
-      }
-
-      const steps: ComboStep[] = [
-        {
-          role: 'source',
-          cardId: card.id,
-          name: card.name,
-          reasonKey: 'combo.step.source',
-          imageSmall,
-        },
-        ...partners.map((partner) => ({
-          role: 'target' as const,
-          cardId: partner.id,
-          name: partner.name,
-          reasonKey: 'combo.reason.scriptTarget',
-          reasonParams: { name: partner.name, when: step.when },
-          imageSmall: partner.imageSmall,
-        })),
-      ];
-
-      lines.push({ id: `script:${script.cardId}:${step.id}`, steps });
-    }
-
-    return lines;
-  }
-
-  private findScriptPartners(
-    filters: string[],
-    knowledgeIndex: CardKnowledgeIndex,
-    sourceId: number,
-  ): Array<{ id: number; name: string; imageSmall: string }> {
-    const tokens = filters
-      .join(' ')
-      .toLowerCase()
-      .split(/[^a-z0-9]+/i)
-      .map((token) => token.trim())
-      .filter((token) => token.length >= 3);
-
-    if (tokens.length === 0) {
-      return [];
-    }
-
-    const scored = new Map<number, { id: number; name: string; imageSmall: string; score: number }>();
-
-    const consider = (id: number, name: string, imageSmall: string, base: number) => {
-      if (id === sourceId || !name) {
-        return;
-      }
-      const lower = name.toLowerCase();
-      let score = base;
-      for (const token of tokens) {
-        if (lower.includes(token)) {
-          score += 2;
-        }
-      }
-      if (score <= base) {
-        return;
-      }
-      const prev = scored.get(id);
-      if (!prev || prev.score < score) {
-        scored.set(id, { id, name, imageSmall, score });
-      }
-    };
-
-    const sourceEntry = knowledgeIndex.entries[String(sourceId)];
-    for (const related of sourceEntry?.related ?? []) {
-      consider(related.id, related.name, related.imageSmall, related.score);
-      if (related.archetype) {
-        for (const token of tokens) {
-          if (related.archetype.toLowerCase().includes(token)) {
-            consider(related.id, related.name, related.imageSmall, related.score + 1);
-          }
-        }
-      }
-    }
-
-    for (const [archetype, roster] of Object.entries(knowledgeIndex.archetypes ?? {})) {
-      const archLower = archetype.toLowerCase();
-      if (!tokens.some((token) => archLower.includes(token) || token.includes(archLower))) {
-        continue;
-      }
-      for (const member of roster.slice(0, 24)) {
-        consider(
-          member.id,
-          member.name,
-          member.imageSmall,
-          1.2,
-        );
-      }
-    }
-
-    for (const [series, roster] of Object.entries(knowledgeIndex.seriesIndex ?? {})) {
-      const seriesLower = series.toLowerCase();
-      if (!tokens.some((token) => seriesLower.includes(token))) {
-        continue;
-      }
-      for (const member of roster.slice(0, 24)) {
-        consider(member.id, member.name, member.imageSmall, 1.1);
-      }
-    }
-
-    return [...scored.values()]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8)
-      .map(({ id, name, imageSmall }) => ({ id, name, imageSmall }));
-  }
-
-  private boostPartnerFromScript(cardId: number, partner: ComboPartner): ComboPartner {
-    const script = this.effectScripts.getScript(cardId);
-    if (!script) {
-      return partner;
-    }
-    const blob = script.steps
-      .flatMap((step) => step.actions.map((action) => `${action.filter ?? ''} ${action.note ?? ''}`))
-      .join(' ')
-      .toLowerCase();
-    const name = partner.name.toLowerCase();
-    const hit =
-      blob.includes(name) ||
-      name.split(/\s+/).some((token) => token.length > 3 && blob.includes(token));
-    if (!hit) {
-      return partner;
-    }
-    return {
-      ...partner,
-      score: partner.score + 0.35,
-      reasonKey: partner.reasonKey === 'knowledge.reason.related' ? 'combo.reason.scriptTarget' : partner.reasonKey,
-      reasonParams: { ...partner.reasonParams, name: partner.name },
     };
   }
 

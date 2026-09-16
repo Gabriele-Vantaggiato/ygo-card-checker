@@ -864,6 +864,16 @@
               </div>
             </div>
           }
+          <section class="card card-border bg-base-200 my-4" aria-labelledby="live-assistance-title">
+            <div class="card-body">
+              <h3 class="card-title" id="live-assistance-title">{{ t('Assistenza sul campo', 'Board assistance') }}</h3>
+              <p>{{ liveAssistance().coverage }}</p>
+              <p>{{ t('Si aggiorna spostando le carte. Verifica costi, timing e restrizioni prima di agire.', 'Updates as cards move. Check costs, timing and restrictions before acting.') }}</p>
+              <ul class="list-disc pl-5 space-y-2">
+                @for (message of liveAssistance().messages; track message) { <li>{{ message }}</li> }
+              </ul>
+            </div>
+          </section>
           <details
             class="lab-board"
             [open]="store.solitaire().monsters.length > 0 || store.solitaire().gy.length > 0"
@@ -953,6 +963,16 @@
       </section>
     }
     @case ('insights') {
+      <section class="card card-border bg-base-200 my-4" aria-labelledby="deck-assistance-title">
+        <div class="card-body">
+          <h3 class="card-title" id="deck-assistance-title">{{ t('Preparazione del deck', 'Deck preparation') }}</h3>
+          <p>{{ deckAssistance().coverage }}</p>
+          <ul class="list-disc pl-5 space-y-2">
+            @for (message of deckAssistance().messages; track message) { <li>{{ message }}</li> }
+          </ul>
+        </div>
+      </section>
+
       <section class="lab-content">
         <div class="lab-section-head">
           <div>

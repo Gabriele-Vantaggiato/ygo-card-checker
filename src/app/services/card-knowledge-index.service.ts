@@ -1,3 +1,5 @@
+import { AssistanceEngine } from '../utils/assistance-engine';
+import { SegocProfile } from '../models/assistance.model';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
@@ -21,6 +23,17 @@ const FORMAT_LEGALITY_URL = 'assets/data/card-knowledge/format-legality.json';
 @Injectable({ providedIn: 'root' })
 export class CardKnowledgeIndexService {
   private readonly http = inject(HttpClient);
+
+  readonly segoc$ = this.load<Record<string, SegocProfile>>('assets/data/effect-scripts/segoc-profiles.json');
+  private engineIndex: CardKnowledgeIndex | null = null;
+  private engine: AssistanceEngine | null = null;
+  engineFor(index: CardKnowledgeIndex): AssistanceEngine {
+    if (this.engineIndex !== index || !this.engine) {
+      this.engineIndex = index;
+      this.engine = new AssistanceEngine(index);
+    }
+    return this.engine;
+  }
 
   readonly related$ = this.load<CardKnowledgeIndex>(RELATED_URL);
   readonly combos$ = this.load<ComboIndex>(COMBOS_URL);

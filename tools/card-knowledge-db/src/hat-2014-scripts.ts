@@ -12,21 +12,21 @@ export const HAT_2014_SCRIPTS: EffectScript[] = [
       {
         id: 'ns-search',
         when: 'normal_summon',
-        actions: [{ op: 'search', from: 'deck', to: 'hand', filter: 'Hole normal trap', qty: 1 }],
+        actions: [{ op: 'search', from: 'deck', to: 'hand', filter: 'trap', constraints: { nameContains: 'Hole', race: 'Normal' }, qty: 1 }],
         produces: ['hole_trap'],
       },
       {
-        id: 'spin',
-        when: 'flip_or_effect_destroy',
-        actions: [{ op: 'banish', from: 'field', to: 'banish', filter: 'opponent set spell/trap', qty: 1 }],
+        id: 'ss-destroy-st',
+        when: 'special_summon',
+        actions: [{ op: 'destroy', from: 'opponent_field', to: 'gy', filter: 'opponent spell/trap', qty: 1 }],
       },
     ],
     luaSource: `-- Traptrix Myrmeleo
 function on_normal_summon(card)
   search_deck("Hole normal trap", 1)
 end
-function on_destroy_by_effect(card)
-  banish_opponent_set_st(1)
+function on_special_summon(card)
+  destroy_opponent_st(1)
 end`,
     source: 'hat',
     confidence: 1,
@@ -41,13 +41,13 @@ end`,
       {
         id: 'ns-revive',
         when: 'normal_summon',
-        actions: [{ op: 'ss', from: 'gy', to: 'monster', filter: 'Traptrix', qty: 1 }],
+        actions: [{ op: 'ss', from: 'gy', to: 'monster', filter: 'Traptrix', constraints: { cardType: 'Monster' }, qty: 1, note: 'Defense Position' }],
         produces: ['xyz_material'],
       },
       {
         id: 'ss-set-hole',
         when: 'special_summon',
-        actions: [{ op: 'set', from: 'deck', to: 'spellTrap', filter: 'Hole normal trap', qty: 1 }],
+        actions: [{ op: 'set', from: 'gy', to: 'spellTrap', filter: 'trap', constraints: { nameContains: 'Hole', race: 'Normal' }, qty: 1, note: 'once per turn; banish during your next End Phase if still on field' }],
         produces: ['hole_trap'],
       },
     ],
@@ -56,7 +56,7 @@ function on_normal_summon(card)
   ss_from_gy("Traptrix", 1)
 end
 function on_special_summon(card)
-  set_from_deck("Hole normal trap", 1)
+  set_from_gy("Hole normal trap", 1)
 end`,
     source: 'hat',
     confidence: 1,
@@ -71,7 +71,7 @@ end`,
       {
         id: 'ss-traptrix',
         when: 'hole_resolve',
-        actions: [{ op: 'ss', from: 'deck', to: 'monster', filter: 'Traptrix except Nepenthes', qty: 1 }],
+        actions: [{ op: 'ss', from: 'deck', to: 'monster', filter: 'Traptrix', constraints: { excludeSource: true, cardType: 'Monster' }, qty: 1, note: 'optional summon alternative; once per turn; outside Damage Step' }],
         produces: ['engine_body'],
       },
     ],

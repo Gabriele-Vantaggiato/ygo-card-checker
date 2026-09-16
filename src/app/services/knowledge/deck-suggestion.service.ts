@@ -153,6 +153,16 @@ export class DeckSuggestionService {
 
         const deckCardIds = new Set(deck.cards.map((card) => card.id));
         const fingerprint = buildDeckFingerprint(deck, index);
+        const engine = this.indexService.engineFor(index);
+        const evidence = new Map<number, number>();
+        for (const source of uniqueCards) {
+          for (const hit of engine.candidates(source.id, scriptIndex.scripts[String(source.id)])) {
+            if (!deckCardIds.has(hit.targetId)) evidence.set(hit.targetId, Math.max(evidence.get(hit.targetId) ?? 0, hit.score));
+          }
+          for (const id of engine.familyPartners(source.id)) {
+            if (!deckCardIds.has(id)) evidence.set(id, Math.max(evidence.get(id) ?? 0, 0.35));
+          }
+        }
         const ranked = this.aggregateDeckRanked(
           deck,
           index,
@@ -163,9 +173,13 @@ export class DeckSuggestionService {
           formatIndex,
           format.id,
         );
-        if (ranked.length === 0) {
-          return of([]);
+        const known = new Set(ranked.map(item => item.id));
+        for (const [id, score] of evidence) {
+          const member = engine.catalog.get(id);
+          if (member && !known.has(id)) ranked.push({ ...member, relation: score > 0.35 ? 'search_target' : 'archetype', score, sourceName: deck.name, sources: 1 });
         }
+        ranked.sort((a, b) => (b.score + (evidence.get(b.id) ?? 0)) - (a.score + (evidence.get(a.id) ?? 0)) || a.id - b.id);
+        if (ranked.length === 0) return of([]);
 
         // Ranked list is already format-biased; keep a buffer before final cut.
         const pool = ranked.slice(0, Math.max(effectiveLimit * 4, 96));
@@ -188,7 +202,7 @@ export class DeckSuggestionService {
             const withAffinity = withStrategy
               .map((suggestion) => {
                 const entry = index.entries[String(suggestion.cardId)];
-                const score = suggestion.score * suggestionAffinityMultiplier(suggestion, entry, fingerprint);
+                const score = (suggestion.score + (evidence.get(suggestion.cardId) ?? 0)) * suggestionAffinityMultiplier(suggestion, entry, fingerprint);
                 return enrichSuggestionReasonForFingerprint({ ...suggestion, score }, entry, fingerprint);
               })
               .filter((suggestion) => suggestion.score >= MIN_SUGGESTION_SCORE);

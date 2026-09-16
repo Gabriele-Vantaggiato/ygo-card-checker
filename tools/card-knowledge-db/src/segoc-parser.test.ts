@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { parseSegocProfile, deriveSpellSpeed } from './segoc-parser';
 
-// Trigger effect with a "when" condition (no EFFECT_FLAG_DELAY) — Missed Timing risk.
+// Mandatory trigger without DELAY: does not have optional-when missed timing.
 const whenTrigger = `
 local e1=Effect.CreateEffect(c)
 e1:SetDescription(aux.Stringid(11662742,0))
@@ -15,7 +15,7 @@ c:RegisterEffect(e1)
 `;
 const whenResult = parseSegocProfile(whenTrigger);
 assert.equal(whenResult.effectType, 'trigger');
-assert.equal(whenResult.missedTimingRisk, true);
+assert.equal(whenResult.missedTimingRisk, false);
 assert.deepEqual(whenResult.triggerEvents, ['destroyed']);
 
 // Trigger effect with EFFECT_FLAG_DELAY in the same block — "if" condition, no risk.
@@ -61,8 +61,8 @@ c:RegisterEffect(e2)
 const mixedResult = parseSegocProfile(mixedBlocks);
 // effectType picks the most SEGOC-relevant across blocks: TRIGGER present, so 'trigger'.
 assert.equal(mixedResult.effectType, 'trigger');
-// missedTimingRisk is true if ANY trigger block on the card is a "when" (risk exists on this card).
-assert.equal(mixedResult.missedTimingRisk, true);
+// Mandatory trigger plus delayed optional trigger: neither creates optional-when risk.
+assert.equal(mixedResult.missedTimingRisk, false);
 assert.deepEqual(mixedResult.triggerEvents, ['destroyed', 'to_grave']);
 
 // No effect blocks at all (vanilla monster) — 'none', no risk, no events.
@@ -98,3 +98,6 @@ assert.equal(deriveSpellSpeed('Normal Monster', 'none'), null); // vanilla, no e
 assert.equal(deriveSpellSpeed('Spell Card', 'activate'), 1); // Normal Spell
 
 console.log('segoc-parser.test.ts OK');
+
+const optionalWhen = whenTrigger.replace('EFFECT_TYPE_TRIGGER_F', 'EFFECT_TYPE_TRIGGER_O');
+assert.equal(parseSegocProfile(optionalWhen).missedTimingRisk, true);

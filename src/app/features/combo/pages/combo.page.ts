@@ -118,6 +118,7 @@ import { LoadingSkeletonComponent } from '../../../shared/ui/loading-skeleton/lo
           @if (combo().lines.length > 0) {
             <section class="space-y-2">
               <h3 class="section-title">{{ 'combo.linesTitle' | translate }}</h3>
+              <p class="text-sm text-base-content/70">{{ 'assist.comboCandidate' | translate }}</p>
               @for (line of combo().lines; track line.id) {
                 <app-duel-panel>
                   <div class="p-4 space-y-2">

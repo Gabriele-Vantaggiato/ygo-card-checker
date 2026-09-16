@@ -11,7 +11,7 @@ const MAX_PER_RELATION = 5;
 const MAX_PER_RELATION_GY = 8;
 const MAX_PER_RELATION_LOW = 2;
 const MAX_MENTIONS = 10;
-const MAX_EFFECTS = 6;
+// Export all structured effects; presentation limits must not truncate engine input.
 
 const RELATION_PRIORITY = [
   'engine',
@@ -57,6 +57,12 @@ interface ExportedEffect {
 }
 
 interface ExportedCardEntry {
+  name: string;
+  level: number | null;
+  atk: number | null;
+  def: number | null;
+  setcodes: number[];
+  isExtraDeck: boolean;
   tags: string[];
   series: string[];
   mentions: string[];
@@ -84,6 +90,7 @@ interface ExportPayload {
   generatedAt: string;
   cardCount: number;
   entries: Record<string, ExportedCardEntry>;
+  catalog: Record<string, ExportedRosterMember>;
   archetypes: Record<string, ExportedRosterMember[]>;
   seriesIndex: Record<string, ExportedRosterMember[]>;
   raceIndex: Record<string, ExportedRosterMember[]>;
@@ -252,10 +259,15 @@ async function main(): Promise<void> {
     archetype: string;
     tcg_date: string | null;
     ban_tcg: string | null;
+    level: number | null;
+    atk: number | null;
+    def: number | null;
+    setcode_json: string | null;
+    is_extra_deck: number;
   }>;
 
   const allCards = db
-    .prepare(`SELECT id, name, type, race, attribute, archetype, tcg_date, ban_tcg FROM cards`)
+    .prepare(`SELECT id, name, type, race, attribute, archetype, tcg_date, ban_tcg, level, atk, def, setcode_json, is_extra_deck FROM cards`)
     .all() as Array<{
     id: number;
     name: string;
@@ -265,6 +277,11 @@ async function main(): Promise<void> {
     archetype: string | null;
     tcg_date: string | null;
     ban_tcg: string | null;
+    level: number | null;
+    atk: number | null;
+    def: number | null;
+    setcode_json: string | null;
+    is_extra_deck: number;
   }>;
 
   const mentionRows = db
@@ -298,10 +315,8 @@ async function main(): Promise<void> {
     const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
     const kind = String(payload.kind ?? 'unknown');
     const bucket = effectsByCard.get(row.card_id) ?? [];
-    if (bucket.length < MAX_EFFECTS) {
-      bucket.push({ kind, payload });
-      effectsByCard.set(row.card_id, bucket);
-    }
+    bucket.push({ kind, payload });
+    effectsByCard.set(row.card_id, bucket);
   }
 
   const seriesByCard = new Map<number, string[]>();
@@ -518,6 +533,7 @@ async function main(): Promise<void> {
 
   const entries: Record<string, ExportedCardEntry> = {};
   const allCardIds = new Set<number>([
+    ...allCards.map(card => card.id),
     ...tagsByCard.keys(),
     ...rowsBySource.keys(),
     ...mentionsByCard.keys(),
@@ -528,6 +544,12 @@ async function main(): Promise<void> {
     const sourceRows = rowsBySource.get(cardId) ?? [];
     const card = cardById.get(cardId);
     entries[String(cardId)] = {
+      name: card?.name ?? `Card #${cardId}`,
+      level: card?.level ?? null,
+      atk: card?.atk ?? null,
+      def: card?.def ?? null,
+      setcodes: card?.setcode_json ? JSON.parse(card.setcode_json) : [],
+      isExtraDeck: !!card?.is_extra_deck,
       tags: tagsByCard.get(cardId) ?? [],
       series: seriesByCard.get(cardId) ?? [],
       mentions: (mentionsByCard.get(cardId) ?? []).slice(0, MAX_MENTIONS),
@@ -540,10 +562,11 @@ async function main(): Promise<void> {
   }
 
   const payload: ExportPayload = {
-    version: 6,
+    version: 7,
     generatedAt: new Date().toISOString(),
     cardCount: meta?.totalCards ?? Object.keys(entries).length,
     entries,
+    catalog: Object.fromEntries(allCards.map(card => [String(card.id), toRosterMember(card)])),
     archetypes,
     seriesIndex,
     raceIndex,

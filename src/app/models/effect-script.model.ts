@@ -38,7 +38,20 @@ export type EffectOp =
   | 'xyz'
   | 'synchro';
 
+export interface TargetConstraints {
+  /** Explicit effect-text name predicate, never inferred from arbitrary words. */
+  nameContains?: string;
+  race?: string;
+  cardType?: string;
+  minLevel?: number;
+  maxLevel?: number;
+  minAtk?: number;
+  maxAtk?: number;
+  excludeSource?: boolean;
+}
+
 export interface EffectAction {
+  constraints?: TargetConstraints;
   op: EffectOp;
   from?: string;
   to?: string;

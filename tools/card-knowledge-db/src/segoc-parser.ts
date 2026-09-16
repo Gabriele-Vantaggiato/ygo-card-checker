@@ -87,7 +87,7 @@ function blockTriggerEvents(block: string): TriggerEvent[] {
 }
 
 function blockIsWhenTrigger(block: string): boolean {
-  const isTrigger = /EFFECT_TYPE_TRIGGER_[OF]/.test(block);
+  const isTrigger = /EFFECT_TYPE_TRIGGER_O/.test(block);
   if (!isTrigger) return false;
   return !/SetProperty\([^)]*EFFECT_FLAG_DELAY/.test(block);
 }

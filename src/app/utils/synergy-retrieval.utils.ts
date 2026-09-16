@@ -89,6 +89,7 @@ export const GY_COMBO_STAPLES = new Set(
 );
 
 export interface DatasetSynergyOptions {
+  isPlayable?: (id: number) => boolean;
   limit?: number;
   minScore?: number;
   includeReversePairs?: boolean;
@@ -108,6 +109,8 @@ export function buildCardRosterMap(index: CardKnowledgeIndex): Map<number, CardK
       map.set(member.id, member);
     }
   };
+
+  for (const member of Object.values(index.catalog ?? {})) add(member);
 
   for (const members of Object.values(index.archetypes ?? {})) {
     for (const member of members) {
