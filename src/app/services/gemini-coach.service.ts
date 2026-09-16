@@ -159,13 +159,15 @@ export class GeminiCoachService {
    * the exact grammar `parseDeckText` already accepts, so the result goes through the same
    * name-resolution/legality pipeline as a manual text import. Gemini never touches the app's
    * card catalog directly; any invented card name simply comes back unresolved at import time.
+   * Also asks for its reasoning (strategy, why these cards) as a separate section, so the model
+   * explains itself and the user has something concrete to push back on when refining.
    */
-  generateDeck$(prompt: string, lang: 'it' | 'en', currentDeckText?: string): Observable<string> {
+  generateDeck$(prompt: string, lang: 'it' | 'en', currentDeckText?: string): Observable<GeneratedDeck> {
     if (!this.sessionKey) {
-      return of('');
+      return of({ reasoning: '', deckText: '' });
     }
     const full = buildDeckGenPrompt(prompt, lang, currentDeckText);
-    return this.askGemini$(full);
+    return this.askGemini$(full).pipe(map(parseDeckGenResponse));
   }
 
   private askGemini$(prompt: string): Observable<string> {
@@ -343,26 +345,53 @@ function buildSystemPrompt(lang: 'it' | 'en'): string {
   ].join('\n');
 }
 
+const REASONING_MARKER = '===REASONING===';
+const DECKLIST_MARKER = '===DECKLIST===';
+
+export interface GeneratedDeck {
+  /** Free-text explanation of the strategy/choices, shown to the user, never parsed as cards. */
+  reasoning: string;
+  /** Plain-text `#main`/`#extra`/`#side` list, fed straight into parseDeckText. */
+  deckText: string;
+}
+
+/** Splits a generateDeck$ response on the two literal markers; degrades gracefully if Gemini
+ *  drops them (whole reply treated as the list, empty reasoning) rather than losing the deck. */
+export function parseDeckGenResponse(raw: string): GeneratedDeck {
+  const deckIdx = raw.indexOf(DECKLIST_MARKER);
+  if (deckIdx < 0) {
+    return { reasoning: '', deckText: raw.trim() };
+  }
+  const reasonIdx = raw.indexOf(REASONING_MARKER);
+  const reasoning = reasonIdx >= 0 ? raw.slice(reasonIdx + REASONING_MARKER.length, deckIdx).trim() : '';
+  const deckText = raw.slice(deckIdx + DECKLIST_MARKER.length).trim();
+  return { reasoning, deckText };
+}
+
 function buildDeckGenPrompt(prompt: string, lang: 'it' | 'en', currentDeckText?: string): string {
   const rules =
     lang === 'it'
       ? [
-          'Sei un generatore di decklist Yu-Gi-Oh! TCG. Rispondi SOLO con la lista, nessun testo prima o dopo.',
-          'Formato obbligatorio, una carta per riga: "<quantità> <Nome Ufficiale Inglese>".',
-          'Usa sezioni "#main", "#extra", "#side" (in questo ordine, anche se una sezione è vuota ometti la riga).',
+          'Sei un generatore di decklist Yu-Gi-Oh! TCG.',
+          `Rispondi in ESATTAMENTE due parti, in questo ordine, con questi marcatori letterali su una riga da soli (mai tradotti): "${REASONING_MARKER}" e "${DECKLIST_MARKER}".`,
+          `Sotto ${REASONING_MARKER}: 2-5 frasi in italiano. Spiega la strategia, perché hai scelto gli starter/extender chiave, eventuali compromessi. Questo testo non deve contenere righe "<numero> <nome>".`,
+          `Sotto ${DECKLIST_MARKER}: SOLO la lista, una carta per riga: "<quantità> <Nome Ufficiale Inglese>".`,
+          'Usa sezioni "#main", "#extra", "#side" nella lista (in questo ordine; ometti una sezione se vuota).',
           'Usa SEMPRE il nome ufficiale inglese esatto della carta (come stampato in TCG/OCG), mai nomi tradotti o inventati.',
           'Rispetta i limiti di copie (max 3, salvo Semi-Limited/Limited/Forbidden se noti) e le dimensioni standard di un mazzo TCG (Main 40–60, Extra 0–15, Side 0–15).',
           'Se non sei sicuro che una carta esista con quel nome esatto, NON includerla: meglio un mazzo più corto ma corretto che carte inventate.',
-          'Nessun commento, nessuna spiegazione, nessun markdown: solo le righe della lista.',
+          'Nessun markdown, nessun testo fuori dalle due sezioni marcate.',
         ]
       : [
-          'You are a Yu-Gi-Oh! TCG decklist generator. Reply with ONLY the list, no text before or after.',
-          'Mandatory format, one card per line: "<quantity> <Official English Name>".',
-          'Use "#main", "#extra", "#side" section markers (in this order; omit a section entirely if empty).',
+          'You are a Yu-Gi-Oh! TCG decklist generator.',
+          `Reply in EXACTLY two parts, in this order, with these literal markers alone on their own line (never translated): "${REASONING_MARKER}" and "${DECKLIST_MARKER}".`,
+          `Under ${REASONING_MARKER}: 2-5 sentences in English. Explain the strategy, why you picked the key starters/extenders, any tradeoffs. This text must not contain "<number> <name>" lines.`,
+          `Under ${DECKLIST_MARKER}: ONLY the list, one card per line: "<quantity> <Official English Name>".`,
+          'Use "#main", "#extra", "#side" section markers in the list (in this order; omit a section entirely if empty).',
           'ALWAYS use the exact official English card name (as printed in TCG/OCG), never translated or invented names.',
           'Respect copy limits (max 3, unless a card is known Semi-Limited/Limited/Forbidden) and standard TCG deck sizes (Main 40–60, Extra 0–15, Side 0–15).',
           "If you are not certain a card exists under that exact name, do NOT include it: a shorter correct deck beats invented cards.",
-          'No commentary, no explanation, no markdown: just the list lines.',
+          'No markdown, no text outside the two marked sections.',
         ];
   const context = currentDeckText?.trim()
     ? lang === 'it'

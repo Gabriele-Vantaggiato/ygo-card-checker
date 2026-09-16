@@ -18,6 +18,8 @@ type Stage = 'prompt' | 'preview' | 'created';
  * Generates a full decklist from a natural-language prompt via Gemini, then imports it
  * through the exact same text pipeline as manual paste (parseDeckText → resolveCardByName$)
  * so an invented card name simply comes back "unresolved" — Gemini never touches the catalog.
+ * Also surfaces Gemini's own reasoning (separate from the parsed card list) so the user has
+ * something concrete to read and push back on when refining.
  */
 @Component({
   selector: 'app-ai-deck-generate-dialog',
@@ -29,25 +31,27 @@ type Stage = 'prompt' | 'preview' | 'created';
       <dialog class="modal modal-open" open aria-modal="true" aria-labelledby="ai-deck-title" (keydown.escape)="close()">
         <div class="modal-box duel-modal max-w-xl" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <h3 id="ai-deck-title" class="font-display font-semibold text-2xl">{{ 'decklist.aiGen.title' | translate }}</h3>
-          <p class="text-xs text-base-content/60 mt-1">{{ 'decklist.aiGen.hint' | translate }}</p>
+          <p class="text-sm text-base-content/60 mt-1.5 leading-relaxed">{{ 'decklist.aiGen.hint' | translate }}</p>
 
-          <div class="mt-4 space-y-3">
+          <div class="mt-5 space-y-5">
             <app-gemini-key-panel />
 
             @if (stage() === 'prompt') {
-              <label class="form-control">
-                <span class="label-text text-xs">{{ 'decklist.aiGen.promptLabel' | translate }}</span>
-                <textarea
-                  class="textarea textarea-bordered min-h-24"
-                  [placeholder]="'decklist.aiGen.promptPlaceholder' | translate"
-                  [ngModel]="prompt()"
-                  (ngModelChange)="prompt.set($event)"
-                  [disabled]="generating()"
-                ></textarea>
-              </label>
-              @if (errorKey(); as err) {
-                <p class="text-xs text-error">{{ err | translate }}</p>
-              }
+              <div class="space-y-2">
+                <label class="form-control">
+                  <span class="label-text text-sm font-medium">{{ 'decklist.aiGen.promptLabel' | translate }}</span>
+                  <textarea
+                    class="textarea textarea-bordered min-h-24 mt-1"
+                    [placeholder]="'decklist.aiGen.promptPlaceholder' | translate"
+                    [ngModel]="prompt()"
+                    (ngModelChange)="prompt.set($event)"
+                    [disabled]="generating()"
+                  ></textarea>
+                </label>
+                @if (errorKey(); as err) {
+                  <p class="text-xs text-error">{{ err | translate }}</p>
+                }
+              </div>
               <div class="modal-action">
                 <button type="button" class="btn btn-ghost" (click)="close()">{{ 'decklist.dialog.cancel' | translate }}</button>
                 <button
@@ -63,44 +67,58 @@ type Stage = 'prompt' | 'preview' | 'created';
             }
 
             @if (stage() === 'preview') {
-              <div class="rounded-lg border border-base-300/60 bg-base-200/30 p-3 space-y-2">
-                <p class="text-xs font-semibold text-base-content/70">
-                  {{ 'decklist.aiGen.previewCount' | translate: { main: '' + previewCounts().main, extra: '' + previewCounts().extra, side: '' + previewCounts().side } }}
-                </p>
-                <textarea
-                  class="textarea textarea-bordered w-full min-h-32 font-mono text-xs"
-                  [ngModel]="resultText()"
-                  (ngModelChange)="resultText.set($event)"
-                ></textarea>
-                <p class="text-[11px] text-base-content/50">{{ 'decklist.aiGen.editableHint' | translate }}</p>
-              </div>
+              <div class="space-y-5">
+                @if (reasoning()) {
+                  <div class="space-y-1.5">
+                    <p class="duel-eyebrow">{{ 'decklist.aiGen.reasoningEyebrow' | translate }}</p>
+                    <p class="text-sm text-base-content/75 leading-relaxed">{{ reasoning() }}</p>
+                  </div>
+                }
 
-              <label class="form-control">
-                <span class="label-text text-xs">{{ 'decklist.aiGen.refineLabel' | translate }}</span>
-                <div class="flex flex-wrap gap-2">
-                  <input
-                    type="text"
-                    class="input input-bordered input-sm flex-1 min-w-0"
-                    [placeholder]="'decklist.aiGen.refinePlaceholder' | translate"
-                    [ngModel]="refinePrompt()"
-                    (ngModelChange)="refinePrompt.set($event)"
-                    [disabled]="generating()"
-                    (keydown.enter)="refine()"
-                  />
-                  <button type="button" class="btn btn-outline btn-sm" [disabled]="!refinePrompt().trim() || generating()" (click)="refine()">
-                    {{ 'decklist.aiGen.refine' | translate }}
-                  </button>
+                <div class="space-y-2 pt-1 border-t border-base-300/50">
+                  <div class="flex items-center justify-between gap-2 pt-4">
+                    <span class="text-sm font-medium">{{ 'decklist.aiGen.listLabel' | translate }}</span>
+                    <span class="badge badge-ghost badge-sm font-normal tabular-nums">
+                      {{ 'decklist.aiGen.previewCount' | translate: { main: '' + previewCounts().main, extra: '' + previewCounts().extra, side: '' + previewCounts().side } }}
+                    </span>
+                  </div>
+                  <textarea
+                    class="textarea textarea-bordered w-full min-h-32 font-mono text-xs"
+                    [ngModel]="resultText()"
+                    (ngModelChange)="resultText.set($event)"
+                  ></textarea>
+                  <p class="text-xs text-base-content/50">{{ 'decklist.aiGen.editableHint' | translate }}</p>
                 </div>
-              </label>
 
-              @if (errorKey(); as err) {
-                <p class="text-xs text-error">{{ err | translate }}</p>
-              }
+                <div class="space-y-2 pt-1 border-t border-base-300/50">
+                  <label class="form-control pt-4">
+                    <span class="label-text text-sm font-medium">{{ 'decklist.aiGen.refineLabel' | translate }}</span>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                      <input
+                        type="text"
+                        class="input input-bordered input-sm flex-1 min-w-0"
+                        [placeholder]="'decklist.aiGen.refinePlaceholder' | translate"
+                        [ngModel]="refinePrompt()"
+                        (ngModelChange)="refinePrompt.set($event)"
+                        [disabled]="generating()"
+                        (keydown.enter)="refine()"
+                      />
+                      <button type="button" class="btn btn-outline btn-sm" [disabled]="!refinePrompt().trim() || generating()" (click)="refine()">
+                        @if (generating()) { <span class="loading loading-spinner loading-xs"></span> }
+                        {{ 'decklist.aiGen.refine' | translate }}
+                      </button>
+                    </div>
+                  </label>
+                  @if (errorKey(); as err) {
+                    <p class="text-xs text-error">{{ err | translate }}</p>
+                  }
+                </div>
 
-              <label class="form-control">
-                <span class="label-text text-xs">{{ 'decklist.create.placeholder' | translate }}</span>
-                <input type="text" class="input input-bordered input-sm" [(ngModel)]="deckName" />
-              </label>
+                <label class="form-control pt-1 border-t border-base-300/50">
+                  <span class="label-text text-sm font-medium pt-4">{{ 'decklist.create.placeholder' | translate }}</span>
+                  <input type="text" class="input input-bordered input-sm mt-1" [(ngModel)]="deckName" />
+                </label>
+              </div>
 
               <div class="modal-action">
                 <button type="button" class="btn btn-ghost" (click)="stage.set('prompt')">{{ 'decklist.aiGen.back' | translate }}</button>
@@ -151,6 +169,7 @@ export class AiDeckGenerateDialogComponent {
   readonly prompt = signal('');
   readonly refinePrompt = signal('');
   readonly resultText = signal('');
+  readonly reasoning = signal('');
   readonly generating = signal(false);
   readonly importing = signal(false);
   readonly errorKey = signal<string | null>(null);
@@ -171,6 +190,7 @@ export class AiDeckGenerateDialogComponent {
     this.prompt.set('');
     this.refinePrompt.set('');
     this.resultText.set('');
+    this.reasoning.set('');
     this.errorKey.set(null);
     this.unresolved.set([]);
     this.deckName = '';
@@ -191,13 +211,14 @@ export class AiDeckGenerateDialogComponent {
       .generateDeck$(this.prompt(), this.i18n.lang())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (text) => {
+        next: ({ reasoning, deckText }) => {
           this.generating.set(false);
-          if (!text.trim()) {
+          if (!deckText.trim()) {
             this.errorKey.set('replay.gemini.error.empty');
             return;
           }
-          this.resultText.set(text.trim());
+          this.resultText.set(deckText);
+          this.reasoning.set(reasoning);
           this.deckName = this.prompt().trim().slice(0, 80);
           this.stage.set('preview');
         },
@@ -216,13 +237,14 @@ export class AiDeckGenerateDialogComponent {
       .generateDeck$(this.refinePrompt(), this.i18n.lang(), this.resultText())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (text) => {
+        next: ({ reasoning, deckText }) => {
           this.generating.set(false);
-          if (!text.trim()) {
+          if (!deckText.trim()) {
             this.errorKey.set('replay.gemini.error.empty');
             return;
           }
-          this.resultText.set(text.trim());
+          this.resultText.set(deckText);
+          this.reasoning.set(reasoning);
           this.refinePrompt.set('');
         },
         error: (err: unknown) => {
