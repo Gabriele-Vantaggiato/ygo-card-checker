@@ -1,6 +1,8 @@
 import { CardPreviewDirective } from '../../../shared/ui/card-preview/card-preview.directive';
 import { PreviewCard } from '../../../shared/ui/card-preview/card-preview.component';
 import { YgoCard } from '../../../models/ygo-card.model';
+import { CardSearchFilters, normalizeSearchFilters } from '../../../models/card-search-filters.model';
+import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
 import { YgoApiService } from '../../../services/ygo-api.service';
 import { I18nService } from '../../../services/i18n.service';
 import { RouterLink } from '@angular/router';
@@ -25,7 +27,7 @@ import { flowBounds, visibleFlow } from '../services/flow-graph.utils';
 @Component({
   selector: 'app-flow-builder',
   standalone: true,
-  imports: [CardPreviewDirective, RouterLink],
+  imports: [CardPreviewDirective, RouterLink, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './flow-builder.component.html',
 })
@@ -38,6 +40,18 @@ export class FlowBuilderComponent {
   readonly exportImage = output<void>();
   readonly exportingImage = input(false);
   readonly catalogQuery = signal('');
+  readonly catalogFilters = signal<CardSearchFilters>({});
+  readonly catalogLimit = signal(40);
+  readonly hasCatalogSearch = computed(()=>this.catalogQuery().trim().length >= 2 || Object.keys(normalizeSearchFilters(this.catalogFilters())).length > 0);
+  readonly searchTypes = ['Normal Monster','Effect Monster','Fusion Monster','Synchro Monster','XYZ Monster','Link Monster','Pendulum Effect Monster','Ritual Effect Monster','Spell Card','Trap Card'];
+  readonly searchRaces = ['Aqua','Beast','Beast-Warrior','Cyberse','Dinosaur','Divine-Beast','Dragon','Fairy','Fiend','Fish','Illusion','Insect','Machine','Plant','Psychic','Pyro','Reptile','Rock','Sea Serpent','Spellcaster','Thunder','Warrior','Winged Beast','Wyrm','Zombie','Normal','Continuous','Counter','Equip','Field','Quick-Play','Ritual'];
+  readonly searchAttributes = ['DARK','DIVINE','EARTH','FIRE','LIGHT','WATER','WIND'];
+  readonly numericFilters = ['level','atk','def'] as const;
+  setCatalogFilter(key: keyof CardSearchFilters,value: string): void {
+    this.catalogLimit.set(40); this.catalogFilters.update(filters=>({...filters,[key]:value}));
+  }
+  resetCatalogFilters(): void { this.catalogFilters.set({}); this.catalogLimit.set(40); }
+
   readonly catalogCards = signal<YgoCard[]>([]);
   readonly catalogLoading = signal(false);
   readonly selectedCard = signal<PreviewCard | null>(null);
@@ -47,12 +61,13 @@ export class FlowBuilderComponent {
     effect((onCleanup) => {
       const query = this.catalogQuery().trim(),
         lang = this.i18n.lang();
+      const filters=normalizeSearchFilters(this.catalogFilters()), limit=this.catalogLimit();
       this.catalogCards.set([]);
-      this.catalogLoading.set(query.length >= 2);
-      if (query.length < 2) return;
+      this.catalogLoading.set(this.hasCatalogSearch());
+      if (!this.hasCatalogSearch()) return;
       const request = timer(300)
         .pipe(
-          switchMap(() => this.api.searchCards$(query, lang, 20)),
+          switchMap(() => this.api.searchCards$(query, lang, limit, filters)),
           catchError(() => of([])),
         )
         .subscribe((cards) => {

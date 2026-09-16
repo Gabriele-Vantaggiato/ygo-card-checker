@@ -1,5 +1,10 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { DecklistStore } from '../../decklist/stores/decklist.store';
+import { FlowLibraryService } from '../../ygo-flow/services/flow-library.service';
+import { I18nService } from '../../../services/i18n.service';
+import { buildReplayFlow, replayFlowTurns } from '../utils/replay-flow';
 import { PasscodeCatalogService } from '../../../services/passcode-catalog.service';
 import { GeminiCoachService } from '../../../services/gemini-coach.service';
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
@@ -29,6 +34,14 @@ import { ReplayStore } from '../stores/replay.store';
         <div class="p-4 sm:p-5 space-y-4">
           <p class="text-sm text-base-content/70">{{ 'replay.intro' | translate }}</p>
 
+          <label class="form-control">
+            <span>{{ 'replay.flow.deck' | translate }}</span>
+            <select class="select w-full" [ngModel]="store.selectedDeck()?.id ?? ''" (ngModelChange)="selectReplayDeck($event)" [disabled]="store.busy()">
+              <option value="">{{ 'replay.flow.embeddedDeck' | translate }}</option>
+              @for (deck of decks.decklists(); track deck.id) { <option [value]="deck.id">{{ deck.name }}</option> }
+            </select>
+          </label>
+          <p class="text-xs text-base-content/65">{{ 'replay.flow.deckHint' | translate }}</p>
           <div class="space-y-3">
             @for (slot of visibleSlots(); track slot.id) {
               <label class="form-control w-full">
@@ -211,7 +224,7 @@ import { ReplayStore } from '../stores/replay.store';
               }
             </div>
 
-            <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div>
                 <dt class="text-xs text-base-content/50">{{ 'replay.stats.turns' | translate }}</dt>
                 <dd class="font-semibold">{{ primary.replay.turnCount }}</dd>
@@ -298,6 +311,94 @@ import { ReplayStore } from '../stores/replay.store';
           </div>
         </app-duel-panel>
       }
+
+      <app-duel-panel>
+        <div class="p-4 sm:p-5 space-y-3">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <h2 class="text-lg font-bold">{{ 'replay.lines.title' | translate }}</h2>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-base-content/60">
+                {{ 'replay.lines.memory' | translate: { count: '' + store.observedLines().length } }}
+              </span>
+              <button type="button" class="btn btn-ghost btn-xs" (click)="store.clearLearning()">
+                {{ 'replay.lines.clear' | translate }}
+              </button>
+            </div>
+          </div>
+
+          @if (turns().length) {
+            <div class="space-y-2">
+              <span class="label-text text-xs">{{ 'replay.flow.turn' | translate }}</span>
+              <div class="flex flex-wrap gap-1.5">
+                @for (turn of turns(); track turn) {
+                  <button
+                    type="button"
+                    class="btn btn-xs"
+                    [class.btn-primary]="isTurnSelected(turn)"
+                    [class.btn-outline]="!isTurnSelected(turn)"
+                    (click)="toggleTurn(turn)"
+                  >
+                    T{{ turn }}
+                  </button>
+                }
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" class="btn btn-primary btn-sm gap-2" (click)="createReplayFlows()">
+                {{ 'replay.flow.create' | translate }}
+                @if (selectedTurns().size > 1) {
+                  <span class="badge badge-sm badge-neutral">{{ selectedTurns().size }}</span>
+                }
+              </button>
+              <p class="text-xs text-base-content/65">{{ 'replay.flow.observed' | translate }}</p>
+            </div>
+          }
+
+          @if (flowError(); as error) {
+            <p class="text-xs text-error" role="status">{{ error | translate }}</p>
+          }
+
+          @if (store.primaryAnalysis(); as analysis) {
+            <div class="space-y-2">
+              @for (comparison of analysis.lineComparisons ?? []; track $index) {
+                <div class="rounded-lg border border-base-300/60 bg-base-200/40 px-3 py-2 space-y-2">
+                  <div class="flex items-start gap-2">
+                    <span
+                      class="badge badge-sm mt-0.5"
+                      [class.badge-success]="comparison.status === 'matched'"
+                      [class.badge-warning]="comparison.status === 'deviation'"
+                      [class.badge-ghost]="comparison.status === 'inconclusive'"
+                    >
+                      {{ ('replay.lines.' + comparison.status) | translate }}
+                    </span>
+                    <p class="text-xs text-base-content/65">{{ ('replay.lines.' + comparison.reason) | translate }}</p>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-base-300/50">
+                    <div class="space-y-1.5 sm:pr-4">
+                      <h4 class="text-xs font-semibold text-base-content/70">{{ 'replay.lines.played' | translate }}</h4>
+                      <ol class="list-decimal pl-5 text-sm space-y-1">
+                        @for (action of comparison.played; track $index) {
+                          <li>{{ ('flow.wizard.observed.' + action.kind) | translate: { name: cardName(action.cardId) } }}</li>
+                        }
+                      </ol>
+                    </div>
+                    <div class="space-y-1.5 sm:pl-4">
+                      <h4 class="text-xs font-semibold text-base-content/70">{{ 'replay.lines.recommended' | translate }}</h4>
+                      <ol class="list-decimal pl-5 text-sm space-y-1">
+                        @for (action of comparison.recommended; track $index) {
+                          <li>{{ ('flow.wizard.observed.' + action.kind) | translate: { name: cardName(action.cardId) } }}</li>
+                        }
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              } @empty {
+                <p class="text-sm text-base-content/60">{{ 'replay.lines.noOpening' | translate }}</p>
+              }
+            </div>
+          }
+        </div>
+      </app-duel-panel>
 
       @if (store.geminiEnabled() && store.coachBrief()) {
         <app-duel-panel>
@@ -394,6 +495,47 @@ import { ReplayStore } from '../stores/replay.store';
   `,
 })
 export class ReplayPage {
+  readonly decks = inject(DecklistStore);
+  private readonly flowLibrary = inject(FlowLibraryService);
+  private readonly router = inject(Router);
+  private readonly translations = inject(I18nService);
+  readonly selectedTurns = signal<Set<number>>(new Set());
+  readonly flowError = signal<string | null>(null);
+  turns(): number[] { const r=this.store.primaryAnalysis()?.replay; return r ? replayFlowTurns(r) : []; }
+  isTurnSelected(turn: number): boolean { return this.selectedTurns().has(turn); }
+  toggleTurn(turn: number): void {
+    this.selectedTurns.update((set) => {
+      const next = new Set(set);
+      if (next.has(turn)) next.delete(turn); else next.add(turn);
+      return next;
+    });
+  }
+  selectReplayDeck(id: string): void { this.store.setDeck(this.decks.decklists().find(d=>d.id===id) ?? null); this.flowError.set(null); }
+  createReplayFlows(): void {
+    this.flowError.set(null);
+    const replay = this.store.primaryAnalysis()?.replay;
+    if (!replay) return;
+    const available = this.turns();
+    const picked = [...this.selectedTurns()].filter((t) => available.includes(t));
+    const targets = picked.length ? picked : available.slice(0, 1);
+    if (!targets.length) { this.flowError.set('replay.flow.unavailable'); return; }
+    const createdIds: string[] = [];
+    for (const turn of targets) {
+      const doc = buildReplayFlow(replay, turn, this.store.selectedDeck(), (id) => this.catalog.toStubCard(id, this.translations.lang())!,
+        (kind) => this.translations.t(`replay.flow.action.${kind}`), 'unknown');
+      if (!doc?.id) continue;
+      if (!this.flowLibrary.save(doc)) { this.flowError.set('replay.flow.saveFailed'); return; }
+      createdIds.push(doc.id);
+    }
+    if (!createdIds.length) { this.flowError.set('replay.flow.unavailable'); return; }
+    if (createdIds.length === 1) {
+      void this.router.navigate(['/flow'], { queryParams: { flowId: createdIds[0], section: 'canvas' } });
+    } else {
+      const label = this.store.selectedDeck()?.name ?? replay.focusName;
+      void this.router.navigate(['/flow'], { queryParams: { section: 'library', libraryQuery: label } });
+    }
+  }
+
   protected readonly store = inject(ReplayStore);
   protected readonly gemini = inject(GeminiCoachService);
   private readonly catalog = inject(PasscodeCatalogService);
@@ -440,6 +582,8 @@ export class ReplayPage {
   }): Record<string, string> {
     return {
       code: String(f.code ?? 0),
+      turn: String(f.meta?.['turn'] ?? 0),
+      games: String(f.meta?.['games'] ?? 0),
       count: String(f.count ?? f.meta?.['count'] ?? 1),
       turns: String(f.meta?.['turns'] ?? 0),
       copies: String(f.meta?.['copies'] ?? 1),

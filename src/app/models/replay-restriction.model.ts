@@ -83,6 +83,13 @@ export interface RestrictionTrace {
 }
 
 export interface ReplayCoachBrief {
+  recentGames?: Array<{
+    replayId: string; opponentName: string; focusWon: boolean | null; turnCount: number;
+    findings: string[]; legalLocks: string[];
+    lineComparisons: import('./duel-line.model').LineComparison[];
+  }>;
+  trends?: Array<{ kind: string; games: number; totalGames: number }>;
+  lineComparisons?: import('./duel-line.model').LineComparison[];
   version: number;
   fileName: string;
   focusName: string;

@@ -34,6 +34,8 @@ export interface ReplayEvent {
   turn?: number;
   phase?: number;
   rawType: string;
+  /** Visible drawn passcodes; zero/hidden cards are retained to detect incomplete hands. */
+  cards?: number[];
 }
 
 export interface ParsedReplay {
@@ -63,6 +65,7 @@ export type MissplaySeverity = 'info' | 'warn' | 'critical';
 
 export type MissplayKind =
   | 'missed_effect'
+  | 'suboptimal_line'
   | 'unused_deck_card'
   | 'short_loss'
   | 'no_interaction'
@@ -81,6 +84,7 @@ export interface MissplayFinding {
 }
 
 export interface ReplayAnalysis {
+  lineComparisons?: import('./duel-line.model').LineComparison[];
   replay: ParsedReplay;
   findings: MissplayFinding[];
   stats: {

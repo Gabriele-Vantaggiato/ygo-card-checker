@@ -30,10 +30,15 @@ const GEMINI_BASE =
   'http://127.0.0.1:8787';
 
 /**
- * Current Gemini Developer API Flash IDs (2.0 Flash removed — Google returns
- * "no longer available, use gemini-3.6-flash").
+ * Current Gemini Developer API Flash IDs, newest stable first (verified live
+ * against https://ai.google.dev/gemini-api/docs/models on 2026-09-16).
+ * 2.0 Flash family is shut down — Google returns "no longer available".
+ * gemini-3-flash-preview is experimental (tighter rate limits) so it sits
+ * last, after every GA model.
  */
 export const GEMINI_MODEL_OPTIONS = [
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
   'gemini-3.6-flash',
   'gemini-2.5-flash-lite',
   'gemini-2.5-flash',
@@ -264,7 +269,9 @@ function readStoredModel(): string {
 function buildSystemPrompt(lang: 'it' | 'en'): string {
   if (lang === 'it') {
     return [
-      'Sei un coach Yu-Gi-Oh che spiega UNA partita specifica in modo chiaro a un giocatore intermedio.',
+      'Sei un coach Yu-Gi-Oh che spiega la partita principale e i trend delle partite recenti fornite.',
+      'Spiega solo findings e confronti forniti: non inventare missplay o linee ottimali. Una deviazione non prova un errore.',
+      'Se non ci sono errori dimostrati, dillo; non riempire le sezioni con errori inventati. Riporta i campioni dei trend.',
       'Obiettivo: far capire come migliorare QUELLA partita, non scrivere un saggio di regole.',
       'Rispetta sempre legalLocks e engineFlagsExplained del brief: non inventare mosse illegali.',
       'Se Duality (o lock simili) bloccano Special Summon, non biasimare trigger SS illegali.',
@@ -275,7 +282,7 @@ function buildSystemPrompt(lang: 'it' | 'en'): string {
       '## Cosa hai fatto bene',
       'Max 2 bullet concreti legati a turni/carte di QUESTA partita.',
       '## Dove potevi giocare meglio',
-      '2-4 punti. Per ognuno usa esattamente:',
+      'Solo i punti supportati dal brief (anche zero). Per ognuno usa:',
       '- **Momento (turno X):** …',
       '- **Hai fatto:** …',
       '- **Era meglio:** …',
@@ -289,7 +296,9 @@ function buildSystemPrompt(lang: 'it' | 'en'): string {
     ].join('\n');
   }
   return [
-    'You are a Yu-Gi-Oh coach explaining ONE specific duel clearly to an intermediate player.',
+    'You explain the primary duel and supplied recent-game trends clearly.',
+    'Explain only supplied findings and comparisons; never invent mistakes or optimal lines. A deviation is not a proven error.',
+    'If no errors are established, say so instead of filling sections with invented errors. Report trend sample sizes.',
     'Goal: how to play THIS game better — not a rules essay.',
     'Always respect legalLocks and engineFlagsExplained; never invent illegal plays.',
     'If Duality (or similar) locked Special Summons, do not blame illegal SS triggers.',
@@ -300,7 +309,7 @@ function buildSystemPrompt(lang: 'it' | 'en'): string {
     '## What you did well',
     'Max 2 concrete bullets tied to turns/cards in THIS duel.',
     '## Where you could play better',
-    '2-4 points. For each use exactly:',
+    'Only points supported by the brief (possibly zero). For each use:',
     '- **Moment (turn X):** …',
     '- **You did:** …',
     '- **Better line:** …',

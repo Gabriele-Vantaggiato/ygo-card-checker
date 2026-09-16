@@ -21,6 +21,7 @@ export type EffectOp =
   | 'destroy'
   | 'draw'
   | 'discard'
+  | 'mill'
   | 'banish'
   | 'negate'
   | 'note'

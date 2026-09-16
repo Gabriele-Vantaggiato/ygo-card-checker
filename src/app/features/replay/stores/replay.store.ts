@@ -1,5 +1,11 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { Decklist } from '../../../models/decklist.model';
+import { associateReplayDeck } from '../utils/replay-flow';
+import { ComboWizardService } from '../../ygo-flow/services/combo-wizard.service';
+import { ReplayLineMemoryService } from '../../../services/replay-line-memory.service';
+import { compareLine, openingLine } from '../../../utils/replay-lines';
+import { FlowCard } from '../../../models/ygo-flow.model';
 import {
   ReplayAnalysis,
   ReplayDeckAdvice,
@@ -28,10 +34,19 @@ function emptySlots(): ReplaySlot[] {
 @Injectable()
 export class ReplayStore {
   private readonly parser = inject(Yrp3dParserService);
+  private readonly wizard = inject(ComboWizardService);
+  private readonly lineMemory = inject(ReplayLineMemoryService);
   private readonly catalog = inject(PasscodeCatalogService);
   private readonly restrictions = inject(ReplayRestrictionCatalogService);
   private readonly gemini = inject(GeminiCoachService);
   private readonly i18n = inject(I18nService);
+
+  readonly selectedDeck = signal<Decklist | null>(null);
+  setDeck(deck: Decklist | null): void { this.clearResults(); this.selectedDeck.set(deck ? structuredClone(deck) : null); }
+  private analysisRun = 0;
+  private coachRun = 0;
+  readonly observedLines = this.lineMemory.observations;
+  clearLearning(): void { this.lineMemory.clear(); this.clearResults(); }
 
   readonly deckAdviceEnabled = signal(false);
   readonly geminiEnabled = signal(false);
@@ -54,6 +69,7 @@ export class ReplayStore {
   });
 
   setDeckAdviceEnabled(enabled: boolean): void {
+    this.clearResults();
     this.deckAdviceEnabled.set(enabled);
     this.formErrorKey.set(null);
     if (!enabled) {
@@ -65,10 +81,12 @@ export class ReplayStore {
 
   setGeminiEnabled(enabled: boolean): void {
     this.geminiEnabled.set(enabled);
+    if (!enabled) { this.coachRun++; this.coachBusy.set(false); this.coachText.set(null); }
     this.coachErrorKey.set(null);
   }
 
   setFile(slotId: ReplaySlot['id'], file: File | null): void {
+    this.clearResults();
     this.formErrorKey.set(null);
     this.slots.update((slots) =>
       slots.map((s) => {
@@ -86,6 +104,8 @@ export class ReplayStore {
   }
 
   clearResults(): void {
+    this.analysisRun++; this.coachRun++;
+    this.busy.set(false); this.coachBusy.set(false);
     this.analyses.set([]);
     this.deckAdvice.set(null);
     this.coachBrief.set(null);
@@ -95,6 +115,7 @@ export class ReplayStore {
   }
 
   reset(): void {
+    this.selectedDeck.set(null);
     this.slots.set(emptySlots());
     this.deckAdviceEnabled.set(false);
     this.geminiEnabled.set(false);
@@ -108,6 +129,8 @@ export class ReplayStore {
   async analyze(): Promise<void> {
     if (this.busy() || !this.canAnalyze()) return;
 
+    const run = ++this.analysisRun;
+    this.coachRun++; this.coachBusy.set(false);
     this.busy.set(true);
     this.formErrorKey.set(null);
     this.analyses.set([]);
@@ -119,6 +142,8 @@ export class ReplayStore {
     try {
       await firstValueFrom(this.catalog.ensureLoaded$());
       await firstValueFrom(this.restrictions.ensureLoaded$());
+      await firstValueFrom(this.wizard.ensureReady$());
+      if (run !== this.analysisRun) return;
 
       const wantAdvice = this.deckAdviceEnabled();
       const files = this.slots()
@@ -133,7 +158,12 @@ export class ReplayStore {
 
       const parsed = [];
       for (const file of files) {
-        parsed.push(await this.parser.parseFile(file));
+        const replay = await this.parser.parseFile(file);
+        const selected = this.selectedDeck();
+        const associated = selected ? associateReplayDeck(replay,selected) : replay;
+        if (!associated) { if (run === this.analysisRun) this.formErrorKey.set('replay.flow.deckMismatch'); return; }
+        parsed.push(associated);
+        if (run !== this.analysisRun) return;
       }
 
       const dupes = findDuplicateHashes(parsed.map((p) => p.sha256));
@@ -143,18 +173,37 @@ export class ReplayStore {
       }
 
       const restrictionCatalog = this.restrictions.catalog();
-      const analyses = parsed.map((p) => {
+      // Record the whole batch; recommendations always exclude their own replay hash.
+      this.lineMemory.record(parsed);
+      const analyses: ReplayAnalysis[] = parsed.map((p) => {
         const base = analyzeReplay(p);
         const restrictionTrace = buildRestrictionTrace(p, restrictionCatalog, this.resolveName);
-        return { ...base, restrictionTrace };
+        const opening = openingLine(p);
+        const toCards = (codes: readonly number[]): FlowCard[] => codes.map((code, i) => ({
+          uid: `${code}-${i}`, passcode: code, name: this.resolveName(code), type: this.catalog.get(code)?.t ?? '',
+          desc: '', imageSmall: '', image: '', role: 'untagged',
+        }));
+        const deck = p.decks ? { main: toCards(p.decks.focus.main), extra: toCards(p.decks.focus.extra), side: [] } : undefined;
+        const recommended = opening ? this.wizard.recommendReplayLine(opening, toCards(opening.openingHand), deck) : null;
+        const lineComparisons = opening && recommended
+          ? [compareLine(p, opening, recommended.actions, restrictionTrace, recommended.games)] : [];
+        for (const comparison of lineComparisons) {
+          if (comparison.status === 'deviation') base.findings.push({
+            kind: 'suboptimal_line', severity: 'info',
+            titleKey: 'replay.findings.suboptimalLine.title', detailKey: comparison.evidenceGames ? 'replay.findings.suboptimalLine.detail' : 'replay.findings.suboptimalLine.curated',
+            count: comparison.evidenceGames, meta: { turn: comparison.turn, games: comparison.evidenceGames },
+          });
+        }
+        return { ...base, restrictionTrace, lineComparisons };
       });
       this.analyses.set(analyses);
+      this.lineMemory.rememberAnalyses(analyses);
       this.deckAdvice.set(wantAdvice ? buildDeckAdvice(analyses) : null);
 
       const primary = analyses[0];
       if (primary?.restrictionTrace) {
         this.coachBrief.set(
-          buildReplayCoachBrief(primary, primary.restrictionTrace, this.resolveName),
+          buildReplayCoachBrief(primary, primary.restrictionTrace, this.resolveName, [...this.lineMemory.recentGames()].reverse()),
         );
       }
 
@@ -162,17 +211,20 @@ export class ReplayStore {
         await this.runCoach();
       }
     } catch (err) {
+      if (run !== this.analysisRun) return;
       const key =
         err instanceof Error && err.message.startsWith('replay.')
           ? err.message
           : 'replay.error.parseFailed';
       this.formErrorKey.set(key);
     } finally {
-      this.busy.set(false);
+      if (run === this.analysisRun) this.busy.set(false);
     }
   }
 
   async runCoach(): Promise<void> {
+    if (this.coachBusy()) return;
+    const run = ++this.coachRun;
     const brief = this.coachBrief();
     if (!brief || !this.gemini.isUnlocked()) {
       this.coachErrorKey.set('replay.gemini.error.locked');
@@ -184,15 +236,16 @@ export class ReplayStore {
     try {
       const lang = this.i18n.lang();
       const text = await firstValueFrom(this.gemini.coach$(brief, lang));
-      this.coachText.set(text);
+      if (run === this.coachRun) this.coachText.set(text);
     } catch (err) {
+      if (run !== this.coachRun) return;
       this.coachErrorKey.set(
         err instanceof Error && err.message.startsWith('replay.')
           ? err.message
           : 'replay.gemini.error.request',
       );
     } finally {
-      this.coachBusy.set(false);
+      if (run === this.coachRun) this.coachBusy.set(false);
     }
   }
 }

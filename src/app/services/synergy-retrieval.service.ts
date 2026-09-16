@@ -1,5 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map, of } from 'rxjs';
+import { Observable, combineLatest, map, of } from 'rxjs';
+import { EffectScriptService } from './effect-script.service';
+import { effectPartnersCompatible } from '../utils/effect-partner-compatibility';
 import { catchError } from 'rxjs/operators';
 import { CardKnowledgeIndex, CardKnowledgeRelated } from '../models/card-knowledge.model';
 import { CompletionScoringProfile } from '../utils/completion-prompt.utils';
@@ -14,6 +16,7 @@ import { CompletionRagService } from './completion-rag.service';
 @Injectable({ providedIn: 'root' })
 export class SynergyRetrievalService {
   private readonly indexService = inject(CardKnowledgeIndexService);
+  private readonly scripts = inject(EffectScriptService);
   private readonly completionRag = inject(CompletionRagService);
 
   retrieve$(
@@ -22,8 +25,8 @@ export class SynergyRetrievalService {
     excludeIds: ReadonlySet<number>,
     options?: DatasetSynergyOptions,
   ): Observable<CardKnowledgeRelated[]> {
-    return this.indexService.related$.pipe(
-      map((index) => {
+    return combineLatest([this.indexService.related$, this.scripts.ensureStudyLoaded$()]).pipe(
+      map(([index, scripts]) => {
         if (!index) {
           return [];
         }
@@ -32,6 +35,9 @@ export class SynergyRetrievalService {
           return [];
         }
 
+        const accepts = (id: number) => !excludeIds.has(id) && id !== sourceId &&
+          (!options?.acceptCandidate || options.acceptCandidate(id)) &&
+          effectPartnersCompatible(sourceEntry,index.entries[String(id)],scripts.scripts[String(sourceId)],scripts.scripts[String(id)]);
         const roster = this.indexService.rosterFor(index);
         const tagDf = this.indexService.tagDfFor(index);
         const tagIndex = this.indexService.tagIndexFor(index);
@@ -42,7 +48,7 @@ export class SynergyRetrievalService {
           profile,
           excludeIds,
           roster,
-          { ...options, minScore: options?.minScore ?? 0.48, tagDf, tagIndex },
+          { ...options, acceptCandidate: accepts, minScore: options?.minScore ?? 0.48, tagDf, tagIndex },
         );
 
         const matchup = this.completionRag
@@ -67,15 +73,8 @@ export class SynergyRetrievalService {
         }));
 
         return mergeRelatedById(dataset, [...precomputed, ...matchup])
-          .sort((a, b) => {
-            const prio = (relation: string) =>
-              relation === 'gy_synergy' ? 3 : relation === 'engine' ? 2 : relation === 'mechanic_synergy' ? 1 : 0;
-            const d = prio(b.relation) - prio(a.relation);
-            if (d !== 0) {
-              return d;
-            }
-            return b.score - a.score || a.name.localeCompare(b.name);
-          })
+          .filter(item => accepts(item.id))
+          .sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name))
           .slice(0, options?.limit ?? 64);
       }),
       catchError(() => of([])),

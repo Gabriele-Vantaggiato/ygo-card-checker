@@ -32,12 +32,31 @@ export function parseMdproLua(cardId: number, name: string, lua: string): MdproP
       /SpecialSummon\(\s*e:GetHandler\(\)/.test(lua) ||
       /SpecialSummon\(\s*c\b/.test(lua));
   const discards = /DiscardHand|SendtoGrave\([^)]*LOCATION_HAND/.test(lua);
+  // Mills from the Deck to the GY as its whole effect (Foolish Burial, Armageddon Knight,
+  // Mathematician…) — a generic GY-fill enabler, not the archetype payoff a revival effect
+  // later targets. Distinct from hand-to-gy costs (paid to power a DIFFERENT effect) and from
+  // GY-range self-revival below, so it is detected and stepped independently of both.
+  const millsFromDeck =
+    /CATEGORY_TOGRAVE/.test(lua) && /SendtoGrave/.test(lua) && /LOCATION_DECK/.test(lua);
 
   if (hasHandToGraveCost || discards) {
     signals.add('hand_to_gy');
     signals.add('sends_to_gy');
     roles.add('extender');
     timings.add('activate');
+  }
+
+  if (millsFromDeck) {
+    signals.add('sends_to_gy');
+    signals.add('mills_deck');
+    roles.add('engine');
+    timings.add('trigger');
+    steps.push({
+      id: 'mdpro-deck-mill',
+      when: 'trigger',
+      actions: [{ op: 'mill', from: 'deck', to: 'gy', filter: extractRaceFilter(lua) ?? undefined, qty: 1 }],
+      produces: ['gy_fill'],
+    });
   }
 
   if (hasGraveRange) {

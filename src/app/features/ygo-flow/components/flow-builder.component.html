@@ -90,15 +90,50 @@
         <option value="replace" [disabled]="!node()">Associa al passaggio selezionato</option>
       </select>
     </div>
+    <details class="mb-3">
+      <summary>{{ 'search.filters.title' | translate }}</summary>
+      <div class="grid gap-2 sm:grid-cols-3 mt-2">
+        <label>{{ 'search.filters.type' | translate }}
+          <select class="select select-sm w-full" [value]="catalogFilters().type ?? ''" (change)="setCatalogFilter('type',$any($event.target).value)">
+            <option value="">{{ 'search.filters.any' | translate }}</option>
+            @for (type of searchTypes; track type) { <option [value]="type">{{ type }}</option> }
+          </select>
+        </label>
+        <label>{{ 'search.filters.race' | translate }}
+          <select class="select select-sm w-full" [value]="catalogFilters().race ?? ''" (change)="setCatalogFilter('race',$any($event.target).value)">
+            <option value="">{{ 'search.filters.any' | translate }}</option>
+            @for (race of searchRaces; track race) { <option [value]="race">{{ race }}</option> }
+          </select>
+        </label>
+        <label>{{ 'search.filters.attribute' | translate }}
+          <select class="select select-sm w-full" [value]="catalogFilters().attribute ?? ''" (change)="setCatalogFilter('attribute',$any($event.target).value)">
+            <option value="">{{ 'search.filters.any' | translate }}</option>
+            @for (attribute of searchAttributes; track attribute) { <option [value]="attribute">{{ attribute }}</option> }
+          </select>
+        </label>
+        @for (key of numericFilters; track key) {
+          <label>{{ ('search.filters.' + key) | translate }}
+            <input class="input input-sm w-full" type="number" min="0" step="1" [value]="catalogFilters()[key] ?? ''" (input)="setCatalogFilter(key,$any($event.target).value)" />
+          </label>
+        }
+        <label>{{ 'search.filters.archetype' | translate }}
+          <input class="input input-sm w-full" [value]="catalogFilters().archetype ?? ''" (input)="setCatalogFilter('archetype',$any($event.target).value)" />
+        </label>
+        <button class="btn btn-sm" type="button" (click)="resetCatalogFilters()">{{ 'search.filters.reset' | translate }}</button>
+      </div>
+    </details>
     @if (catalogLoading()) {
       <p role="status">Ricerca in corso…</p>
-    } @else if (catalogQuery().trim().length >= 2 && !catalogCards().length) {
+    } @else if (hasCatalogSearch() && !catalogCards().length) {
       <p role="status">Nessuna carta trovata. Prova un altro nome o verifica la connessione.</p>
     } @else if (catalogCards().length) {
       <p class="flow-palette-help">
         {{ catalogCards().length }} risultati · passa sulle carte per i dettagli, seleziona per
         aggiungerle.
       </p>
+      @if (catalogCards().length === catalogLimit() && catalogLimit() < 200) {
+        <button class="btn btn-sm" type="button" (click)="catalogLimit.set(catalogLimit()+40)">{{ 'search.filters.more' | translate }}</button>
+      }
       <div class="flow-card-strip">
         @for (card of catalogCards(); track card.id) {
           <button class="flow-palette-card" [cardPreview]="card" (click)="addCatalogCard(card)">
@@ -128,6 +163,9 @@
         aria-label="Filtra carte del mazzo"
         (input)="search.set($any($event.target).value)"
       />
+      @if (catalogCards().length === catalogLimit() && catalogLimit() < 200) {
+        <button class="btn btn-sm" type="button" (click)="catalogLimit.set(catalogLimit()+40)">{{ 'search.filters.more' | translate }}</button>
+      }
       <div class="flow-card-strip">
         @for (card of cards(); track card.passcode) {
           <button

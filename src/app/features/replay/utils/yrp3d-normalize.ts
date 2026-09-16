@@ -50,10 +50,37 @@ function section(deck?: YrpDeckLike | null): ReplayDeckSection {
   };
 }
 
-function resolveDecks(yrp: YrpLike | null | undefined, focusController: number): ReplayDeckPair | null {
+const normalizeName = (name: string | undefined): string => (name ?? '').trim().toLowerCase();
+
+/**
+ * hostDeck/clientDeck track the network connection role, not the seat (playerType).
+ * A host can play from seat 1 (e.g. letting the opponent go first), which decouples
+ * "host" from "player 0" — so the seat-number heuristic alone silently attaches the
+ * wrong deck as `focus`, and no real decklist will ever match it. Names are recorded
+ * independently for both (hostName/clientName vs name0/name1), so prefer matching on
+ * name when it's unambiguous and only fall back to the seat heuristic otherwise.
+ */
+function resolveDecks(
+  yrp: YrpLike | null | undefined,
+  focusController: number,
+  focusName: string,
+  opponentName: string,
+): ReplayDeckPair | null {
   if (!yrp?.hostDeck && !yrp?.clientDeck) return null;
   const host = section(yrp.hostDeck);
   const client = section(yrp.clientDeck);
+  const focus = normalizeName(focusName);
+  const opponent = normalizeName(opponentName);
+  const hostName = normalizeName(yrp.hostName);
+  const clientName = normalizeName(yrp.clientName);
+  if (hostName && hostName !== clientName) {
+    if (hostName === focus) return { focus: host, opponent: client };
+    if (hostName === opponent) return { focus: client, opponent: host };
+  }
+  if (clientName && clientName !== hostName) {
+    if (clientName === focus) return { focus: client, opponent: host };
+    if (clientName === opponent) return { focus: host, opponent: client };
+  }
   if (focusController === 0) {
     return { focus: host, opponent: client };
   }
@@ -73,12 +100,12 @@ export function normalizeYrp3d(
   meta: { fileName: string; sha256: string; byteLength: number },
 ): ParsedReplay {
   const start = yrp3d.messages.find((m) => m.constructor.name === 'YGOProMsgStart');
-  const focusController = typeof start?.playerType === 'number' ? start.playerType : 0;
+  const focusController = typeof start?.playerType === 'number' ? start.playerType & 0x0f : 0;
   const focusName = (yrp3d.name0 || 'Player').trim() || 'Player';
   const opponentName = (yrp3d.name1 || 'Opponent').trim() || 'Opponent';
 
   const yrp = yrp3d.extractYrp?.() ?? null;
-  const decks = resolveDecks(yrp, focusController);
+  const decks = resolveDecks(yrp, focusController, focusName, opponentName);
 
   const events: ReplayEvent[] = [];
   let turnCount = 0;
@@ -107,6 +134,7 @@ export function normalizeYrp3d(
       case 'YGOProMsgDraw': {
         events.push({
           kind: 'draw',
+          cards: msg.cards?.map(code => code > 0 ? code & 0x7fffffff : 0),
           controller: msg.player,
           value: msg.count,
           turn: currentTurn,

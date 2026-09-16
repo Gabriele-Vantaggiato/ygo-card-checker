@@ -283,9 +283,7 @@ export function isCompatibleMonsterPartner(
   if (!member.type.toLowerCase().includes('monster')) {
     return true;
   }
-  if (GY_COMBO_STAPLES.has(member.name.toLowerCase())) {
-    return true;
-  }
+  // Being a popular GY card does not waive monster-type compatibility.
   if (raceHints.size === 0) {
     return true;
   }

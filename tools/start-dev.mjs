@@ -6,16 +6,22 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const isWin = process.platform === 'win32';
+let stopping = false;
 
 function run(command, args, name) {
   const child = spawn(command, args, {
     cwd: root,
     stdio: 'inherit',
-    shell: isWin,
+    shell: false,
+    windowsHide: true,
     env: process.env,
   });
+  child.on('error', (error) => {
+    console.error(`[${name}] could not start: ${error.message}`);
+    shutdown(1);
+  });
   child.on('exit', (code, signal) => {
+    if (stopping) return;
     if (signal) {
       console.log(`[${name}] killed (${signal})`);
     } else if (code) {
@@ -28,6 +34,8 @@ function run(command, args, name) {
 
 const kids = [];
 function shutdown(code = 0) {
+  if (stopping) return;
+  stopping = true;
   for (const k of kids) {
     try {
       k.kill();
@@ -42,4 +50,4 @@ process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
 kids.push(run(process.execPath, ['tools/gemini-dev-proxy.mjs'], 'gemini-proxy'));
-kids.push(run(isWin ? 'npx.cmd' : 'npx', ['ng', 'serve', '--proxy-config', 'proxy.conf.json'], 'ng-serve'));
+kids.push(run(process.execPath, [path.join(root, 'node_modules/@angular/cli/bin/ng.js'), 'serve', '--proxy-config', 'proxy.conf.json'], 'ng-serve'));
