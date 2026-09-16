@@ -90,6 +90,7 @@ export const GY_COMBO_STAPLES = new Set(
 
 export interface DatasetSynergyOptions {
   isPlayable?: (id: number) => boolean;
+  acceptCandidate?: (cardId: number) => boolean;
   limit?: number;
   minScore?: number;
   includeReversePairs?: boolean;
@@ -399,7 +400,7 @@ export function retrieveDatasetSynergies(
   const scored: CardKnowledgeRelated[] = [];
 
   for (const id of candidateIds) {
-    if (id === sourceId || excludeIds.has(id)) {
+    if (id === sourceId || excludeIds.has(id) || (options.acceptCandidate && !options.acceptCandidate(id))) {
       continue;
     }
 

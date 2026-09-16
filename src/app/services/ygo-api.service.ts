@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { CardSearchFilters, normalizeSearchFilters } from '../models/card-search-filters.model';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, map, shareReplay, switchMap } from 'rxjs/operators';
@@ -22,8 +23,8 @@ export class YgoApiService {
 
   constructor(private readonly http: HttpClient) {}
 
-  searchCards$(query: string, lang: Lang, limit = DEFAULT_SEARCH_LIMIT): Observable<YgoCard[]> {
-    return this.searchCardsPage$(query, lang, limit).pipe(map((page) => page.cards));
+  searchCards$(query: string, lang: Lang, limit = DEFAULT_SEARCH_LIMIT, filters: CardSearchFilters = {}): Observable<YgoCard[]> {
+    return this.searchCardsPage$(query, lang, limit, 0, filters).pipe(map((page) => page.cards));
   }
 
   searchCardsPage$(
@@ -31,22 +32,24 @@ export class YgoApiService {
     lang: Lang,
     limit = DEFAULT_SEARCH_LIMIT,
     offset = 0,
+    filters: CardSearchFilters = {},
   ): Observable<CardSearchPage> {
     const trimmed = query.trim();
-    const cacheKey = `${lang}:${trimmed.toLowerCase()}:${limit}:${offset}`;
+    const normalized = normalizeSearchFilters(filters);
+    const cacheKey = `${lang}:${trimmed.toLowerCase()}:${limit}:${offset}:${JSON.stringify(normalized)}`;
     const cached = this.searchCache.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const request$ = this.fetchSearchPage$(trimmed, lang, limit, offset).pipe(
+    const request$ = this.fetchSearchPage$(trimmed, lang, limit, offset, normalized).pipe(
       switchMap((page) => {
         // IT fname with EN spelling often 400s → []; fall back to EN once.
         // Do not leave a permanent empty cache for a recoverable miss.
         if (page.cards.length > 0 || lang !== 'it' || offset > 0) {
           return of(page);
         }
-        return this.fetchSearchPage$(trimmed, 'en', limit, offset);
+        return this.fetchSearchPage$(trimmed, 'en', limit, offset, normalized);
       }),
       shareReplay({ bufferSize: 1, refCount: false }),
     );
@@ -60,13 +63,15 @@ export class YgoApiService {
     lang: Lang,
     limit: number,
     offset: number,
+    filters: CardSearchFilters,
   ): Observable<CardSearchPage> {
     let params = new HttpParams()
-      .set('fname', query)
       .set('misc', 'yes')
       .set('num', String(limit))
       .set('offset', String(offset));
 
+    if (query) params = params.set('fname',query);
+    for (const [key,value] of Object.entries(filters)) params = params.set(key,value);
     if (lang === 'it') {
       params = params.set('language', 'it');
     }

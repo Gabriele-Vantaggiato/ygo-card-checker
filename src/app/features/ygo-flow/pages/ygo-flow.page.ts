@@ -236,8 +236,13 @@ export class YgoFlowPage implements OnInit {
 
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
+    const flowId = params.get('flowId');
+    const document = flowId ? this.store.library.documents().find(d=>d.id===flowId) : null;
+    if (document) { this.open(document); return; }
     const section = params.get('section');
     if (this.tabs.some((t) => t.id === section)) this.section.set(section as Section);
+    const libraryQuery = params.get('libraryQuery');
+    if (libraryQuery) this.query.set(libraryQuery);
     const deckId = params.get('deckId');
     if (deckId && deckId !== this.store.context()?.deckId) this.changeDeck(deckId);
     else if (this.store.ydkeInput()) this.store.loadYdke();

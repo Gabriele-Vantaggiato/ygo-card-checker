@@ -38,6 +38,7 @@ import {
 import { DECK_SECTION_I18N_KEYS, DeckSectionKey } from '../../utils/deck-section.utils';
 import { verdictShortKey } from '../../utils/legality-display.utils';
 import { DeckAssistPanelComponent } from './deck-assist-panel.component';
+import { DeckReplayPanelComponent } from './deck-replay-panel.component';
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckCompletionService } from '../../services/deck-completion.service';
 import { DecklistSearchSidebarComponent } from '../decklist-search-sidebar/decklist-search-sidebar.component';
@@ -67,6 +68,7 @@ import {
   imports: [
     TranslatePipe,
     DeckAssistPanelComponent,
+    DeckReplayPanelComponent,
     DecklistSearchSidebarComponent,
     DecklistEditorHeaderComponent,
     DeckSectionGridComponent,
@@ -169,7 +171,7 @@ import {
           </aside>
         </div>
 
-        <div class="deck-editor-assist">
+        <div class="deck-editor-assist gap-4">
           @if (activeDeck.cards.length > 0) {
             <app-deck-assist-panel
               [loading]="deckSuggestionsLoading()"
@@ -188,6 +190,7 @@ import {
               [formatLabel]="deckSuggestionFormatLabel()"
             />
           }
+          <app-deck-replay-panel [cards]="activeDeck.cards" />
         </div>
 
         <app-deck-card-inspect-mobile
@@ -200,7 +203,7 @@ import {
       </section>
 
       @if (mobileWorkspaceTab() === 'assist') {
-        <div class="lg:hidden">
+        <div class="lg:hidden flex flex-col gap-4">
           @if (activeDeck.cards.length > 0) {
             <app-deck-assist-panel
               [loading]="deckSuggestionsLoading()"
@@ -219,6 +222,7 @@ import {
               [formatLabel]="deckSuggestionFormatLabel()"
             />
           }
+          <app-deck-replay-panel [cards]="activeDeck.cards" />
         </div>
       }
     }

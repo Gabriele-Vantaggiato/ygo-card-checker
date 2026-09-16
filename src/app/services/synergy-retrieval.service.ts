@@ -1,6 +1,7 @@
 import { EffectScriptService } from './effect-script.service';
 import { Injectable, inject } from '@angular/core';
 import { Observable, combineLatest, map, of } from 'rxjs';
+import { effectPartnersCompatible } from '../utils/effect-partner-compatibility';
 import { catchError } from 'rxjs/operators';
 import { CardKnowledgeIndex, CardKnowledgeRelated } from '../models/card-knowledge.model';
 import { CompletionScoringProfile } from '../utils/completion-prompt.utils';
@@ -34,6 +35,9 @@ export class SynergyRetrievalService {
           return [];
         }
 
+        const accepts = (id: number) => !excludeIds.has(id) && id !== sourceId &&
+          (!options?.acceptCandidate || options.acceptCandidate(id)) &&
+          effectPartnersCompatible(sourceEntry,index.entries[String(id)],scripts.scripts[String(sourceId)],scripts.scripts[String(id)]);
         const roster = this.indexService.rosterFor(index);
         const tagDf = this.indexService.tagDfFor(index);
         const tagIndex = this.indexService.tagIndexFor(index);
@@ -44,7 +48,7 @@ export class SynergyRetrievalService {
           profile,
           excludeIds,
           roster,
-          { ...options, minScore: options?.minScore ?? 0.48, tagDf, tagIndex },
+          { ...options, acceptCandidate: accepts, minScore: options?.minScore ?? 0.48, tagDf, tagIndex },
         );
 
         const matchup = this.completionRag
@@ -78,7 +82,7 @@ export class SynergyRetrievalService {
         }));
 
         return mergeRelatedById(dataset, [...precomputed, ...matchup, ...families, ...structured])
-          .filter(item => !excludeIds.has(item.id) && (options?.isPlayable?.(item.id) ?? true))
+          .filter(item => !excludeIds.has(item.id) && (options?.isPlayable?.(item.id) ?? true) && accepts(item.id))
           .sort((a, b) => b.score - a.score || a.id - b.id)
           .slice(0, options?.limit ?? 64);
       }),

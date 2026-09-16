@@ -72,6 +72,13 @@ describe('Flow card interaction', () => {
     fixture.destroy();
     tick(400);
   }));
+  it('searches by filters without requiring a name and clears stale results', fakeAsync(() => {
+    const fixture=TestBed.createComponent(FlowBuilderComponent);fixture.detectChanges();
+    fixture.componentInstance.setCatalogFilter('race','Zombie');fixture.detectChanges();tick(310);
+    expect(api.searchCards$).toHaveBeenCalledWith('', 'it', 40, {race:'Zombie'});
+    fixture.componentInstance.resetCatalogFilters();fixture.detectChanges();
+    expect(fixture.componentInstance.catalogCards()).toEqual([]);fixture.destroy();tick(400);
+  }));
   it('cancels a pending catalog response when the query changes', fakeAsync(() => {
     const old = new Subject<YgoCard[]>();
     api.searchCards$.and.returnValue(old);

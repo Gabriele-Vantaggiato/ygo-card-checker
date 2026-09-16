@@ -1,0 +1,11 @@
+{
+  "/api/gemini": {
+    "target": "http://127.0.0.1:8787",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/gemini": ""
+    },
+    "logLevel": "debug"
+  }
+}

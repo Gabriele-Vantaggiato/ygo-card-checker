@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
+import { ReplayLineMemoryService } from '../../../services/replay-line-memory.service';
+import { lineReplay } from '../../../testing/replay-line.fixtures';
 import { ComboIndex } from '../../../models/card-combo.model';
 import { EffectScript } from '../../../models/effect-script.model';
 import { FlowCard } from '../../../models/ygo-flow.model';
@@ -134,6 +136,7 @@ describe('ComboWizardService', () => {
   let service: ComboWizardService;
 
   beforeEach(() => {
+    localStorage.removeItem('ygo-replay-lines-v1');
     TestBed.configureTestingModule({
       providers: [
         ComboWizardService,
@@ -144,6 +147,20 @@ describe('ComboWizardService', () => {
       ],
     });
     service = TestBed.inject(ComboWizardService);
+  });
+
+  afterEach(() => TestBed.inject(ReplayLineMemoryService).clear());
+
+  it('promotes a repeated winning opening without curated scripts or roles', () => {
+    const memory = TestBed.inject(ReplayLineMemoryService);
+    memory.record(['a','b','c'].map(id => lineReplay({sha256:id.repeat(64)})));
+    const hand = [1,2,3,4,5].map(id => flowCard(id, `Card ${id}`, id));
+    const deck = { main: [...hand,flowCard(6,'Six',6)], extra:[flowCard(7,'Seven',7)], side:[] };
+    const result = service.analyzeHand(hand,deck);
+    expect(result.kind).toBe('combo'); expect(result.lines.length).toBe(3);
+    expect(result.lines[0].evidence?.games).toBe(3);
+    expect(result.lines.map(step=>step.action?.kind)).toEqual(['normal_summon','activate','special_summon']);
+    expect(service.analyzeHand(hand,{...deck,extra:[]}).kind).toBe('unclassified');
   });
 
   it('builds a combo line when the hand contains a known starter', () => {

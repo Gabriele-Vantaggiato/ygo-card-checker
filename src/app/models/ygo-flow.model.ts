@@ -73,6 +73,8 @@ export interface HypergeoResult {
 }
 
 export interface WizardLineStep {
+  action?: import('./duel-line.model').DuelLineAction;
+  evidence?: import('./duel-line.model').LineEvidence;
   order: number;
   title: string;
   detail: string;

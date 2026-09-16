@@ -43,6 +43,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/ygo-flow/pages/ygo-flow.page').then((m) => m.YgoFlowPage),
       },
+      {
+        path: 'replay',
+        loadComponent: () =>
+          import('./features/replay/pages/replay.page').then((m) => m.ReplayPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

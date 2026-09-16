@@ -61,6 +61,9 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
               <a ariaCurrentWhenActive="page" routerLink="/overlay" routerLinkActive="tab-active" class="tab text-sm px-3">
                 {{ 'nav.overlay' | translate }}
               </a>
+              <a ariaCurrentWhenActive="page" routerLink="/replay" routerLinkActive="tab-active" class="tab text-sm px-3">
+                {{ 'nav.replay' | translate }}
+              </a>
               <a ariaCurrentWhenActive="page" routerLink="/combo" routerLinkActive="tab-active" class="tab text-sm px-3">
                 {{ 'nav.combo' | translate }}
               </a>
@@ -108,6 +111,10 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
         <a routerLink="/overlay" ariaCurrentWhenActive="page" routerLinkActive="mobile-tab-active" class="mobile-tab">
           <span class="mobile-tab-icon"><app-nav-icon name="overlay" /></span>
           <span class="mobile-tab-label">{{ 'nav.overlay' | translate }}</span>
+        </a>
+        <a routerLink="/replay" ariaCurrentWhenActive="page" routerLinkActive="mobile-tab-active" class="mobile-tab">
+          <span class="mobile-tab-icon"><app-nav-icon name="replay" /></span>
+          <span class="mobile-tab-label">{{ 'nav.replay' | translate }}</span>
         </a>
         <a routerLink="/combo" ariaCurrentWhenActive="page" routerLinkActive="mobile-tab-active" class="mobile-tab">
           <span class="mobile-tab-icon"><app-nav-icon name="combo" /></span>

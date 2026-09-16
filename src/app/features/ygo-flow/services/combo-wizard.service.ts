@@ -1,5 +1,9 @@
 import { Injectable, inject } from '@angular/core';
+import { ReplayLineMemoryService } from '../../../services/replay-line-memory.service';
+import { deckKey } from '../../../utils/replay-lines';
+import { DuelLineAction, ObservedLine } from '../../../models/duel-line.model';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { forkJoin } from 'rxjs';
 import { ComboEntry } from '../../../models/card-combo.model';
 import { EffectAction } from '../../../models/effect-script.model';
 import {
@@ -45,6 +49,7 @@ const CHOKEPOINT_GROUPS: readonly ChokepointGroup[] = [
 @Injectable({ providedIn: 'root' })
 export class ComboWizardService {
   private readonly effectScripts = inject(EffectScriptService);
+  private readonly memory = inject(ReplayLineMemoryService);
   private readonly i18n = inject(I18nService);
   private readonly indexService = inject(CardKnowledgeIndexService);
   private readonly comboIndex = toSignal(this.indexService.combos$, { initialValue: null });
@@ -55,7 +60,7 @@ export class ComboWizardService {
     deck?: Pick<ResolvedDeck, 'main' | 'extra' | 'side'>,
     roles: Record<string, CardRoleTag> = {},
   ): WizardAnalysis {
-    const starters = this.rankedStarters(hand, roles);
+    const starters = this.rankedStarters(hand, roles, deck);
     if (starters.length === 0) {
       return this.buildBrickAnalysis(hand, roles);
     }
@@ -70,12 +75,12 @@ export class ComboWizardService {
     const seen = new Set<number>();
     const starters: FlowCard[] = [];
     for (const card of deck.main) {
-      if (this.effectiveRole(card, roles) === 'starter' && !seen.has(card.passcode)) {
+      if (this.rankedStarters([card], roles, deck).length && !seen.has(card.passcode)) {
         seen.add(card.passcode);
         starters.push(card);
       }
     }
-    starters.sort((a, b) => this.starterScore(b.passcode) - this.starterScore(a.passcode));
+    starters.sort((a, b) => this.starterScore(b.passcode, deck) - this.starterScore(a.passcode, deck));
     return starters.map((starter) =>
       this.buildComboAnalysis(
         [starter],
@@ -127,18 +132,35 @@ export class ComboWizardService {
     return advice;
   }
 
+  private evidenceDeckKey(deck: Pick<ResolvedDeck, 'main'> & Partial<Pick<ResolvedDeck, 'extra'>>): string {
+    return deckKey({ main: deck.main.map(c => c.passcode), extra: (deck.extra ?? []).map(c => c.passcode) });
+  }
+
+  /** Same observed opening hand/deck/rules only, and never learn from the replay being judged. */
+  ensureReady$() { return forkJoin([this.effectScripts.ensureStudyLoaded$(), this.indexService.combos$]); }
+
+  recommendReplayLine(observed: ObservedLine, hand: readonly FlowCard[] = [], deck?: Pick<ResolvedDeck, 'main' | 'extra' | 'side'>): { actions: DuelLineAction[]; games: number } {
+    const line = this.memory.recommend(observed.deckKey, observed.openingHand, observed.replayId, observed.masterRule, observed.turn);
+    if (line) return { actions: line.actions, games: line.games };
+    // Curated explanatory text and alternative targets are NOT executable actions.
+    // Compare only steps carrying explicit observable actions in the shared schema.
+    const candidate = this.analyzeHand(hand, deck);
+    return { actions: candidate.lines.filter(step => !step.evidence && step.action).map(step => step.action!), games: 0 };
+  }
+
   private rankedStarters(
     hand: readonly FlowCard[],
     roles: Record<string, CardRoleTag>,
+    deck?: Pick<ResolvedDeck, 'main'> & Partial<Pick<ResolvedDeck, 'extra'>>,
   ): FlowCard[] {
     return [...hand]
-      .filter((card) => this.effectiveRole(card, roles) === 'starter')
-      .sort((a, b) => this.starterScore(b.passcode) - this.starterScore(a.passcode));
+      .filter((card) => this.effectiveRole(card, roles) === 'starter' || (roles[String(card.passcode)] == null && !!deck && this.memory.evidence(this.evidenceDeckKey(deck)).some(e => e.actions[0]?.cardId === card.passcode && e.games >= 3 && e.wins >= 2 && (e.winRate ?? 0) > 0.5)))
+      .sort((a, b) => this.starterScore(b.passcode, deck) - this.starterScore(a.passcode, deck));
   }
 
   /** Real-signal starter quality: script confidence + curated combo richness + step count,
    *  with a small nudge for cards on the legacy HAT-2014 meta-priority list. */
-  private starterScore(cardId: number): number {
+  private starterScore(cardId: number, deck?: Pick<ResolvedDeck, 'main'> & Partial<Pick<ResolvedDeck, 'extra'>>): number {
     const script = this.effectScripts.getScript(cardId);
     const comboEntry = this.comboIndex()?.entries[String(cardId)];
     let score = script?.confidence ?? 0.5;
@@ -157,6 +179,14 @@ export class ComboWizardService {
     const legacyIdx = STARTER_PRIORITY.indexOf(cardId);
     if (legacyIdx !== -1) {
       score += (STARTER_PRIORITY.length - legacyIdx) * 0.2;
+    }
+    if (deck) {
+      const evidence = this.memory.evidence(this.evidenceDeckKey(deck)).filter(e => e.actions[0]?.cardId === cardId);
+      const games = evidence.reduce((n, e) => n + e.games, 0);
+      const wins = evidence.reduce((n, e) => n + e.wins, 0);
+      const losses = evidence.reduce((n, e) => n + e.losses, 0);
+      // Bounded tie-break: tiny/unknown-outcome samples cannot dominate domain evidence.
+      if (wins + losses >= 3) score += Math.min(0.5, games / 40) + ((wins + 1) / (wins + losses + 2) - 0.5);
     }
     return score;
   }
@@ -229,6 +259,9 @@ export class ComboWizardService {
         title: this.i18n.t('flow.wizard.line.activate', { name: starter.name }),
         detail: this.i18n.t('flow.wizard.line.activateDetail', { name: starter.name }),
         cardId: starter.passcode,
+        action: script?.steps.some(step => step.when === 'normal_summon')
+          ? { kind: 'normal_summon', cardId: starter.passcode }
+          : !starter.type.includes('Monster') ? { kind: 'activate', cardId: starter.passcode } : undefined,
         interruptRisk: interrupts,
       });
 
@@ -288,6 +321,28 @@ export class ComboWizardService {
       );
     }
 
+    if (deck) {
+      const key = this.evidenceDeckKey(deck);
+      const evidence = this.memory.evidence(key).filter(e => e.actions[0]?.cardId === starters[0]?.passcode);
+      const games = evidence.reduce((n, e) => n + e.games, 0);
+      const wins = evidence.reduce((n, e) => n + e.wins, 0);
+      if (games) advice.push(this.i18n.t('flow.wizard.observed.sample', { games: String(games), wins: String(wins) }));
+      if (games >= 3 && evidence.reduce((n, e) => n + e.losses, 0) === games)
+        advice.push(this.i18n.t('flow.wizard.observed.review'));
+      const allGames = this.memory.evidence(key).reduce((n, e) => n + e.games, 0);
+      if (!games && allGames >= 5) advice.push(this.i18n.t('flow.wizard.observed.unseen'));
+      const observed = this.memory.recommend(key, hand.map(c => c.passcode));
+      if (observed) {
+        const names = new Map([...deck.main, ...deck.extra].map(c => [c.passcode, c.name]));
+        // Learned observations are displayed explicitly as a separate candidate sequence.
+        advice.push(this.i18n.t('flow.wizard.observed.candidate', { games: String(observed.games), wins: String(observed.wins) }));
+        return { kind: 'combo', starters: [...starters], advice, lines: observed.actions.map((action, index) => ({
+          order: index + 1, cardId: action.cardId, action, evidence: observed, interruptRisk: [],
+          title: this.i18n.t(`flow.wizard.observed.${action.kind}`, { name: names.get(action.cardId) ?? `#${action.cardId}` }),
+          detail: this.i18n.t('flow.wizard.observed.limits'),
+        })) };
+      }
+    }
     return { kind: 'combo', starters: [...starters], lines, advice };
   }
 

@@ -1,39 +1,39 @@
 {
-  "generatedAt": "2026-09-14T19:23:34.082Z",
+  "generatedAt": "2026-09-16T14:54:38.712Z",
   "inputs": {
-    "knowledge": "2026-09-14T19:16:35.781Z",
-    "scripts": "2026-09-14T19:23:29.788Z",
-    "combos": "2026-09-14T19:08:20.207Z"
+    "knowledge": "2026-09-16T14:54:33.454Z",
+    "scripts": "2026-09-16T14:54:18.633Z",
+    "combos": "2026-09-16T14:53:58.262Z"
   },
-  "catalogCards": 14422,
-  "babelMembershipCards": 7922,
-  "structuredCards": 5678,
-  "segocProfiles": 13397,
-  "comboCards": 2098,
-  "comboCardsWithLines": 1370,
-  "targetActions": 4570,
-  "recognizedTargetFilters": 4458,
-  "filtersWithCatalogTargets": 4433,
-  "unknownTargetFilters": 112,
+  "catalogCards": 14641,
+  "babelMembershipCards": 7944,
+  "structuredCards": 5965,
+  "segocProfiles": 13505,
+  "comboCards": 2162,
+  "comboCardsWithLines": 1411,
+  "targetActions": 4623,
+  "recognizedTargetFilters": 4545,
+  "filtersWithCatalogTargets": 4515,
+  "unknownTargetFilters": 78,
   "commonUnknownFilters": [
     [
       "GY",
-      10
-    ],
-    [
-      "GY target",
-      5
+      13
     ],
     [
       "Gem-Knight",
       5
     ],
     [
-      "True Draco | True King",
-      3
+      "GY target",
+      4
     ],
     [
-      "Gravekeeper",
+      "eligible monster in GY",
+      4
+    ],
+    [
+      "True Draco | True King",
       3
     ],
     [
@@ -46,10 +46,6 @@
     ],
     [
       "Goblin Biker",
-      2
-    ],
-    [
-      "s original ATK. You can only Special Summon",
       2
     ],
     [
@@ -85,19 +81,7 @@
       2
     ],
     [
-      "eligible monster in GY",
-      2
-    ],
-    [
-      "s name becomes | . You can only Special Summon | s Apprentice | Shining Sarcophagus",
-      1
-    ],
-    [
       "Rescue-ACE Arbitrator(s) | Rescue-ACE Hydrant | Rescue-ACE HQ",
-      1
-    ],
-    [
-      "s effects (even if this card leaves the field). Once per turn, if you Normal or Special Summon exactly 1 Normal Monster (and no other cards): Add 1",
       1
     ],
     [
@@ -105,18 +89,34 @@
       1
     ],
     [
-      "s turn, when a card or effect is activated that would inflict damage to your opponent, while you have another",
-      1
-    ],
-    [
-      "Iron Core of Koa | or 1 Level 4 or lower | ki Meiru",
-      1
-    ],
-    [
       "Smile",
+      1
+    ],
+    [
+      "Repair Genex Controller(s) | Genex",
+      1
+    ],
+    [
+      "Supreme King Dragon",
+      1
+    ],
+    [
+      "Forbidden One",
+      1
+    ],
+    [
+      "World Legacy - | once per turn this way. When a monster on the field that was Special Summoned from the Extra Deck activates its effect (Quick Effect): You can Tribute this card; negate the activation, and if you do, destroy it. If this Normal Summoned/Set card is Tributed: You can add 1",
+      1
+    ],
+    [
+      "Heroic Challenger",
+      1
+    ],
+    [
+      "Superheavy Samurai Soul",
       1
     ]
   ],
-  "scanMs": 2890,
+  "scanMs": 2312,
   "interpretation": "Coverage of parsed data and target predicates, not a measured combo accuracy rate or proof of activation legality."
 }
