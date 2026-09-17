@@ -22,14 +22,16 @@ CREATE TABLE IF NOT EXISTS cards (
   pendulum_scale INTEGER,
   is_extra_deck INTEGER NOT NULL DEFAULT 0,
   synced_at TEXT NOT NULL,
-  setcode_json TEXT
+  setcode_json TEXT,
+  babel_category INTEGER,
+  babel_strings_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS card_tags (
   card_id INTEGER NOT NULL,
   tag TEXT NOT NULL,
   confidence REAL NOT NULL DEFAULT 1.0,
-  source TEXT NOT NULL CHECK (source IN ('rule', 'llm', 'manual', 'format')),
+  source TEXT NOT NULL CHECK (source IN ('rule', 'llm', 'manual', 'format', 'category')),
   created_at TEXT NOT NULL,
   PRIMARY KEY (card_id, tag, source),
   FOREIGN KEY (card_id) REFERENCES cards(id)

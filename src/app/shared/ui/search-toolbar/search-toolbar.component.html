@@ -1,0 +1,61 @@
+<div class="flex gap-2 items-stretch">
+  <label class="checker-search-field flex-1 min-w-0">
+    <span class="sr-only">{{ 'search.label' | translate }}</span>
+    <svg
+      class="checker-search-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" />
+    </svg>
+    <input
+      #queryInput
+      type="search"
+      class="checker-search-input input input-bordered w-full"
+      [placeholder]="'search.advancedFilters.placeholder' | translate"
+      [attr.aria-label]="'search.label' | translate"
+      [value]="query()"
+      (input)="onInput($event)"
+      (keydown)="onKeydown($event)"
+      autocomplete="off"
+      enterkeyhint="search"
+    />
+    @if (loading()) {
+      <span class="loading loading-spinner loading-sm checker-search-spinner text-primary"></span>
+    }
+  </label>
+
+  <button
+    type="button"
+    data-testid="search-submit-button"
+    class="btn btn-primary btn-square shrink-0"
+    [attr.aria-label]="'search.advancedFilters.searchButton' | translate"
+    (click)="search.emit()"
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="h-5 w-5" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" />
+    </svg>
+  </button>
+
+  <button
+    type="button"
+    data-testid="filters-toggle-button"
+    class="btn btn-square shrink-0 relative"
+    [class.btn-active]="filtersOpen()"
+    [attr.aria-label]="'search.advancedFilters.toggle' | translate"
+    (click)="filtersToggle.emit()"
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+      <path d="M4 4h16l-6 8v6l-4 2v-8z" />
+    </svg>
+    @if (filterCount() > 0) {
+      <span class="badge badge-primary badge-xs absolute -top-1 -right-1 px-1">{{ filterCount() }}</span>
+    }
+  </button>
+</div>

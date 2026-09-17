@@ -1,0 +1,192 @@
+<div
+  data-testid="filters-backdrop"
+  class="fixed inset-0 z-40 bg-black/50"
+  (click)="close.emit()"
+></div>
+
+<div
+  class="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-base-100 p-4 shadow-xl sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:max-h-none sm:w-96 sm:rounded-none sm:rounded-l-2xl"
+  role="dialog"
+  [attr.aria-label]="'search.advancedFilters.title' | translate"
+>
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-sm font-bold uppercase tracking-wide">{{ 'search.advancedFilters.title' | translate }}</h2>
+    <button
+      type="button"
+      data-testid="filters-close-button"
+      class="btn btn-ghost btn-sm btn-square"
+      [attr.aria-label]="'search.advancedFilters.close' | translate"
+      (click)="close.emit()"
+    >
+      ✕
+    </button>
+  </div>
+
+  <div class="flex flex-col gap-4">
+    <section class="flex flex-col gap-2">
+      <h3 class="text-[11px] font-semibold uppercase tracking-wide text-base-content/50">{{ 'search.filters.title' | translate }}</h3>
+      <div class="grid gap-2 sm:grid-cols-2">
+        <label class="text-xs font-semibold normal-case tracking-normal"
+          >{{ 'search.filters.type' | translate }}
+          <select
+            class="select select-sm w-full"
+            [value]="filters().type ?? ''"
+            (change)="setField('type', $any($event.target).value)"
+          >
+            <option value="">{{ 'search.filters.any' | translate }}</option>
+            @for (type of searchTypes; track type) {
+              <option [value]="type">{{ type }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="text-xs font-semibold normal-case tracking-normal"
+          >{{ 'search.filters.race' | translate }}
+          <select
+            class="select select-sm w-full"
+            [value]="filters().race ?? ''"
+            (change)="setField('race', $any($event.target).value)"
+          >
+            <option value="">{{ 'search.filters.any' | translate }}</option>
+            @for (race of searchRaces; track race) {
+              <option [value]="race">{{ race }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="text-xs font-semibold normal-case tracking-normal"
+          >{{ 'search.filters.attribute' | translate }}
+          <select
+            class="select select-sm w-full"
+            [value]="filters().attribute ?? ''"
+            (change)="setField('attribute', $any($event.target).value)"
+          >
+            <option value="">{{ 'search.filters.any' | translate }}</option>
+            @for (attribute of searchAttributes; track attribute) {
+              <option [value]="attribute">{{ attribute }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="text-xs font-semibold normal-case tracking-normal"
+          >{{ 'search.filters.archetype' | translate }}
+          <input
+            class="input input-sm w-full"
+            [value]="filters().archetype ?? ''"
+            (input)="setField('archetype', $any($event.target).value)"
+          />
+        </label>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h3 class="text-[11px] font-semibold uppercase tracking-wide text-base-content/50">{{ 'search.advancedFilters.categorySection' | translate }}</h3>
+      <label class="text-xs font-semibold normal-case tracking-normal"
+        >{{ 'search.advancedFilters.categoryTag' | translate }}
+        <select
+          data-testid="category-tag-select"
+          class="select select-sm w-full"
+          [value]="filters().categoryTag ?? ''"
+          (change)="setField('categoryTag', $any($event.target).value)"
+        >
+          <option value="">{{ 'search.filters.any' | translate }}</option>
+          @for (option of searchCategoryTags; track option.value) {
+            <option [value]="option.value">{{ option.labelKey | translate }}</option>
+          }
+        </select>
+      </label>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h3 class="text-[11px] font-semibold uppercase tracking-wide text-base-content/50">{{ 'search.advancedFilters.statsSection' | translate }}</h3>
+      <div class="grid gap-2">
+        <div class="text-xs font-semibold normal-case tracking-normal">
+          {{ 'search.advancedFilters.level' | translate }}
+          <div class="flex gap-2">
+            <input
+              class="input input-sm w-full"
+              type="number"
+              min="0"
+              step="1"
+              [attr.aria-label]="'search.advancedFilters.min' | translate"
+              [placeholder]="'search.advancedFilters.min' | translate"
+              [value]="filters().levelMin ?? ''"
+              (input)="setField('levelMin', $any($event.target).value)"
+            />
+            <input
+              class="input input-sm w-full"
+              type="number"
+              min="0"
+              step="1"
+              [attr.aria-label]="'search.advancedFilters.max' | translate"
+              [placeholder]="'search.advancedFilters.max' | translate"
+              [value]="filters().levelMax ?? ''"
+              (input)="setField('levelMax', $any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <div class="text-xs font-semibold normal-case tracking-normal">
+          {{ 'search.advancedFilters.atk' | translate }}
+          <div class="flex gap-2">
+            <input
+              class="input input-sm w-full"
+              type="number"
+              min="0"
+              step="1"
+              [attr.aria-label]="'search.advancedFilters.min' | translate"
+              [placeholder]="'search.advancedFilters.min' | translate"
+              [value]="filters().atkMin ?? ''"
+              (input)="setField('atkMin', $any($event.target).value)"
+            />
+            <input
+              class="input input-sm w-full"
+              type="number"
+              min="0"
+              step="1"
+              [attr.aria-label]="'search.advancedFilters.max' | translate"
+              [placeholder]="'search.advancedFilters.max' | translate"
+              [value]="filters().atkMax ?? ''"
+              (input)="setField('atkMax', $any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <div class="text-xs font-semibold normal-case tracking-normal">
+          {{ 'search.advancedFilters.def' | translate }}
+          <div class="flex gap-2">
+            <input
+              class="input input-sm w-full"
+              type="number"
+              min="0"
+              step="1"
+              [attr.aria-label]="'search.advancedFilters.min' | translate"
+              [placeholder]="'search.advancedFilters.min' | translate"
+              [value]="filters().defMin ?? ''"
+              (input)="setField('defMin', $any($event.target).value)"
+            />
+            <input
+              class="input input-sm w-full"
+              type="number"
+              min="0"
+              step="1"
+              [attr.aria-label]="'search.advancedFilters.max' | translate"
+              [placeholder]="'search.advancedFilters.max' | translate"
+              [value]="filters().defMax ?? ''"
+              (input)="setField('defMax', $any($event.target).value)"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="flex justify-end gap-2 pt-2 border-t border-base-300">
+      <button type="button" class="btn btn-ghost btn-sm" [disabled]="!hasActive()" (click)="reset()">
+        {{ 'search.filters.reset' | translate }}
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="close.emit()">
+        {{ 'search.advancedFilters.close' | translate }}
+      </button>
+    </div>
+  </div>
+</div>

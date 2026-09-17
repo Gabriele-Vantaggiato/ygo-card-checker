@@ -2,6 +2,7 @@ import { CardPreviewDirective } from '../../../shared/ui/card-preview/card-previ
 import { PreviewCard } from '../../../shared/ui/card-preview/card-preview.component';
 import { YgoCard } from '../../../models/ygo-card.model';
 import { CardSearchFilters, normalizeSearchFilters } from '../../../models/card-search-filters.model';
+import { SEARCH_TYPES, SEARCH_RACES, SEARCH_ATTRIBUTES } from '../../../models/card-search-options';
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
 import { YgoApiService } from '../../../services/ygo-api.service';
 import { I18nService } from '../../../services/i18n.service';
@@ -43,9 +44,9 @@ export class FlowBuilderComponent {
   readonly catalogFilters = signal<CardSearchFilters>({});
   readonly catalogLimit = signal(40);
   readonly hasCatalogSearch = computed(()=>this.catalogQuery().trim().length >= 2 || Object.keys(normalizeSearchFilters(this.catalogFilters())).length > 0);
-  readonly searchTypes = ['Normal Monster','Effect Monster','Fusion Monster','Synchro Monster','XYZ Monster','Link Monster','Pendulum Effect Monster','Ritual Effect Monster','Spell Card','Trap Card'];
-  readonly searchRaces = ['Aqua','Beast','Beast-Warrior','Cyberse','Dinosaur','Divine-Beast','Dragon','Fairy','Fiend','Fish','Illusion','Insect','Machine','Plant','Psychic','Pyro','Reptile','Rock','Sea Serpent','Spellcaster','Thunder','Warrior','Winged Beast','Wyrm','Zombie','Normal','Continuous','Counter','Equip','Field','Quick-Play','Ritual'];
-  readonly searchAttributes = ['DARK','DIVINE','EARTH','FIRE','LIGHT','WATER','WIND'];
+  readonly searchTypes = SEARCH_TYPES;
+  readonly searchRaces = SEARCH_RACES;
+  readonly searchAttributes = SEARCH_ATTRIBUTES;
   readonly numericFilters = ['level','atk','def'] as const;
   setCatalogFilter(key: keyof CardSearchFilters,value: string): void {
     this.catalogLimit.set(40); this.catalogFilters.update(filters=>({...filters,[key]:value}));

@@ -27,6 +27,19 @@ const TAG_LABEL_KEYS: Record<string, string> = {
   hand_to_gy: 'knowledge.tag.handToGy',
   self_to_gy: 'knowledge.tag.selfToGy',
   negates: 'knowledge.tag.negates',
+  category_destroy: 'knowledge.tag.categoryDestroy',
+  category_send_to_gy: 'knowledge.tag.categorySendToGy',
+  category_return_to_hand: 'knowledge.tag.categoryReturnToHand',
+  category_return_to_deck: 'knowledge.tag.categoryReturnToDeck',
+  category_banish: 'knowledge.tag.categoryBanish',
+  category_draw: 'knowledge.tag.categoryDraw',
+  category_position_change: 'knowledge.tag.categoryPositionChange',
+  category_lp_damage: 'knowledge.tag.categoryLpDamage',
+  category_lp_recovery: 'knowledge.tag.categoryLpRecovery',
+  category_special_summon: 'knowledge.tag.categorySpecialSummon',
+  category_control_change: 'knowledge.tag.categoryControlChange',
+  category_negate: 'knowledge.tag.categoryNegate',
+  category_random: 'knowledge.tag.categoryRandom',
 };
 
 export function tagLabelKey(tag: string): string {
@@ -56,6 +69,19 @@ const TAG_PRIORITY = [
   'once_per_turn',
   'mentions_photon',
   'mentions_galaxy',
+  'category_special_summon',
+  'category_destroy',
+  'category_send_to_gy',
+  'category_banish',
+  'category_return_to_hand',
+  'category_return_to_deck',
+  'category_draw',
+  'category_control_change',
+  'category_position_change',
+  'category_negate',
+  'category_lp_damage',
+  'category_lp_recovery',
+  'category_random',
 ];
 
 export interface DisplayTag {

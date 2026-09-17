@@ -237,8 +237,8 @@ async function main(): Promise<void> {
     .all() as RelatedRow[];
 
   const tagRows = db
-    .prepare('SELECT card_id, tag FROM card_tags WHERE source IN (?, ?)')
-    .all('rule', 'format') as Array<{ card_id: number; tag: string }>;
+    .prepare('SELECT card_id, tag FROM card_tags WHERE source IN (?, ?, ?)')
+    .all('rule', 'format', 'category') as Array<{ card_id: number; tag: string }>;
 
   const ruleTagRows = db
     .prepare('SELECT card_id, tag FROM card_tags WHERE source = ?')

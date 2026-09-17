@@ -2,7 +2,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  ElementRef,
   viewChild,
   computed,
   inject,
@@ -11,11 +10,11 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
-import { Subject, Subscription, of, timer } from 'rxjs';
+import { Observable, Subject, Subscription, of, timer } from 'rxjs';
 import { distinctUntilChanged, switchMap, tap, takeUntil, skip } from 'rxjs/operators';
 import { DecklistCard } from '../../models/decklist.model';
 import { LegalityResult, YgoCard } from '../../models/ygo-card.model';
+import { AdvancedCardSearchFilters, hasActiveAdvancedFilters } from '../../models/card-search-filters.model';
 import { CardSearchFacade } from '../../services/card-search.facade';
 import { I18nService } from '../../services/i18n.service';
 import { FormatStore } from '../../core/stores/format.store';
@@ -26,26 +25,37 @@ import { CardSearchResultRowComponent } from '../card-search-result-row/card-sea
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { CardSearchFiltersPanelComponent } from '../../shared/ui/card-search-filters-panel/card-search-filters-panel.component';
+import { SearchToolbarComponent } from '../../shared/ui/search-toolbar/search-toolbar.component';
+
+type SearchTrigger = 'live' | 'submit';
+const LIVE_TYPE_DEBOUNCE_MS = 280;
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-search-sidebar',
   standalone: true,
-  imports: [FormsModule, CardSearchResultRowComponent, TranslatePipe, DuelPanelComponent, LoadingSkeletonComponent],
+  imports: [CardSearchResultRowComponent, TranslatePipe, DuelPanelComponent, LoadingSkeletonComponent, CardSearchFiltersPanelComponent, SearchToolbarComponent],
   template: `
     <app-duel-panel panelClass="flex flex-col overflow-hidden min-w-0 w-full">
       <div class="duel-panel-header shrink-0">
-        <label for="deck-card-query" class="block mb-2 text-sm font-semibold normal-case tracking-normal">{{ 'ux.addCards' | translate }}</label>
-        <input
-          #searchInput
-          id="deck-card-query"
-          type="search"
-          class="input input-bordered w-full"
-          [placeholder]="'search.placeholder' | translate"
-          [attr.aria-label]="'decklist.editor.search' | translate"
-          [ngModel]="searchQuery()"
-          (ngModelChange)="onSearchInput($event)"
+        <label class="block mb-2 text-sm font-semibold normal-case tracking-normal">{{ 'ux.addCards' | translate }}</label>
+        <app-search-toolbar
+          [query]="searchQuery()"
+          [loading]="searchLoading()"
+          [filtersOpen]="filtersOpen()"
+          [filterCount]="advancedFilterCount()"
+          (queryChange)="onSearchInput($event)"
+          (search)="submitSearch()"
+          (filtersToggle)="filtersOpen.set(!filtersOpen())"
         />
+        @if (filtersOpen()) {
+          <app-card-search-filters-panel
+            [filters]="advancedFilters()"
+            (filtersChange)="setAdvancedFilters($event)"
+            (close)="filtersOpen.set(false)"
+          />
+        }
         @if (searchTotalRows() > 0) {
           <p class="text-[11px] text-base-content/50 mt-2 font-normal normal-case tracking-normal">
             {{ searchResultsLabel() }}
@@ -81,10 +91,8 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
               </button>
             </div>
           } @empty {
-            @if (searchQuery().trim().length >= 2) {
+            @if (!searchLoading()) {
               <p class="text-xs text-base-content/60 px-2 py-4">{{ 'search.noResults' | translate }}</p>
-            } @else {
-              <p class="text-xs text-base-content/50 px-2 py-4">{{ 'decklist.editor.searchHint' | translate }}</p>
             }
           }
         }
@@ -98,11 +106,9 @@ import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loadi
   `,
 })
 export class DecklistSearchSidebarComponent {
-  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+  private readonly toolbar = viewChild(SearchToolbarComponent);
   focusSearch(): void {
-    const input = this.searchInput()?.nativeElement;
-    input?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
-    input?.focus({ preventScroll: true });
+    this.toolbar()?.focusInput();
   }
   readonly deckCards = input.required<readonly DecklistCard[]>();
   readonly inspectedCardId = input<number | null>(null);
@@ -114,11 +120,15 @@ export class DecklistSearchSidebarComponent {
   private readonly cardSearch = inject(CardSearchFacade);
   private readonly formatStore = inject(FormatStore);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly search$ = new Subject<string>();
+  private readonly trigger$ = new Subject<SearchTrigger>();
   private readonly searchLimit = 50;
   private searchLegalitySub: Subscription | null = null;
+  private lastMode: SearchTrigger = 'submit';
 
   readonly searchQuery = signal('');
+  readonly advancedFilters = signal<AdvancedCardSearchFilters>({});
+  readonly advancedFilterCount = computed(() => Object.keys(this.advancedFilters()).length);
+  readonly filtersOpen = signal(false);
   readonly searchResults = signal<YgoCard[]>([]);
   readonly searchTotalRows = signal(0);
   readonly searchHasMore = signal(false);
@@ -151,19 +161,21 @@ export class DecklistSearchSidebarComponent {
   });
 
   constructor() {
-    this.search$
+    this.trigger$
       .pipe(
-        switchMap((query) => {
-          const trimmed = query.trim();
-          if (trimmed.length < 2) {
-            this.searchLoading.set(false);
-            this.searchLegality.set(new Map());
-            this.searchTotalRows.set(0);
-            this.searchHasMore.set(false);
-            return of({ cards: [] as YgoCard[], totalRows: 0, hasMore: false });
-          }
+        tap((mode) => {
+          this.lastMode = mode;
+          this.searchLegalitySub?.unsubscribe();
+          this.legalityLoading.set(false);
+          this.searchLegality.set(new Map());
+          this.searchResults.set([]);
+          this.searchHasMore.set(false);
+          this.searchTotalRows.set(0);
           this.searchLoading.set(true);
-          return timer(280).pipe(switchMap(() => this.cardSearch.searchPage$(trimmed, this.i18n.lang(), this.searchLimit, 0)));
+        }),
+        switchMap((mode) => {
+          const delay$: Observable<unknown> = mode === 'live' ? timer(LIVE_TYPE_DEBOUNCE_MS) : of(null);
+          return delay$.pipe(switchMap(() => this.currentSearch$(0, mode)));
         }),
         tap(() => this.searchLoading.set(false)),
         takeUntilDestroyed(this.destroyRef),
@@ -180,7 +192,8 @@ export class DecklistSearchSidebarComponent {
         }
       });
 
-    this.i18n.lang$.pipe(skip(1), takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onSearchInput(this.searchQuery()));
+    this.i18n.lang$.pipe(skip(1), takeUntilDestroyed(this.destroyRef)).subscribe(() => this.trigger$.next('submit'));
+
     this.destroyRef.onDestroy(() => this.searchLegalitySub?.unsubscribe());
 
     this.formatStore.formatId$
@@ -192,31 +205,64 @@ export class DecklistSearchSidebarComponent {
           this.evaluateLegality(cards, format);
         }
       });
+
+    // Default browse list on init, and refreshed on format switch while idle (no query/filters).
+    this.formatStore.selectedFormat$
+      .pipe(
+        distinctUntilChanged((a, b) => a?.id === b?.id),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((format) => {
+        if (format && !this.hasQueryOrFilters()) {
+          this.trigger$.next('submit');
+        }
+      });
+  }
+
+  private hasQueryOrFilters(): boolean {
+    return this.searchQuery().trim().length > 0 || hasActiveAdvancedFilters(this.advancedFilters());
+  }
+
+  private currentSearch$(offset: number, mode: SearchTrigger) {
+    const query = this.searchQuery().trim();
+    const filters = this.advancedFilters();
+    const active = query.length > 0 || hasActiveAdvancedFilters(filters);
+    if (!active) {
+      const formatId = this.formatStore.selectedFormat()?.id;
+      if (!formatId) {
+        return of({ cards: [] as YgoCard[], totalRows: 0, hasMore: false });
+      }
+      return this.cardSearch.browseFormat$(formatId, this.i18n.lang(), this.searchLimit, offset);
+    }
+    if (mode === 'live') {
+      return this.cardSearch.searchByName$(query, filters, this.i18n.lang(), this.searchLimit, offset);
+    }
+    return this.cardSearch.searchCombined$(query, filters, this.i18n.lang(), this.searchLimit, offset);
   }
 
   onSearchInput(value: string): void {
-    this.searchLegalitySub?.unsubscribe();
-    this.legalityLoading.set(false);
-    this.searchLegality.set(new Map());
-    this.searchResults.set([]);
-    this.searchHasMore.set(false);
-    this.searchTotalRows.set(0);
-    this.searchLoading.set(value.trim().length >= 2);
     this.searchQuery.set(value);
-    this.search$.next(value);
+    this.trigger$.next('live');
+  }
+
+  submitSearch(): void {
+    this.trigger$.next('submit');
+  }
+
+  setAdvancedFilters(filters: AdvancedCardSearchFilters): void {
+    this.advancedFilters.set(filters);
+    this.trigger$.next('submit');
   }
 
   loadMore(): void {
-    const query = this.searchQuery().trim();
-    if (query.length < 2 || !this.searchHasMore() || this.searchLoading()) {
+    if (!this.searchHasMore() || this.searchLoading()) {
       return;
     }
     const offset = this.searchResults().length;
     const format = this.formatStore.selectedFormat();
     this.searchLoading.set(true);
-    this.cardSearch
-      .searchPage$(query, this.i18n.lang(), this.searchLimit, offset)
-      .pipe(takeUntil(this.search$), takeUntilDestroyed(this.destroyRef))
+    this.currentSearch$(offset, this.lastMode)
+      .pipe(takeUntil(this.trigger$), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
           this.searchResults.update((prev) => [...prev, ...page.cards]);

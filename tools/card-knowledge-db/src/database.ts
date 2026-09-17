@@ -21,22 +21,24 @@ const CARD_COLUMN_MIGRATIONS = [
   'ALTER TABLE cards ADD COLUMN ban_goat TEXT',
   'ALTER TABLE cards ADD COLUMN formats_json TEXT',
   'ALTER TABLE cards ADD COLUMN setcode_json TEXT',
+  'ALTER TABLE cards ADD COLUMN babel_category INTEGER',
+  'ALTER TABLE cards ADD COLUMN babel_strings_json TEXT',
 ] as const;
 
 function migrateCardTagsSource(db: DatabaseSync): void {
   try {
     db.prepare(
       `INSERT INTO card_tags (card_id, tag, confidence, source, created_at)
-       VALUES (-1, '__format_source_probe__', 1.0, 'format', '1970-01-01T00:00:00.000Z')`,
+       VALUES (-1, '__category_source_probe__', 1.0, 'category', '1970-01-01T00:00:00.000Z')`,
     ).run();
-    db.prepare(`DELETE FROM card_tags WHERE card_id = -1 AND tag = '__format_source_probe__'`).run();
+    db.prepare(`DELETE FROM card_tags WHERE card_id = -1 AND tag = '__category_source_probe__'`).run();
   } catch {
     db.exec(`
       CREATE TABLE card_tags_migrated (
         card_id INTEGER NOT NULL,
         tag TEXT NOT NULL,
         confidence REAL NOT NULL DEFAULT 1.0,
-        source TEXT NOT NULL CHECK (source IN ('rule', 'llm', 'manual', 'format')),
+        source TEXT NOT NULL CHECK (source IN ('rule', 'llm', 'manual', 'format', 'category')),
         created_at TEXT NOT NULL,
         PRIMARY KEY (card_id, tag, source),
         FOREIGN KEY (card_id) REFERENCES cards(id)
@@ -154,6 +156,22 @@ export function replaceRuleTags(db: DatabaseSync, cardId: number, tags: string[]
   const now = new Date().toISOString();
   for (const tag of tags) {
     insert.run(cardId, tag, now);
+  }
+}
+
+export function replaceCategoryTags(
+  db: DatabaseSync,
+  cardId: number,
+  tags: ReadonlyArray<{ tag: string; confidence: number }>,
+): void {
+  db.prepare(`DELETE FROM card_tags WHERE card_id = ? AND source = 'category'`).run(cardId);
+  const insert = db.prepare(
+    `INSERT INTO card_tags (card_id, tag, confidence, source, created_at)
+     VALUES (?, ?, ?, 'category', ?)`,
+  );
+  const now = new Date().toISOString();
+  for (const { tag, confidence } of tags) {
+    insert.run(cardId, tag, confidence, now);
   }
 }
 

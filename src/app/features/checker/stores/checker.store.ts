@@ -1,9 +1,8 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { combineLatest, defaultIfEmpty, forkJoin, of, Subject } from 'rxjs';
+import { combineLatest, defaultIfEmpty, forkJoin, of, timer, Observable, Subject } from 'rxjs';
 import {
   catchError,
-  debounceTime,
   distinctUntilChanged,
   filter,
   map,
@@ -17,17 +16,14 @@ import { LegalityResult, YgoCard } from '../../../models/ygo-card.model';
 import { SearchHistoryEntry } from '../../../models/search-history.model';
 import { YgoFormat } from '../../../models/ygo-format.model';
 import { CardRelatedResult } from '../../../models/card-knowledge.model';
+import { AdvancedCardSearchFilters, hasActiveAdvancedFilters } from '../../../models/card-search-filters.model';
 import { I18nService } from '../../../services/i18n.service';
 import { CardKnowledgeService } from '../../../services/card-knowledge.service';
 import { CardLegalityFacade } from '../../../services/card-legality.facade';
+import { CardSearchFacade } from '../../../services/card-search.facade';
 import { YgoApiService } from '../../../services/ygo-api.service';
 import { FormatStore } from '../../../core/stores/format.store';
 import { sortYgoCardsByPlayability } from '../../../utils/card-sort.utils';
-
-interface SearchIntent {
-  query: string;
-  fromSelection: boolean;
-}
 
 interface SearchState {
   suggestions: YgoCard[];
@@ -67,6 +63,10 @@ const EMPTY_RELATED: CardRelatedResult = {
 };
 const HISTORY_STORAGE_KEY = 'ygo-checker-search-history';
 const MAX_HISTORY = 8;
+const ADVANCED_SEARCH_LIMIT = 50;
+const LIVE_TYPE_DEBOUNCE_MS = 280;
+
+type SearchTrigger = 'live' | 'submit';
 
 @Injectable()
 export class CheckerStore {
@@ -75,9 +75,10 @@ export class CheckerStore {
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly knowledgeService = inject(CardKnowledgeService);
+  private readonly cardSearch = inject(CardSearchFacade);
   private readonly i18n = inject(I18nService);
 
-  private readonly searchIntent$ = new Subject<SearchIntent>();
+  private readonly trigger$ = new Subject<SearchTrigger>();
   private readonly cardPick$ = new Subject<YgoCard>();
   private readonly cardCache = new Map<number, YgoCard>();
 
@@ -91,6 +92,9 @@ export class CheckerStore {
   readonly formats = this.formatStore.formats;
   readonly selectedFormatId = this.formatStore.formatId;
   readonly searchQuery = signal('');
+  readonly advancedFilters = signal<AdvancedCardSearchFilters>({});
+  readonly advancedFilterCount = computed(() => Object.keys(this.advancedFilters()).length);
+  readonly filtersOpen = signal(false);
   readonly selectedFormat$ = this.formatStore.selectedFormat$;
   readonly selectedFormat = this.formatStore.selectedFormat;
 
@@ -121,6 +125,7 @@ export class CheckerStore {
 
   constructor() {
     this.bindSearch();
+    this.bindFormatBootstrap();
     this.bindSuggestionLegalityRefresh();
     this.bindCardSelection();
     this.bindLegality();
@@ -131,7 +136,16 @@ export class CheckerStore {
 
   setSearchQuery(query: string): void {
     this.searchQuery.set(query);
-    this.searchIntent$.next({ query, fromSelection: false });
+    this.trigger$.next('live');
+  }
+
+  submitSearch(): void {
+    this.trigger$.next('submit');
+  }
+
+  setAdvancedFilters(filters: AdvancedCardSearchFilters): void {
+    this.advancedFilters.set(filters);
+    this.trigger$.next('submit');
   }
 
   setFormatId(formatId: string): void {
@@ -140,7 +154,6 @@ export class CheckerStore {
 
   selectCard(card: YgoCard): void {
     this.searchQuery.set(card.name);
-    this.searchIntent$.next({ query: card.name, fromSelection: true });
     this.cardPick$.next(card);
   }
 
@@ -178,31 +191,27 @@ export class CheckerStore {
       this.searchQuery.set('');
       this.legalityState.set(EMPTY_LEGALITY);
       this.relatedState.set({ result: EMPTY_RELATED, loading: false });
+      this.trigger$.next('submit');
     }
   }
 
   private bindSearch(): void {
-    this.searchIntent$
+    this.trigger$
       .pipe(
-        debounceTime(300),
-        tap((intent) => {
-          if (intent.fromSelection || intent.query.trim().length < 2) {
-            this.searchState.set(EMPTY_SEARCH);
-          }
-        }),
-        filter((intent) => !intent.fromSelection && intent.query.trim().length >= 2),
         tap(() => {
           this.searchState.set({
             ...EMPTY_SEARCH,
             loading: true,
           });
         }),
-        switchMap((intent) =>
-          this.ygoApi.searchCards$(intent.query.trim(), this.i18n.lang()).pipe(
+        switchMap((mode) => {
+          const delay$: Observable<unknown> = mode === 'live' ? timer(LIVE_TYPE_DEBOUNCE_MS) : of(null);
+          return delay$.pipe(
+            switchMap(() => this.searchSuggestions$(this.searchQuery().trim(), this.advancedFilters(), mode)),
             defaultIfEmpty([] as YgoCard[]),
             map((suggestions) => ({ suggestions, error: null as string | null })),
-          ),
-        ),
+          );
+        }),
         switchMap(({ suggestions, error }) => {
           if (suggestions.length === 0) {
             return of({
@@ -244,6 +253,39 @@ export class CheckerStore {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
+  }
+
+  /** Re-runs the default browse list when the format changes while idle (no query/filters typed). */
+  private bindFormatBootstrap(): void {
+    this.selectedFormat$
+      .pipe(
+        distinctUntilChanged((a, b) => a?.id === b?.id),
+        filter((format) => !!format),
+        filter(() => this.searchQuery().trim().length === 0 && !hasActiveAdvancedFilters(this.advancedFilters())),
+        tap(() => this.trigger$.next('submit')),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+  }
+
+  private searchSuggestions$(query: string, filters: AdvancedCardSearchFilters, mode: SearchTrigger) {
+    if (!query && !hasActiveAdvancedFilters(filters)) {
+      const formatId = this.selectedFormat()?.id;
+      if (!formatId) {
+        return of([] as YgoCard[]);
+      }
+      return this.cardSearch
+        .browseFormat$(formatId, this.i18n.lang(), ADVANCED_SEARCH_LIMIT, 0)
+        .pipe(map((page) => page.cards));
+    }
+    if (mode === 'live') {
+      return this.cardSearch
+        .searchByName$(query, filters, this.i18n.lang(), ADVANCED_SEARCH_LIMIT, 0)
+        .pipe(map((page) => page.cards));
+    }
+    return this.cardSearch
+      .searchCombined$(query, filters, this.i18n.lang(), ADVANCED_SEARCH_LIMIT, 0)
+      .pipe(map((page) => page.cards));
   }
 
   private bindSuggestionLegalityRefresh(): void {
@@ -404,16 +446,12 @@ export class CheckerStore {
     this.i18n.lang$
       .pipe(
         skip(1),
-        withLatestFrom(toObservable(this.searchQuery), toObservable(this.selectedCard)),
-        tap(([, query, selected]) => {
+        withLatestFrom(toObservable(this.selectedCard)),
+        tap(([, selected]) => {
           if (selected) {
-            this.searchState.set(EMPTY_SEARCH);
             this.cardPick$.next(selected);
-            return;
           }
-          if (query.trim().length >= 2) {
-            this.searchState.set(EMPTY_SEARCH);
-          }
+          this.trigger$.next('submit');
         }),
         takeUntilDestroyed(this.destroyRef),
       )

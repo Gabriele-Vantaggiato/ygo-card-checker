@@ -14,6 +14,7 @@ import { CardSearchComponent } from '../../../components/card-search/card-search
 import { CardDetailTabsComponent } from '../../../components/card-detail-tabs/card-detail-tabs.component';
 import { FormatSelectorComponent } from '../../../components/format-selector/format-selector.component';
 import { SearchHistoryComponent } from '../../../components/search-history/search-history.component';
+import { CardSearchFiltersPanelComponent } from '../../../shared/ui/card-search-filters-panel/card-search-filters-panel.component';
 import { I18nService } from '../../../services/i18n.service';
 import { CheckerStore } from '../stores/checker.store';
 import { DecklistStore } from '../../decklist/stores/decklist.store';
@@ -37,6 +38,7 @@ import { SearchHistoryEntry } from '../../../models/search-history.model';
     CardSearchComponent,
     CardDetailTabsComponent,
     SearchHistoryComponent,
+    CardSearchFiltersPanelComponent,
     TranslatePipe,
   ],
   providers: [CheckerStore],
@@ -119,10 +121,20 @@ import { SearchHistoryEntry } from '../../../models/search-history.model';
               [loading]="store.searchLoading()"
               [legalityLoading]="store.suggestionLegalityLoading()"
               [selectedCardId]="store.selectedCard()?.id ?? null"
-              [selectedCard]="store.selectedCard()"
+              [filtersOpen]="store.filtersOpen()"
+              [filterCount]="store.advancedFilterCount()"
               (queryChange)="store.setSearchQuery($event)"
               (cardSelected)="onSearchCardSelected($event)"
+              (search)="store.submitSearch()"
+              (filtersToggle)="store.filtersOpen.set(!store.filtersOpen())"
             />
+            @if (store.filtersOpen()) {
+              <app-card-search-filters-panel
+                [filters]="store.advancedFilters()"
+                (filtersChange)="store.setAdvancedFilters($event)"
+                (close)="store.filtersOpen.set(false)"
+              />
+            }
           </div>
 
           <div class="checker-sidebar-history" [class.checker-history-dimmed]="isSearching()">
