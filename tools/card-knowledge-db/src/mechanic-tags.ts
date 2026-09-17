@@ -180,8 +180,11 @@ export const SYNERGY_PAIRS: Array<{ trigger: MechanicTag; response: MechanicTag;
   { trigger: 'searches_monster', response: 'ss_from_hand', relation: 'engine' },
   { trigger: 'searches_monster', response: 'ss_from_deck', relation: 'engine' },
   { trigger: 'searches_monster', response: 'ss_from_extra', relation: 'engine' },
-  { trigger: 'mentions_photon', response: 'mentions_photon', relation: 'series' },
-  { trigger: 'mentions_galaxy', response: 'mentions_galaxy', relation: 'series' },
+  // NOTE: deliberately no mentions_photon/mentions_galaxy pair. Those tags fire from a
+  // card's own name containing "Photon"/"Galaxy" or its archetype field equaling it —
+  // real, unrelated archetypes can share that word (e.g. "Photon", the 2008 Cyber Dragon
+  // support line, vs. "Galaxy-Eyes Photon Dragon"). See src/app/utils/synergy-retrieval.utils.ts
+  // for the matching runtime-side note; keep both in sync if this list changes.
 ];
 
 /** Subset exported for per-card runtime enrichment (excludes series and generic pairs). */

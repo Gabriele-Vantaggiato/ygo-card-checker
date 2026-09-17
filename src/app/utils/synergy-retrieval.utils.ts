@@ -53,8 +53,13 @@ export const DATASET_SYNERGY_PAIRS: ReadonlyArray<{
   { trigger: 'ss_from_deck', response: 'special_summons', relation: 'engine' },
   { trigger: 'banishes', response: 'gy_interaction', relation: 'gy_synergy' },
   { trigger: 'discards', response: 'gy_interaction', relation: 'gy_synergy' },
-  { trigger: 'mentions_photon', response: 'mentions_photon', relation: 'series' },
-  { trigger: 'mentions_galaxy', response: 'mentions_galaxy', relation: 'series' },
+  // NOTE: deliberately no mentions_photon/mentions_galaxy pair here. Those tags fire
+  // whenever a card's own name contains the word "Photon"/"Galaxy" or its YGOPRODeck
+  // archetype field literally equals it — real archetypes can coincidentally share that
+  // word (e.g. "Photon" the 2008 Cyber Dragon support line vs. "Galaxy-Eyes Photon
+  // Dragon", a completely different theme). Treating the shared tag as 'series' synergy
+  // connects unrelated cards; real archetype cohesion already comes from the actual
+  // archetype/series string match (sharedSeriesScore below), which doesn't have this bug.
 ];
 
 import { SIDE_STAPLE_TAG_SET } from './knowledge-constants';
