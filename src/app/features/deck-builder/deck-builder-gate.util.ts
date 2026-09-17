@@ -71,7 +71,17 @@ export function buildDeckIdentity(
   return { archetypes, setcodeFamilies };
 }
 
-export function isAdmissible(candidate: GateCardFacts, deckIdentity: DeckIdentityFacts): boolean {
+/** Cards seen together in at least this many real decks are admitted even with zero
+ *  archetype/setcode overlap. Backed by real deckbuilding data (see
+ *  sync-tournament-decks.ts), not text/name similarity, so it doesn't reintroduce the
+ *  false-positive class this gate exists to prevent. */
+export const MIN_COOCCURRENCE_FOR_ADMISSION = 3;
+
+export function isAdmissible(
+  candidate: GateCardFacts,
+  deckIdentity: DeckIdentityFacts,
+  cooccurrenceScore = 0,
+): boolean {
   if (GENERIC_STAPLE_ALLOWLIST.has(candidate.id)) {
     return true;
   }
@@ -81,5 +91,8 @@ export function isAdmissible(candidate: GateCardFacts, deckIdentity: DeckIdentit
   if (candidate.archetype && deckIdentity.archetypes.has(candidate.archetype)) {
     return true;
   }
-  return candidate.setcodes.some((code) => deckIdentity.setcodeFamilies.has(code & SETCODE_FAMILY_MASK));
+  if (candidate.setcodes.some((code) => deckIdentity.setcodeFamilies.has(code & SETCODE_FAMILY_MASK))) {
+    return true;
+  }
+  return cooccurrenceScore >= MIN_COOCCURRENCE_FOR_ADMISSION;
 }

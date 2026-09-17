@@ -98,6 +98,25 @@ describe('deck-builder gate', () => {
       expect(isAdmissible(randomCard, identity)).toBeFalse();
     });
 
+    it('admits a card with no archetype/setcode overlap when it has strong real co-occurrence with a deck card', () => {
+      // The whole point of co-occurrence: a card can genuinely synergize with the deck
+      // without sharing its archetype (e.g. a generic engine piece real players run
+      // alongside it). Admitting it here is backed by real deck data, not text/name
+      // similarity, so it doesn't reintroduce the original false-positive bug class.
+      const crossArchetypeEngine: GateCardFacts = {
+        id: 3,
+        name: 'Some Generic Engine Piece',
+        archetype: 'Totally Different Archetype',
+        setcodes: [777],
+        type: 'Effect Monster',
+        isExtraDeck: false,
+        banTcg: null,
+      };
+      const identity = buildDeckIdentity([{ id: dragon.id }], new Map([[dragon.id, dragon]]));
+      expect(isAdmissible(crossArchetypeEngine, identity, 0)).toBeFalse();
+      expect(isAdmissible(crossArchetypeEngine, identity, 5)).toBeTrue();
+    });
+
     it('admits any card when the deck has no identity yet (empty deck)', () => {
       const identity = buildDeckIdentity([], new Map());
       const randomCard: GateCardFacts = {

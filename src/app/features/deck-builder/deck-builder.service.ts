@@ -52,6 +52,24 @@ export class DeckBuilderService {
         const identity = buildDeckIdentity(deck.cards, catalog);
         const deckCardIds = new Set(deck.cards.map((c) => c.id));
 
+        // Real co-occurrence feeds admissibility too, not just ranking within an
+        // already-narrow archetype pool: a card genuinely played alongside deck cards in
+        // real decks is admitted even with zero archetype/setcode overlap. This is what
+        // lets the gate surface cross-archetype engine pieces/combo partners — safely,
+        // because it's backed by real deckbuilding data, not text/name similarity.
+        const cooccurrenceScores = new Map<number, number>();
+        for (const deckCardId of deckCardIds) {
+          for (const partner of cooccurrenceIndex[String(deckCardId)] ?? []) {
+            if (deckCardIds.has(partner.id)) {
+              continue;
+            }
+            const prev = cooccurrenceScores.get(partner.id) ?? 0;
+            if (partner.weight > prev) {
+              cooccurrenceScores.set(partner.id, partner.weight);
+            }
+          }
+        }
+
         const admissible: GateCardFacts[] = [];
         for (const facts of catalog.values()) {
           if (deckCardIds.has(facts.id)) {
@@ -60,16 +78,13 @@ export class DeckBuilderService {
           if (facts.banTcg === 'Forbidden') {
             continue;
           }
-          if (isAdmissible(facts, identity)) {
+          if (isAdmissible(facts, identity, cooccurrenceScores.get(facts.id) ?? 0)) {
             admissible.push(facts);
           }
         }
 
         const scored = admissible
-          .map((facts) => ({
-            facts,
-            score: this.cooccurrence.scoreFor(facts.id, [...deckCardIds], cooccurrenceIndex),
-          }))
+          .map((facts) => ({ facts, score: cooccurrenceScores.get(facts.id) ?? 0 }))
           .sort((a, b) => b.score - a.score)
           .slice(0, CANDIDATE_POOL_SIZE);
 
