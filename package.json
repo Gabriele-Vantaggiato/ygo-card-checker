@@ -20,6 +20,8 @@
     "db:export": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/export.ts",
     "db:export:search-index": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/export-search-index.ts",
     "db:export:passcodes": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/export-passcode-catalog.ts",
+    "db:sync:decks": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/sync-tournament-decks.ts",
+    "db:export:gate": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/export-gate.ts",
     "db:combos": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-combos.ts",
     "db:effect-scripts": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/build-effect-scripts.ts",
     "db:mdpro-scripts": "node --experimental-sqlite --import tsx tools/card-knowledge-db/src/import-mdpro-scripts.ts",

@@ -40,11 +40,11 @@ import { verdictShortKey } from '../../utils/legality-display.utils';
 import { DeckAssistPanelComponent } from './deck-assist-panel.component';
 import { DeckReplayPanelComponent } from './deck-replay-panel.component';
 import { CardKnowledgeService } from '../../services/card-knowledge.service';
-import { DeckCompletionService } from '../../services/deck-completion.service';
+import { DeckBuilderService } from '../../features/deck-builder/deck-builder.service';
 import { DecklistSearchSidebarComponent } from '../decklist-search-sidebar/decklist-search-sidebar.component';
 import { DeckStrategyStore } from '../../features/decklist/stores/deck-strategy.store';
 import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
-import { DeckCompletionPlan } from '../../models/deck-completion.model';
+import { DeckBuilderPlan } from '../../features/deck-builder/deck-builder.model';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DecklistEditorHeaderComponent } from './decklist-editor-header.component';
 import { DeckCardMoveEvent, DeckSectionGridComponent } from './deck-section-grid.component';
@@ -55,6 +55,7 @@ import {
 import { CompleteDeckDialogComponent } from './complete-deck-dialog.component';
 import { YdkeExportDialogComponent, YdkeImportDialogComponent } from './ydke-dialogs.component';
 import { TextDeckExportDialogComponent, TextDeckImportDialogComponent } from './text-deck-dialogs.component';
+import { DEFAULT_TARGET_MAIN, MIN_TARGET_MAIN, MAX_TARGET_MAIN } from '../../utils/deck-role-tier.utils';
 import {
   DeckCardInspectViewModel,
   DeckSectionViewModel,
@@ -299,7 +300,7 @@ export class DecklistEditorComponent {
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly knowledge = inject(CardKnowledgeService);
-  private readonly completion = inject(DeckCompletionService);
+  private readonly completion = inject(DeckBuilderService);
   private readonly strategy = inject(DeckStrategyStore);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -354,7 +355,7 @@ export class DecklistEditorComponent {
   readonly completeDeckTarget = signal(40);
   readonly completeDeckIncludeSide = signal(true);
   readonly completeDeckPlanning = signal(false);
-  readonly completeDeckPlan = signal<DeckCompletionPlan | null>(null);
+  readonly completeDeckPlan = signal<DeckBuilderPlan | null>(null);
 
   readonly deckRevision = computed(() => {
     const deck = this.liveDeck();
@@ -514,16 +515,6 @@ export class DecklistEditorComponent {
       const sub = this.knowledge.findRelatedForDeck$(deck, format).subscribe((result) => {
         this.deckSuggestions.set(result);
         this.deckSuggestionsLoading.set(false);
-      });
-      onCleanup(() => sub.unsubscribe());
-    });
-
-    effect((onCleanup) => {
-      if (!this.completeDeckDialogOpen()) {
-        return;
-      }
-      const sub = this.strategy.ragResult$.pipe(debounceTime(600)).subscribe(() => {
-        this.refreshCompleteDeckPlan();
       });
       onCleanup(() => sub.unsubscribe());
     });
@@ -890,11 +881,10 @@ export class DecklistEditorComponent {
   }
 
   openCompleteDeckDialog(): void {
-    this.completeDeckTarget.set(this.completion.defaultTargetMain());
+    this.completeDeckTarget.set(DEFAULT_TARGET_MAIN);
     this.completeDeckIncludeSide.set(true);
     this.completeDeckPlan.set(null);
     this.completeDeckDialogOpen.set(true);
-    this.strategy.refreshOllamaStatus();
     this.refreshCompleteDeckPlan();
   }
 
@@ -908,9 +898,11 @@ export class DecklistEditorComponent {
 
   onCompleteDeckTargetChange(value: number | string): void {
     const parsed = typeof value === 'number' ? value : Number(value);
-    this.completeDeckTarget.set(
-      this.completion.normalizeTargetMain(Number.isFinite(parsed) ? parsed : 40),
+    const clamped = Math.min(
+      MAX_TARGET_MAIN,
+      Math.max(MIN_TARGET_MAIN, Math.round(Number.isFinite(parsed) ? parsed : DEFAULT_TARGET_MAIN)),
     );
+    this.completeDeckTarget.set(clamped);
     this.refreshCompleteDeckPlan();
   }
 
@@ -927,7 +919,7 @@ export class DecklistEditorComponent {
     this.completeDeckPlanSub?.unsubscribe();
     this.completeDeckPlanning.set(true);
     this.completeDeckPlanSub = this.completion
-      .plan$(this.liveDeck(), format, {
+      .buildPlan$(this.liveDeck(), format, {
         targetMain: this.completeDeckTarget(),
         includeSide: this.completeDeckIncludeSide(),
         targetSide: 15,
@@ -951,7 +943,7 @@ export class DecklistEditorComponent {
     if (!plan || plan.status !== 'ready') {
       return;
     }
-    if (this.decklistStore.applyCompletionPlan(deck.id, plan)) {
+    if (this.decklistStore.applyDeckBuilderAdds(deck.id, plan.adds)) {
       this.closeCompleteDeckDialog();
     }
   }

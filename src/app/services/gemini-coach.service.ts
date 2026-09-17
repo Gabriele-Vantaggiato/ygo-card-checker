@@ -173,6 +173,15 @@ export class GeminiCoachService {
     return this.askGemini$(full).pipe(map(parseDeckGenResponse));
   }
 
+  /**
+   * Generic "send this prompt, get raw text back" entry point for callers that build their
+   * own prompt/parsing (e.g. deck-builder-ai.service.ts). Same BYOK/model-fallback plumbing
+   * as coach$/generateDeck$; still returns '' when no session key is unlocked.
+   */
+  ask$(prompt: string): Observable<string> {
+    return this.askGemini$(prompt);
+  }
+
   private askGemini$(prompt: string): Observable<string> {
     if (!this.sessionKey) {
       return of('');

@@ -236,6 +236,8 @@
   "decklist.feedback.ydkeResolveFailed": "Could not resolve cards from API",
   "decklist.feedback.completionApplied": "Added {count} cards ({unique} unique) to the deck",
   "decklist.feedback.completionFailed": "Could not build a completion plan",
+  "deckBuilder.reason.cooccurrence": "Often played together in real decks",
+  "decklist.completion.cooccurrenceOnly": "Co-occurrence only (Gemini not configured)",
   "decklist.completion.title": "Complete deck",
   "decklist.completion.hint": "Fills Main, Extra and Side using synergy, combo or matchup goals.",
   "decklist.completion.identity.label": "Deck identity",

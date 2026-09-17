@@ -25,7 +25,7 @@ import {
 } from '../../../services/deck-text.service';
 import { YgoFormat } from '../../../models/ygo-format.model';
 import { YgoCard, LegalityResult } from '../../../models/ygo-card.model';
-import { DeckCompletionPlan } from '../../../models/deck-completion.model';
+import { DeckBuilderAdd } from '../../deck-builder/deck-builder.model';
 
 @Injectable({ providedIn: 'root' })
 export class DecklistStore {
@@ -520,8 +520,8 @@ export class DecklistStore {
     );
   }
 
-  applyCompletionPlan(deckId: string, plan: DeckCompletionPlan): boolean {
-    if (plan.status !== 'ready' || plan.adds.length === 0) {
+  applyDeckBuilderAdds(deckId: string, adds: readonly DeckBuilderAdd[]): boolean {
+    if (adds.length === 0) {
       return false;
     }
 
@@ -531,11 +531,14 @@ export class DecklistStore {
     }
 
     let updated = deck;
-    for (const add of plan.adds) {
-      const payload = plan.payloads.find((item) => item.id === add.cardId);
-      if (!payload) {
-        continue;
-      }
+    for (const add of adds) {
+      const payload: AddToDecklistPayload = {
+        id: add.cardId,
+        name: add.name,
+        type: add.type,
+        imageUrlSmall: add.imageUrlSmall,
+        section: add.section,
+      };
       updated = this.decklistService.addCardToDecklist(updated, payload, add.quantity);
     }
 

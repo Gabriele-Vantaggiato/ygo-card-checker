@@ -1,14 +1,13 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DeckCompletionPlan } from '../../models/deck-completion.model';
+import { DeckBuilderPlan } from '../../features/deck-builder/deck-builder.model';
 import { DECK_SECTION_I18N_KEYS, DeckSectionKey } from '../../utils/deck-section.utils';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy-panel.component';
 
 @Component({
   selector: 'app-complete-deck-dialog',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, DeckStrategyPanelComponent],
+  imports: [FormsModule, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open()) {
@@ -58,20 +57,13 @@ import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy
             </p>
           </div>
 
-          <app-deck-strategy-panel class="block mt-4" />
-
           @if (plan()?.identity; as identity) {
             <div class="mt-3 rounded-lg border border-base-300/60 bg-base-200/40 p-3">
               <p class="text-xs uppercase tracking-wide text-base-content/50">
                 {{ 'decklist.completion.identity.label' | translate }}
               </p>
-              @if (identity.hasClearIdentity && identity.archetypes.length > 0) {
-                <p class="text-sm font-medium mt-1">
-                  {{ identity.archetypes.join(' / ') }}
-                  @if (identity.dominantRace) {
-                    <span class="text-base-content/60 font-normal">· {{ identity.dominantRace }}</span>
-                  }
-                </p>
+              @if (identity.hasIdentity && identity.archetypes.length > 0) {
+                <p class="text-sm font-medium mt-1">{{ identity.archetypes.join(' / ') }}</p>
               } @else {
                 <p class="text-sm text-base-content/60 mt-1">
                   {{ 'decklist.completion.identity.unclear' | translate }}
@@ -91,30 +83,12 @@ import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy
               <p class="text-sm text-warning mt-4">{{ 'decklist.completion.noCandidates' | translate }}</p>
             } @else {
               <div class="mt-4 space-y-4 overflow-y-auto flex-1 min-h-0">
-                @if (p.comboLines.length > 0) {
-                  <div class="space-y-2">
-                    <h4 class="text-sm font-semibold">{{ 'decklist.completion.comboLines' | translate }}</h4>
-                    @for (line of p.comboLines; track line.id) {
-                      <div class="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
-                        <div class="flex flex-wrap items-center gap-2">
-                          @for (step of line.steps; track step.cardId + step.role; let last = $last) {
-                            <div class="flex items-center gap-2">
-                              <img [src]="step.imageSmall" [alt]="" class="w-8 h-11 object-cover rounded" loading="lazy" />
-                              <span class="text-xs font-medium">{{ step.name }}</span>
-                              @if (!last) {
-                                <span class="text-base-content/40">→</span>
-                              }
-                            </div>
-                          }
-                        </div>
-                      </div>
-                    }
-                  </div>
-                }
-
                 <div class="space-y-2">
-                  <h4 class="text-sm font-semibold">
+                  <h4 class="text-sm font-semibold flex items-center gap-2">
                     {{ 'decklist.completion.addsTitle' | translate: { count: '' + p.adds.length } }}
+                    @if (!p.aiUsed) {
+                      <span class="badge badge-ghost badge-sm">{{ 'decklist.completion.cooccurrenceOnly' | translate }}</span>
+                    }
                   </h4>
                   <ul class="space-y-2">
                     @for (add of p.adds; track add.cardId) {
@@ -127,9 +101,7 @@ import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy
                               {{ sectionTitleKey(add.section) | translate }}
                             </span>
                           </p>
-                          <p class="text-[11px] text-base-content/60 truncate">
-                            {{ add.reasonKey | translate: add.reasonParams }}
-                          </p>
+                          <p class="text-[11px] text-base-content/60 truncate">{{ add.reason }}</p>
                         </div>
                         <span class="badge badge-primary">+{{ add.quantity }}</span>
                       </li>
@@ -172,7 +144,7 @@ export class CompleteDeckDialogComponent {
   readonly extraCount = input(0);
   readonly sideCount = input(0);
   readonly planning = input(false);
-  readonly plan = input<DeckCompletionPlan | null>(null);
+  readonly plan = input<DeckBuilderPlan | null>(null);
 
   readonly targetMainChange = output<number | string>();
   readonly includeSideChange = output<boolean>();

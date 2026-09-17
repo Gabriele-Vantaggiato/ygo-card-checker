@@ -87,6 +87,22 @@ CREATE TABLE IF NOT EXISTS sync_meta (
   value TEXT NOT NULL
 );
 
+-- Real tournament-decklist co-occurrence (scraped from ygoprodeck.com/deck/* pages).
+-- card_a < card_id always, so each unordered pair is stored once.
+CREATE TABLE IF NOT EXISTS deck_cooccurrence (
+  card_a INTEGER NOT NULL,
+  card_b INTEGER NOT NULL,
+  deck_count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (card_a, card_b)
+);
+CREATE INDEX IF NOT EXISTS idx_deck_cooccurrence_a ON deck_cooccurrence(card_a);
+CREATE INDEX IF NOT EXISTS idx_deck_cooccurrence_b ON deck_cooccurrence(card_b);
+
+CREATE TABLE IF NOT EXISTS scraped_decks (
+  slug TEXT PRIMARY KEY,
+  scraped_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_cards_archetype ON cards(archetype);
 CREATE INDEX IF NOT EXISTS idx_cards_name ON cards(name);
 CREATE INDEX IF NOT EXISTS idx_card_tags_tag ON card_tags(tag);
