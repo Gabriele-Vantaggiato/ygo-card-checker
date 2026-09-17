@@ -44,7 +44,7 @@ describe('GeminiCoachService', () => {
     const promise = firstValueFrom(result$);
 
     const req = httpMock.expectOne(
-      (r) => r.url === `http://127.0.0.1:8787/v1beta/models/${service.selectedModel()}:generateContent`,
+      (r) => r.url === `/api/gemini/v1beta/models/${service.selectedModel()}:generateContent`,
     );
     expect(req.request.headers.get('X-goog-api-key')).toBe('AIzaTestKeyForUnitTest0000000000');
     const sentPrompt = req.request.body.contents[0].parts[0].text as string;

@@ -22,12 +22,15 @@ const HIGH_DEMAND_DELAY_MS = 2500;
  * POST …/v1beta/models/gemini-flash-latest:generateContent
  * Header: X-goog-api-key
  *
- * Browser cannot call Google directly (CORS) → local proxy on :8787
- * (started by `npm start` via tools/start-dev.mjs).
+ * Browser cannot call Google directly (CORS) → relayed through a same-origin
+ * `/api/gemini` path. In dev, `ng serve --proxy-config proxy.conf.json`
+ * forwards that path to the local gemini-dev-proxy on :8787 (started by
+ * `npm start`). In production, `api/gemini/[...path].ts` is a Vercel Edge
+ * Function serving the same relay — no separate process to run.
  */
 const GEMINI_BASE =
   (typeof localStorage !== 'undefined' && localStorage.getItem('ygo-gemini-base')?.trim()) ||
-  'http://127.0.0.1:8787';
+  '/api/gemini';
 
 /**
  * Current Gemini Developer API Flash IDs, newest stable first (verified live
@@ -412,7 +415,7 @@ export function looksLikeGeminiApiKey(key: string): boolean {
 function extractErrorDetail(err: unknown): string | null {
   if (err instanceof HttpErrorResponse) {
     if (err.status === 0) {
-      return `Proxy unreachable at ${GEMINI_BASE}. Run npm start (starts gemini-dev-proxy on :8787).`;
+      return `Gemini relay unreachable at ${GEMINI_BASE}. In dev, run npm start (starts gemini-dev-proxy on :8787). In production this should be served by api/gemini.`;
     }
     const apiMsg =
       typeof err.error === 'object' && err.error && 'error' in err.error
