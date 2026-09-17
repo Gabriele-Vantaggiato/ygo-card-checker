@@ -10,21 +10,30 @@ import { splitDeckSections, sectionCardCount } from '../../utils/deck-card.utils
 import { canPlaceCardInSection } from '../../utils/deck-section.utils';
 import { TARGET_EXTRA } from '../../utils/deck-role-tier.utils';
 import { resolveDeckSection } from '../../services/ydke.service';
-import { buildDeckIdentity, isAdmissible, GateCardFacts } from './deck-builder-gate.util';
+import { buildDeckIdentity, isAdmissible, DeckIdentityFacts, GateCardFacts } from './deck-builder-gate.util';
 import { DeckBuilderCatalogService } from './deck-builder-catalog.service';
 import { DeckCooccurrenceService } from './deck-cooccurrence.service';
 import { DeckBuilderAiService } from './deck-builder-ai.service';
+import { DeckAnalysisAiService } from './deck-analysis-ai.service';
 import { DeckBuilderAdd, DeckBuilderOptions, DeckBuilderPlan } from './deck-builder.model';
+import { DeckAnalysis } from './deck-analysis.model';
 
 /** How many of the strongest co-occurrence candidates get hydrated + sent to the LLM.
  *  Bounds API calls (both YGOPRODeck batch fetch and the single Gemini call). */
 const CANDIDATE_POOL_SIZE = 60;
+
+interface CandidatePool {
+  identity: DeckIdentityFacts;
+  legalFacts: GateCardFacts[];
+  legality: ReadonlyMap<number, { banlistStatus?: string | null; verdict?: string }>;
+}
 
 @Injectable({ providedIn: 'root' })
 export class DeckBuilderService {
   private readonly catalogService = inject(DeckBuilderCatalogService);
   private readonly cooccurrence = inject(DeckCooccurrenceService);
   private readonly ai = inject(DeckBuilderAiService);
+  private readonly analysisAi = inject(DeckAnalysisAiService);
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
   private readonly i18n = inject(I18nService);
@@ -47,6 +56,79 @@ export class DeckBuilderService {
       return of(this.emptyPlan('already_complete', options, currentMain, currentExtra, currentSide));
     }
 
+    return this.buildCandidatePool$(deck, format).pipe(
+      switchMap((pool) => {
+        if (!pool) {
+          return of(this.emptyPlan('no_candidates', options, currentMain, currentExtra, currentSide));
+        }
+        const { identity, legalFacts, legality } = pool;
+        const deckSummary = this.summarizeDeck(deck);
+
+        return this.ai.rank$(legalFacts, deckSummary, this.i18n.lang() === 'it' ? 'it' : 'en').pipe(
+          map((suggestions) => {
+            const aiUsed = suggestions.length > 0;
+            const orderedFacts = aiUsed
+              ? [
+                  ...suggestions
+                    .map((s) => legalFacts.find((f) => f.id === s.cardId))
+                    .filter((f): f is GateCardFacts => !!f),
+                  ...legalFacts.filter((f) => !suggestions.some((s) => s.cardId === f.id)),
+                ]
+              : legalFacts;
+            const reasonById = new Map(suggestions.map((s) => [s.cardId, s.reason]));
+
+            const adds = this.fillGaps(orderedFacts, deck, legality, reasonById, {
+              main: mainGap,
+              extra: extraGap,
+              side: sideGap,
+            });
+
+            return {
+              status: adds.length > 0 ? 'ready' : 'no_candidates',
+              identity: { hasIdentity: identity.archetypes.size > 0, archetypes: [...identity.archetypes] },
+              targetMain: options.targetMain,
+              currentMain,
+              currentExtra,
+              currentSide,
+              adds,
+              aiUsed,
+            } satisfies DeckBuilderPlan;
+          }),
+        );
+      }),
+    );
+  }
+
+  /** Analyzes the deck's OWN cards by functional role (starters/extenders/hand traps/GY
+   *  recursion/removal/searchers) and proposes fills for thin roles from the same gated
+   *  candidate pool as buildPlan$. */
+  analyzeDeck$(deck: Decklist, format: YgoFormat): Observable<DeckAnalysis> {
+    const uniqueCards = [...new Map(deck.cards.map((c) => [c.id, c])).values()];
+    if (uniqueCards.length === 0) {
+      return of({ status: 'empty_deck', roles: [], aiUsed: false });
+    }
+
+    return combineLatest([
+      this.buildCandidatePool$(deck, format),
+      this.ygoApi.getCardsByIds$(uniqueCards.map((c) => c.id), this.i18n.lang()),
+    ]).pipe(
+      switchMap(([pool, deckCardsFull]) => {
+        const candidatePool = pool?.legalFacts ?? [];
+        const deckCardsForAi = deckCardsFull.map((c) => ({ cardId: c.id, name: c.name, desc: c.desc }));
+        return this.analysisAi
+          .analyze$(deckCardsForAi, candidatePool, this.i18n.lang() === 'it' ? 'it' : 'en')
+          .pipe(
+            map((roles) => ({
+              status: 'ready' as const,
+              roles,
+              aiUsed: roles.length > 0,
+            })),
+          );
+      }),
+    );
+  }
+
+  private buildCandidatePool$(deck: Decklist, format: YgoFormat): Observable<CandidatePool | null> {
     return combineLatest([this.catalogService.loadCatalog$(), this.cooccurrence.loadIndex$()]).pipe(
       switchMap(([catalog, cooccurrenceIndex]) => {
         const identity = buildDeckIdentity(deck.cards, catalog);
@@ -89,7 +171,7 @@ export class DeckBuilderService {
           .slice(0, CANDIDATE_POOL_SIZE);
 
         if (scored.length === 0) {
-          return of(this.emptyPlan('no_candidates', options, currentMain, currentExtra, currentSide, identity));
+          return of(null);
         }
 
         const poolIds = scored.map((s) => s.facts.id);
@@ -101,53 +183,17 @@ export class DeckBuilderService {
                   const verdict = legality.get(c.id)?.verdict;
                   return verdict === 'legal' || verdict === 'restricted';
                 });
-                return { legalCards, legality, factsById: new Map(scored.map((s) => [s.facts.id, s.facts])) };
+                const factsById = new Map(scored.map((s) => [s.facts.id, s.facts]));
+                const legalFacts = legalCards
+                  .map((c) => factsById.get(c.id))
+                  .filter((f): f is GateCardFacts => !!f);
+                if (legalFacts.length === 0) {
+                  return null;
+                }
+                return { identity, legalFacts, legality } satisfies CandidatePool;
               }),
             ),
           ),
-          switchMap(({ legalCards, legality, factsById }) => {
-            if (legalCards.length === 0) {
-              return of(this.emptyPlan('no_candidates', options, currentMain, currentExtra, currentSide, identity));
-            }
-            const legalFacts = legalCards
-              .map((c) => factsById.get(c.id))
-              .filter((f): f is GateCardFacts => !!f);
-            const deckSummary = this.summarizeDeck(deck);
-
-            return this.ai.rank$(legalFacts, deckSummary, this.i18n.lang() === 'it' ? 'it' : 'en').pipe(
-              map((suggestions) => {
-                const aiUsed = suggestions.length > 0;
-                const orderedFacts = aiUsed
-                  ? [
-                      ...suggestions
-                        .map((s) => legalFacts.find((f) => f.id === s.cardId))
-                        .filter((f): f is GateCardFacts => !!f),
-                      ...legalFacts.filter((f) => !suggestions.some((s) => s.cardId === f.id)),
-                    ]
-                  : legalFacts;
-                const reasonById = new Map(suggestions.map((s) => [s.cardId, s.reason]));
-
-                const adds = this.fillGaps(
-                  orderedFacts,
-                  deck,
-                  legality,
-                  reasonById,
-                  { main: mainGap, extra: extraGap, side: sideGap },
-                );
-
-                return {
-                  status: adds.length > 0 ? 'ready' : 'no_candidates',
-                  identity: { hasIdentity: identity.archetypes.size > 0, archetypes: [...identity.archetypes] },
-                  targetMain: options.targetMain,
-                  currentMain,
-                  currentExtra,
-                  currentSide,
-                  adds,
-                  aiUsed,
-                } satisfies DeckBuilderPlan;
-              }),
-            );
-          }),
         );
       }),
     );

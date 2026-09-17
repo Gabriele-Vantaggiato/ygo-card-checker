@@ -39,11 +39,9 @@ import { DECK_SECTION_I18N_KEYS, DeckSectionKey } from '../../utils/deck-section
 import { verdictShortKey } from '../../utils/legality-display.utils';
 import { DeckAssistPanelComponent } from './deck-assist-panel.component';
 import { DeckReplayPanelComponent } from './deck-replay-panel.component';
-import { CardKnowledgeService } from '../../services/card-knowledge.service';
 import { DeckBuilderService } from '../../features/deck-builder/deck-builder.service';
 import { DecklistSearchSidebarComponent } from '../decklist-search-sidebar/decklist-search-sidebar.component';
-import { DeckStrategyStore } from '../../features/decklist/stores/deck-strategy.store';
-import { CardRelatedSuggestion, DeckRelatedResult } from '../../models/card-knowledge.model';
+import { DeckAnalysis, DeckAnalysisSuggestion } from '../../features/deck-builder/deck-analysis.model';
 import { DeckBuilderPlan } from '../../features/deck-builder/deck-builder.model';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DecklistEditorHeaderComponent } from './decklist-editor-header.component';
@@ -174,24 +172,12 @@ import {
         </div>
 
         <div class="deck-editor-assist gap-4">
-          @if (activeDeck.cards.length > 0) {
-            <app-deck-assist-panel
-              [loading]="deckSuggestionsLoading()"
-              [available]="deckSuggestions().available"
-              [sourceCount]="deckSuggestions().sourceCount"
-              [groups]="deckSuggestions().groups"
-              [formatLabel]="deckSuggestionFormatLabel()"
-              (cardSelected)="addSuggestion($event)"
-            />
-          } @else {
-            <app-deck-assist-panel
-              [loading]="false"
-              [available]="true"
-              [sourceCount]="0"
-              [groups]="[]"
-              [formatLabel]="deckSuggestionFormatLabel()"
-            />
-          }
+          <app-deck-assist-panel
+            [loading]="deckAnalysisLoading()"
+            [analysis]="deckAnalysis()"
+            [formatLabel]="deckSuggestionFormatLabel()"
+            (cardSelected)="addRoleSuggestion($event)"
+          />
           <app-deck-replay-panel [cards]="activeDeck.cards" />
         </div>
 
@@ -206,24 +192,12 @@ import {
 
       @if (mobileWorkspaceTab() === 'assist') {
         <div class="lg:hidden flex flex-col gap-4">
-          @if (activeDeck.cards.length > 0) {
-            <app-deck-assist-panel
-              [loading]="deckSuggestionsLoading()"
-              [available]="deckSuggestions().available"
-              [sourceCount]="deckSuggestions().sourceCount"
-              [groups]="deckSuggestions().groups"
-              [formatLabel]="deckSuggestionFormatLabel()"
-              (cardSelected)="addSuggestion($event)"
-            />
-          } @else {
-            <app-deck-assist-panel
-              [loading]="false"
-              [available]="true"
-              [sourceCount]="0"
-              [groups]="[]"
-              [formatLabel]="deckSuggestionFormatLabel()"
-            />
-          }
+          <app-deck-assist-panel
+            [loading]="deckAnalysisLoading()"
+            [analysis]="deckAnalysis()"
+            [formatLabel]="deckSuggestionFormatLabel()"
+            (cardSelected)="addRoleSuggestion($event)"
+          />
           <app-deck-replay-panel [cards]="activeDeck.cards" />
         </div>
       }
@@ -299,9 +273,7 @@ export class DecklistEditorComponent {
   protected readonly i18n = inject(I18nService);
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
-  private readonly knowledge = inject(CardKnowledgeService);
   private readonly completion = inject(DeckBuilderService);
-  private readonly strategy = inject(DeckStrategyStore);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -343,14 +315,8 @@ export class DecklistEditorComponent {
   readonly textExportDialogOpen = signal(false);
   readonly textExportContent = signal('');
   readonly textExportHint = signal('');
-  readonly deckSuggestionsLoading = signal(false);
-  readonly deckSuggestions = signal<DeckRelatedResult>({
-    suggestions: [],
-    groups: [],
-    sourceCount: 0,
-    available: false,
-    formatId: null,
-  });
+  readonly deckAnalysisLoading = signal(false);
+  readonly deckAnalysis = signal<DeckAnalysis>({ status: 'empty_deck', roles: [], aiUsed: false });
   readonly completeDeckDialogOpen = signal(false);
   readonly completeDeckTarget = signal(40);
   readonly completeDeckIncludeSide = signal(true);
@@ -493,28 +459,18 @@ export class DecklistEditorComponent {
       const revision = this.deckRevision();
       const deck = this.liveDeck();
       const format = this.formatStore.selectedFormat();
-      void this.strategy.direction();
-      void this.strategy.prompt();
-      void this.strategy.useOllama();
-      void this.strategy.ragResult();
       void revision;
 
       if (!format || deck.cards.length === 0) {
-        this.deckSuggestions.set({
-          suggestions: [],
-          groups: [],
-          sourceCount: 0,
-          available: !!format,
-          formatId: format?.id ?? null,
-        });
-        this.deckSuggestionsLoading.set(false);
+        this.deckAnalysis.set({ status: 'empty_deck', roles: [], aiUsed: false });
+        this.deckAnalysisLoading.set(false);
         return;
       }
 
-      this.deckSuggestionsLoading.set(true);
-      const sub = this.knowledge.findRelatedForDeck$(deck, format).subscribe((result) => {
-        this.deckSuggestions.set(result);
-        this.deckSuggestionsLoading.set(false);
+      this.deckAnalysisLoading.set(true);
+      const sub = this.completion.analyzeDeck$(deck, format).subscribe((result) => {
+        this.deckAnalysis.set(result);
+        this.deckAnalysisLoading.set(false);
       });
       onCleanup(() => sub.unsubscribe());
     });
@@ -844,12 +800,12 @@ export class DecklistEditorComponent {
     }
   }
 
-  addSuggestion(suggestion: CardRelatedSuggestion): void {
+  addRoleSuggestion(suggestion: DeckAnalysisSuggestion): void {
     const format = this.formatStore.selectedFormat();
-    const qty = suggestion.suggestedQty ?? 1;
-    if (!format || qty <= 0) {
+    if (!format) {
       return;
     }
+    const qty = 1;
     this.ygoApi
       .getCardById$(suggestion.cardId, this.i18n.lang())
       .pipe(
