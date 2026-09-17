@@ -6,6 +6,12 @@ import { buildCardRosterMap } from './synergy-retrieval.utils';
 
 const normalize = (value: string) => value.trim().toLowerCase().replace(/[“”]/g, '"').replace(/\s+/g, ' ');
 const TRANSFERS = new Set(['search', 'add', 'ss', 'set']);
+/** A bare type filter, optionally qualified by attribute/race (e.g. "Zombie monster") but
+ *  naming no specific card, setcode or series. Matching it means "every card of that
+ *  shape" — broad enough to be useful against a concrete board, but not evidence that
+ *  every such card in the catalog is a meaningful deck/combo recommendation. */
+const BROAD_TYPE_FILTER =
+  /^(?:(light|dark|earth|water|fire|wind|divine) )?(?:(zombie|dragon|warrior|spellcaster|machine|fiend|fairy|insect|plant|beast-warrior|beast|dinosaur|wyrm|cyberse|psychic|rock|aqua|thunder|pyro|sea serpent|winged beast|reptile|divine-beast|fish|illusion) )?(monster|spell|trap|card)(?: in (?:gy|graveyard|deck|hand))?$/;
 type Target = { id: number; evidence: AssistanceCandidate['evidence'] };
 
 /** Per-index caches. No substring name matching, Lua execution or mutable duel state. */
@@ -58,8 +64,7 @@ export class AssistanceEngine {
     const family = this.series.get(bare);
     if (family) return [...family].map(id => ({ id, evidence: 'series' }));
     // Additional adjectives/conditions are deliberately not swallowed.
-    const pattern = /^(?:(light|dark|earth|water|fire|wind|divine) )?(?:(zombie|dragon|warrior|spellcaster|machine|fiend|fairy|insect|plant|beast-warrior|beast|dinosaur|wyrm|cyberse|psychic|rock|aqua|thunder|pyro|sea serpent|winged beast|reptile|divine-beast|fish|illusion) )?(monster|spell|trap|card)(?: in (?:gy|graveyard|deck|hand))?$/;
-    const match = pattern.exec(text);
+    const match = BROAD_TYPE_FILTER.exec(text);
     if (!match) return null;
     const [, attribute, race, type] = match;
     return [...this.catalog.values()].filter(member =>
@@ -94,8 +99,9 @@ export class AssistanceEngine {
     const candidates: AssistanceCandidate[] = [];
     for (const step of script.steps) for (const action of step.actions) {
       // Broad zone filters are useful against a concrete board, but not evidence that
-      // every monster in the catalog is a meaningful deck/combo recommendation.
-      if (!action.constraints && /^(monster|card)( in (gy|graveyard|deck|hand))?$/.test(normalize(action.filter ?? ''))) continue;
+      // every card of that shape in the catalog is a meaningful deck/combo recommendation
+      // — including when the filter is qualified by attribute/race only (e.g. "Dragon monster").
+      if (!action.constraints && BROAD_TYPE_FILTER.test(normalize(action.filter ?? ''))) continue;
       if (!TRANSFERS.has(action.op) || !action.filter) continue;
       for (const match of this.actionTargets(action, sourceId) ?? []) {
         if (match.id === sourceId) continue;

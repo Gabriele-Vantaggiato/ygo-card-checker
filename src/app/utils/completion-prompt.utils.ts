@@ -89,13 +89,35 @@ const COUNTER_RULES: CounterRule[] = [
 const WEAK_AGAINST_PATTERN =
   /(?:debole\s+contro|weak\s+against|counter(?:are)?|migliorare\s+contro|anti[-\s]?|contro\s+(?:i\s+)?)([a-z0-9][\w\s-]{2,40})/gi;
 
-const SIDE_SECTION_TAGS = new Set([
-  'hand_trap',
-  'negates',
-  'destroys',
-  'banishes',
-  'bounce_to_hand',
-]);
+/**
+ * Curated regex-derived rule tags miss cards their pattern doesn't literally match
+ * (verified against real data: e.g. "bounce_to_hand" misses 1330 cards that carry the
+ * statistically-verified BabelCDB equivalent "category_return_to_hand"). Map each rule
+ * tag used for scoring here to its Babel category-tag equivalent so both count.
+ */
+const RULE_TO_CATEGORY_TAG: Readonly<Record<string, string>> = {
+  destroys: 'category_destroy',
+  negates: 'category_negate',
+  banishes: 'category_banish',
+  bounce_to_hand: 'category_return_to_hand',
+  draw: 'category_draw',
+  special_summons: 'category_special_summon',
+};
+
+function withCategoryEquivalents(tags: readonly string[]): string[] {
+  const expanded = new Set(tags);
+  for (const tag of tags) {
+    const category = RULE_TO_CATEGORY_TAG[tag];
+    if (category) {
+      expanded.add(category);
+    }
+  }
+  return [...expanded];
+}
+
+const SIDE_SECTION_TAGS = new Set(
+  withCategoryEquivalents(['hand_trap', 'negates', 'destroys', 'banishes', 'bounce_to_hand']),
+);
 
 export function buildCompletionProfile(
   direction: DeckCompletionDirection,
@@ -123,7 +145,7 @@ export function buildCompletionProfile(
 
   for (const rule of COUNTER_RULES) {
     if (rule.patterns.some((pattern) => pattern.test(normalized))) {
-      boostTags(profile, rule.tags, 1.4);
+      boostTags(profile, withCategoryEquivalents(rule.tags), 1.4);
       profile.nameKeywords.push(...rule.nameHints);
       profile.archetypeKeywords.push(...rule.archetypes);
     }
@@ -137,7 +159,7 @@ export function buildCompletionProfile(
     profile.nameKeywords.push(fragment);
     for (const rule of COUNTER_RULES) {
       if (rule.patterns.some((pattern) => pattern.test(fragment))) {
-        boostTags(profile, rule.tags, 1.6);
+        boostTags(profile, withCategoryEquivalents(rule.tags), 1.6);
         profile.nameKeywords.push(...rule.nameHints);
         profile.archetypeKeywords.push(...rule.archetypes);
       }
@@ -305,15 +327,23 @@ function applyDirectionBase(profile: CompletionScoringProfile, direction: DeckCo
     case 'combo':
       profile.directionMultiplier = 1.35;
       profile.relationBoosts = { engine: 1.4, mentions_card: 1.35, search_target: 1.3 };
-      boostTags(profile, ['special_summons', 'searches_deck', 'ss_from_hand', 'ss_from_deck'], 1.2);
+      boostTags(
+        profile,
+        withCategoryEquivalents(['special_summons', 'searches_deck', 'ss_from_hand', 'ss_from_deck']),
+        1.2,
+      );
       break;
     case 'staples':
       profile.directionMultiplier = 1.15;
-      boostTags(profile, ['hand_trap', 'draw', 'negates', 'destroys', 'banishes'], 1.45);
+      boostTags(profile, withCategoryEquivalents(['hand_trap', 'draw', 'negates', 'destroys', 'banishes']), 1.45);
       break;
     case 'side_meta':
       profile.directionMultiplier = 1.25;
-      boostTags(profile, ['hand_trap', 'negates', 'destroys', 'banishes', 'bounce_to_hand'], 1.55);
+      boostTags(
+        profile,
+        withCategoryEquivalents(['hand_trap', 'negates', 'destroys', 'banishes', 'bounce_to_hand']),
+        1.55,
+      );
       break;
   }
 }

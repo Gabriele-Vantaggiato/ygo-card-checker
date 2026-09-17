@@ -68,3 +68,42 @@ describe('DecklistService.moveOneCopyToSection', () => {
     ]);
   });
 });
+
+describe('DecklistService.addCardToDecklist', () => {
+  const service = new DecklistService();
+
+  function deckWith(cards: Decklist['cards']): Decklist {
+    return { id: 'd1', name: 'Test', updatedAt: '2026-01-01', cards };
+  }
+
+  it('adds a card to side as its own entry when the same card already sits in main', () => {
+    const deck = deckWith([
+      { id: 1, name: 'Ash', type: 'Effect Monster', imageUrlSmall: null, quantity: 2, section: 'main' },
+    ]);
+
+    const next = service.addCardToDecklist(
+      deck,
+      { id: 1, name: 'Ash', type: 'Effect Monster', imageUrlSmall: null, section: 'side', banlistStatus: null, legalityVerdict: null },
+      1,
+    );
+
+    const main = next.cards.find((c) => c.section === 'main');
+    const side = next.cards.find((c) => c.section === 'side');
+    expect(main?.quantity).toBe(2);
+    expect(side?.quantity).toBe(1);
+  });
+
+  it('still enforces the banlist copy cap across sections combined', () => {
+    const deck = deckWith([
+      { id: 1, name: 'Ash', type: 'Effect Monster', imageUrlSmall: null, quantity: 3, section: 'main' },
+    ]);
+
+    const next = service.addCardToDecklist(
+      deck,
+      { id: 1, name: 'Ash', type: 'Effect Monster', imageUrlSmall: null, section: 'side', banlistStatus: null, legalityVerdict: null },
+      1,
+    );
+
+    expect(next).toBe(deck);
+  });
+});

@@ -18,7 +18,8 @@ import {
   CompletionScoringProfile,
   scoreForCompletion,
 } from '../utils/completion-prompt.utils';
-import { isExtraDeckType, resolveDeckSection } from './ydke.service';
+import { resolveDeckSection } from './ydke.service';
+import { canPlaceCardInSection } from '../utils/deck-section.utils';
 import { CardKnowledgeService } from './card-knowledge.service';
 import { CardLegalityFacade } from './card-legality.facade';
 import { YgoApiService } from './ygo-api.service';
@@ -358,13 +359,8 @@ export class DeckCompletionService {
         continue;
       }
 
-      const cardSection = resolveDeckSection({ type: card.type, section: undefined });
-      const isExtra = cardSection === 'extra' || isExtraDeckType(card.type);
-      if (section === 'extra') {
-        if (!isExtra) {
-          continue;
-        }
-      } else if (isExtra) {
+      // Side accepts both Main- and Extra-Deck cards; only Main/Extra are mutually exclusive.
+      if (!canPlaceCardInSection(card.type, section)) {
         continue;
       }
 

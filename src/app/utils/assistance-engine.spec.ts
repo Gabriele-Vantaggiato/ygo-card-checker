@@ -41,6 +41,11 @@ describe('assistance evidence and resources', () => {
     expect(engine.candidates(1, script).map(hit => hit.targetId)).toEqual([2]);
     expect(engine.candidates(1, scriptFixture('Extra target'))).toEqual([]);
   });
+  it('excludes a race-qualified broad filter with no other constraints, same as a bare "monster" filter', () => {
+    // "Zombie monster" with zero constraints would otherwise match every Zombie in the
+    // catalog (Target, Sibling, ...) — not meaningful evidence for a specific card recommendation.
+    expect(engine.candidates(1, scriptFixture('Zombie monster'))).toEqual([]);
+  });
   it('does not share the this-card cache between different sources', () => {
     expect(engine.targets('this card', 1)?.[0].id).toBe(1);
     expect(engine.targets('this card', 2)?.[0].id).toBe(2);

@@ -57,23 +57,31 @@ export class DecklistService {
       return decklist;
     }
 
-    const existing = decklist.cards.find((c) => c.id === payload.id);
-    const current = existing?.quantity ?? 0;
-    const nextQty = Math.min(current + quantity, max);
-
-    if (nextQty <= current) {
+    // Banlist copy caps apply across every section combined, but each section keeps
+    // its own entry — merging by id alone would silently relocate a side/extra add
+    // into an existing main-section stack instead of filling the section it targets.
+    const totalExisting = decklist.cards
+      .filter((c) => c.id === payload.id)
+      .reduce((sum, c) => sum + c.quantity, 0);
+    const addable = Math.min(quantity, max - totalExisting);
+    if (addable <= 0) {
       return decklist;
     }
+
+    const targetSection = resolveDeckSection({ type: payload.type, section: payload.section });
+    const existing = decklist.cards.find(
+      (c) => c.id === payload.id && resolveDeckSection(c) === targetSection,
+    );
 
     if (existing) {
       return {
         ...decklist,
         updatedAt: new Date().toISOString(),
         cards: decklist.cards.map((c) =>
-          c.id === payload.id
+          c === existing
             ? {
                 ...c,
-                quantity: nextQty,
+                quantity: c.quantity + addable,
                 name: payload.name,
                 type: payload.type,
                 imageUrlSmall: payload.imageUrlSmall ?? c.imageUrlSmall,
@@ -95,7 +103,7 @@ export class DecklistService {
           name: payload.name,
           type: payload.type,
           imageUrlSmall: payload.imageUrlSmall,
-          quantity: Math.min(quantity, max),
+          quantity: addable,
           section: payload.section,
           banlistStatus: payload.banlistStatus ?? null,
           legalityVerdict: payload.legalityVerdict ?? null,
