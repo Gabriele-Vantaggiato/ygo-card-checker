@@ -295,9 +295,13 @@ export function isCompatibleMonsterPartner(
 
   const archetype = (member.archetype ?? '').toLowerCase();
   const name = member.name.toLowerCase();
-  for (const hint of raceHints) {
-    if (name.includes(hint) || archetype.includes(hint)) {
-      return true;
+  // A flavor word in the name/archetype (e.g. "Cyber Laser Dragon" is Machine-Type, not
+  // Dragon) must not override a KNOWN, mismatched race — only use it when race is unknown.
+  if (!race) {
+    for (const hint of raceHints) {
+      if (name.includes(hint) || archetype.includes(hint)) {
+        return true;
+      }
     }
   }
   for (const series of seriesHints) {

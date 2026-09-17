@@ -25,4 +25,10 @@ describe('restricted graveyard partners',()=>{
  it('does not waive race compatibility for the name Mezuki',()=>{
    expect(isCompatibleMonsterPartner({id:92826944,name:'Mezuki',type:'Effect Monster',race:'Zombie',archetype:null,tcgDate:null,banTcg:null,imageSmall:''},new Set(['aqua','sea serpent']))).toBeFalse();
  });
+ it('does not let a flavor word in the name override a known, mismatched race (Cyber Laser Dragon is Machine, not Dragon)',()=>{
+   expect(isCompatibleMonsterPartner({id:4162088,name:'Cyber Laser Dragon',type:'Effect Monster',race:'Machine',archetype:'Photon',tcgDate:null,banTcg:null,imageSmall:''},new Set(['dragon','warrior']))).toBeFalse();
+ });
+ it('still uses the name/archetype fallback when the candidate race is genuinely unknown',()=>{
+   expect(isCompatibleMonsterPartner({id:1,name:'Some Dragon Support',type:'Effect Monster',race:null,archetype:null,tcgDate:null,banTcg:null,imageSmall:''},new Set(['dragon']))).toBeTrue();
+ });
 });

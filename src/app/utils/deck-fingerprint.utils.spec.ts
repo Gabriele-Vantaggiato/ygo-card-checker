@@ -1,5 +1,7 @@
-import { CardRelatedSuggestion } from '../models/card-knowledge.model';
+import { CardKnowledgeEntry, CardKnowledgeIndex, CardRelatedSuggestion } from '../models/card-knowledge.model';
+import { Decklist } from '../models/decklist.model';
 import {
+  buildDeckFingerprint,
   buildDeckIdentitySummary,
   DeckFingerprint,
   suggestionAffinityMultiplier,
@@ -56,6 +58,47 @@ describe('suggestionAffinityMultiplier', () => {
       fingerprint(),
     );
     expect(multiplier).toBeGreaterThan(1);
+  });
+});
+
+describe('buildDeckFingerprint', () => {
+  it('does not surface the dominant race as a pseudo-archetype token', () => {
+    // Downstream code (deck-suggestion.service.ts) merges dominantArchetypes into the
+    // seriesHints used for archetype-compatibility name matching. If a bare race word
+    // like "Dragon" ends up in there, it wrongly matches any candidate whose NAME merely
+    // contains that word (e.g. "Cyber Laser Dragon", a Machine-Type card) — race
+    // cohesion is already correctly captured via dominantRaces, no need to duplicate it.
+    const entry = (overrides: Partial<CardKnowledgeEntry>): CardKnowledgeEntry => ({
+      tags: [],
+      series: [],
+      mentions: [],
+      effects: [],
+      related: [],
+      race: 'Dragon',
+      ...overrides,
+    });
+    const index: CardKnowledgeIndex = {
+      version: 1,
+      generatedAt: '',
+      cardCount: 2,
+      entries: {
+        '1': entry({ series: ['Galaxy-Eyes', 'Galaxy'] }),
+        '2': entry({ series: ['Galaxy-Eyes', 'Galaxy'] }),
+      },
+    };
+    const deck: Decklist = {
+      id: 'd',
+      name: 'd',
+      updatedAt: '',
+      cards: [
+        { id: 1, name: 'A', type: 'Effect Monster', imageUrlSmall: null, quantity: 3 },
+        { id: 2, name: 'B', type: 'Effect Monster', imageUrlSmall: null, quantity: 3 },
+      ],
+    };
+
+    const fp = buildDeckFingerprint(deck, index);
+    expect(fp.dominantArchetypes).not.toContain('Dragon');
+    expect(fp.dominantRaces).toContain('Dragon');
   });
 });
 

@@ -63,10 +63,13 @@ export function buildDeckFingerprint(deck: Decklist, index: CardKnowledgeIndex):
       archetypeWeights.set(series, (archetypeWeights.get(series) ?? 0) + qty * 0.65);
     }
 
-    // Race is a stronger identity signal than noisy cross-links on related[].
-    if (entry.race) {
-      archetypeWeights.set(entry.race, (archetypeWeights.get(entry.race) ?? 0) + qty * 0.9);
-    }
+    // NOTE: deliberately not folding race into archetypeWeights here. Race identity is
+    // already fully captured via raceWeights/dominantRaces/raceShare below — duplicating
+    // it into dominantArchetypes made bare race words (e.g. "Dragon") show up as if they
+    // were real archetype/series tokens. Downstream code (deck-suggestion.service.ts)
+    // merges dominantArchetypes into a name-substring compatibility check, so a stray
+    // "Dragon" entry wrongly matched any candidate whose NAME merely contains that word
+    // (e.g. "Cyber Laser Dragon", a Machine-Type card with zero real connection).
   }
 
   const dominantArchetypes = topWeightedKeys(archetypeWeights, 3);
