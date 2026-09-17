@@ -53,7 +53,17 @@ export function resolveRoleTier(relation: string, scriptRoles: readonly EffectRo
  * Below the tier's taper threshold, stays at formatMax; above it, interpolates
  * linearly down to 1 copy as fullness approaches 1 (deck complete).
  */
-export function scaledMaxCopies(formatMax: number, tier: RoleTier, fullness: number): number {
+export function scaledMaxCopies(
+  formatMax: number,
+  tier: RoleTier,
+  fullness: number,
+  isExtraDeck = false,
+): number {
+  // Extra Deck monsters are situational finishers, not resource cards — multiple
+  // copies of the same one are essentially never correct deckbuilding.
+  if (isExtraDeck) {
+    return Math.min(1, formatMax);
+  }
   if (formatMax <= 1) {
     return formatMax;
   }

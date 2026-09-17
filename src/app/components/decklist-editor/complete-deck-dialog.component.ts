@@ -60,6 +60,26 @@ import { DeckStrategyPanelComponent } from '../deck-strategy-panel/deck-strategy
 
           <app-deck-strategy-panel class="block mt-4" />
 
+          @if (plan()?.identity; as identity) {
+            <div class="mt-3 rounded-lg border border-base-300/60 bg-base-200/40 p-3">
+              <p class="text-xs uppercase tracking-wide text-base-content/50">
+                {{ 'decklist.completion.identity.label' | translate }}
+              </p>
+              @if (identity.hasClearIdentity && identity.archetypes.length > 0) {
+                <p class="text-sm font-medium mt-1">
+                  {{ identity.archetypes.join(' / ') }}
+                  @if (identity.dominantRace) {
+                    <span class="text-base-content/60 font-normal">· {{ identity.dominantRace }}</span>
+                  }
+                </p>
+              } @else {
+                <p class="text-sm text-base-content/60 mt-1">
+                  {{ 'decklist.completion.identity.unclear' | translate }}
+                </p>
+              }
+            </div>
+          }
+
           @if (planning()) {
             <p class="text-sm text-base-content/60 mt-4">{{ 'decklist.completion.planning' | translate }}</p>
           } @else if (plan(); as p) {

@@ -1,6 +1,7 @@
 import { ComboLine } from './card-combo.model';
 import { AddToDecklistPayload } from './decklist.model';
 import { DeckCompletionDirection } from '../utils/completion-prompt.utils';
+import { DeckIdentitySummary } from '../utils/deck-fingerprint.utils';
 
 export interface DeckCompletionOptions {
   targetMain: number;
@@ -45,6 +46,7 @@ export interface DeckCompletionPlan {
   ragSources?: string[];
   ollamaUsed?: boolean;
   matchupKeys?: string[];
+  identity?: DeckIdentitySummary | null;
   adds: DeckCompletionAdd[];
   comboLines: ComboLine[];
   payloads: AddToDecklistPayload[];

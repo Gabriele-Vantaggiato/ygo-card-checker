@@ -47,5 +47,12 @@ describe('deck-role-tier.utils', () => {
         scaledMaxCopies(3, 'tech', fullness),
       );
     });
+
+    it('caps Extra Deck suggestions to 1 copy regardless of tier or fullness', () => {
+      // Extra Deck monsters are situational finishers, not resource cards — suggesting
+      // 3 copies of the same one is essentially always wrong deckbuilding.
+      expect(scaledMaxCopies(3, 'core', 0, true)).toBe(1);
+      expect(scaledMaxCopies(3, 'tech', 0.9, true)).toBe(1);
+    });
   });
 });

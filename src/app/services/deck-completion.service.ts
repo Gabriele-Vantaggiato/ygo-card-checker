@@ -18,7 +18,12 @@ import {
   CompletionScoringProfile,
   scoreForCompletion,
 } from '../utils/completion-prompt.utils';
-import { resolveDeckSection } from './ydke.service';
+import {
+  buildDeckFingerprint,
+  buildDeckIdentitySummary,
+  DeckIdentitySummary,
+} from '../utils/deck-fingerprint.utils';
+import { isExtraDeckType, resolveDeckSection } from './ydke.service';
 import { canPlaceCardInSection } from '../utils/deck-section.utils';
 import { CardKnowledgeService } from './card-knowledge.service';
 import { CardLegalityFacade } from './card-legality.facade';
@@ -137,6 +142,7 @@ export class DeckCompletionService {
           switchMap(([suggestions, sideStaples, index, comboIndex]) => {
             const matchupSuggestions = this.completionRag.toMatchupSuggestions(index, profile, deckCardIds);
             const merged = this.mergeSuggestions(suggestions, sideStaples, matchupSuggestions);
+            const identity = index ? buildDeckIdentitySummary(buildDeckFingerprint(deck, index)) : null;
             if (merged.length === 0) {
               return of(
                 this.emptyPlan(
@@ -151,6 +157,7 @@ export class DeckCompletionService {
                   sideGap,
                   promptSummary,
                   rag,
+                  identity,
                 ),
               );
             }
@@ -178,6 +185,7 @@ export class DeckCompletionService {
                       cards,
                       legality,
                       comboIndex,
+                      identity,
                     ),
                   ),
                 ),
@@ -240,6 +248,7 @@ export class DeckCompletionService {
     cards: YgoCard[],
     legality: Map<number, import('../models/ygo-card.model').LegalityResult>,
     comboIndex: ComboIndex | null,
+    identity: DeckIdentitySummary | null,
   ): DeckCompletionPlan {
     const cardById = new Map(cards.map((card) => [card.id, card]));
     const plannedQty = new Map<number, number>();
@@ -323,6 +332,7 @@ export class DeckCompletionService {
       ragSources: rag.sources,
       ollamaUsed: rag.ollamaUsed,
       matchupKeys: profile.matchupKeys,
+      identity,
       adds,
       comboLines,
       payloads,
@@ -372,7 +382,7 @@ export class DeckCompletionService {
       const formatMax = suggestion.maxCopies ?? 3;
       const fullness = sectionTarget > 0 ? Math.min(1, (sectionTarget - remaining) / sectionTarget) : 0;
       const tier = resolveRoleTier(suggestion.relation, this.effectScripts.getRoles(card.id));
-      const tieredMax = scaledMaxCopies(formatMax, tier, fullness);
+      const tieredMax = scaledMaxCopies(formatMax, tier, fullness, isExtraDeckType(card.type));
       const room = Math.max(0, tieredMax - inDeck - already);
       const quantity = Math.min(room, remaining);
       if (quantity <= 0) {
@@ -488,6 +498,7 @@ export class DeckCompletionService {
     sideGap: number,
     promptSummary: string | null,
     rag: CompletionRagResult,
+    identity: DeckIdentitySummary | null = null,
   ): DeckCompletionPlan {
     return {
       status,
@@ -504,6 +515,7 @@ export class DeckCompletionService {
       ragSources: rag.sources,
       ollamaUsed: rag.ollamaUsed,
       matchupKeys: rag.profile.matchupKeys,
+      identity,
       adds: [],
       comboLines: [],
       payloads: [],

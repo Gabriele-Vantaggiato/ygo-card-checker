@@ -646,7 +646,7 @@ export class DeckSuggestionService {
         const isExtra = entryType ? isExtraDeckType(entryType) : false;
         const scriptRoles = this.effectScripts.getRoles(suggestion.cardId);
         const tier = resolveRoleTier(suggestion.relation, scriptRoles);
-        const max = scaledMaxCopies(formatMax, tier, isExtra ? extraFullness : mainFullness);
+        const max = scaledMaxCopies(formatMax, tier, isExtra ? extraFullness : mainFullness, isExtra);
         const suggestedQty = Math.max(0, max - inDeck);
         return { ...suggestion, suggestedQty };
       })

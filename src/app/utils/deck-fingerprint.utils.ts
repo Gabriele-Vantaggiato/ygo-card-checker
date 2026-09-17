@@ -98,6 +98,22 @@ export function buildDeckFingerprint(deck: Decklist, index: CardKnowledgeIndex):
   };
 }
 
+export interface DeckIdentitySummary {
+  hasClearIdentity: boolean;
+  archetypes: string[];
+  dominantRace: string | null;
+}
+
+/** Human-facing "what is this deck's plan" summary, derived from the same
+ *  weighted signal that drives completion scoring — never a separate guess. */
+export function buildDeckIdentitySummary(fingerprint: DeckFingerprint): DeckIdentitySummary {
+  return {
+    hasClearIdentity: fingerprint.hasClearIdentity,
+    archetypes: fingerprint.dominantArchetypes.slice(0, 2),
+    dominantRace: fingerprint.dominantRaces[0] ?? null,
+  };
+}
+
 export function fingerprintToProfile(fingerprint: DeckFingerprint): Partial<CompletionScoringProfile> {
   const tagBoosts: Record<string, number> = {};
   for (const tag of fingerprint.dominantTags.slice(0, 4)) {
@@ -142,7 +158,11 @@ export function suggestionAffinityMultiplier(
 
   const genericEngine =
     !suggestion.archetype &&
-    (suggestion.relation === 'engine' || suggestion.relation === 'gy_synergy') &&
+    // 'search_target' is how catalog-wide script "evidence" candidates are labeled —
+    // same blast radius as a generic engine/gy_synergy staple, same suppression.
+    (suggestion.relation === 'engine' ||
+      suggestion.relation === 'gy_synergy' ||
+      suggestion.relation === 'search_target') &&
     !archetypeHit &&
     !seriesHit &&
     tagHits === 0;
