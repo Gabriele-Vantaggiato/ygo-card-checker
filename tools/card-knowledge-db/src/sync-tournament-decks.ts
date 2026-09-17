@@ -6,6 +6,11 @@
  * page's own client-side JS. No bulk decklist API is documented, but this one exists and
  * needs no HTML/text parsing at all — card identity is the passcode, nothing is guessed.
  *
+ * Filtered to the site's "Tournament Meta Decks" categories (via `_sft_category`, also
+ * discovered from the deck-search page's own filter dropdown) instead of a generic
+ * popularity sort: real YCS/Regional/WCQ results (tournamentName/tournamentPlacement are
+ * populated for many of these), not old casual/meme decks mixed in by view count.
+ *
  * Respectful of the site: sequential requests with a delay between them, well under the
  * documented API rate limit. `scraped_decks` (keyed by deckNum) makes re-runs idempotent.
  */
@@ -15,6 +20,14 @@ const API_URL = 'https://ygoprodeck.com/api/decks/getDecks.php';
 const PAGE_SIZE = 20; // server-enforced cap regardless of requested limit
 const REQUEST_DELAY_MS = 500;
 const USER_AGENT = 'Mozilla/5.0 (compatible; ygo-card-checker knowledge sync; +local)';
+const CATEGORIES = [
+  'Tournament Meta Decks',
+  'Tournament Meta Decks OCG',
+  'Tournament Meta Decks Worlds',
+  'world championship decks',
+];
+const categoryArg = process.argv.find((arg) => arg.startsWith('--category='));
+const categories = categoryArg ? [categoryArg.split('=').slice(1).join('=')] : CATEGORIES;
 
 interface DeckApiRow {
   deckNum: number;
@@ -32,8 +45,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchPage(offset: number): Promise<DeckApiRow[] | null> {
-  const url = `${API_URL}?sort=Deck%20Views&limit=${PAGE_SIZE}&offset=${offset}`;
+async function fetchPage(category: string, offset: number): Promise<DeckApiRow[] | null> {
+  const url = `${API_URL}?sort=Deck%20Views&limit=${PAGE_SIZE}&offset=${offset}&_sft_category=${encodeURIComponent(category)}`;
   try {
     const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
     if (!response.ok) {
@@ -86,31 +99,37 @@ async function main(): Promise<void> {
   const scrapedNow: string[] = [];
   let decksWithData = 0;
 
-  for (let page = 0; page < maxPages; page++) {
-    const offset = startOffset + page * PAGE_SIZE;
-    process.stdout.write(`\r  page ${page + 1}/${maxPages} (offset=${offset}), decks used: ${decksWithData}`.padEnd(80));
-    const rows = await fetchPage(offset);
-    await sleep(REQUEST_DELAY_MS);
-    if (!rows || rows.length === 0) {
-      console.log('\n  No more decks — stopping.');
-      break;
-    }
+  for (const category of categories) {
+    console.log(`\nCategory: ${category}`);
+    for (let page = 0; page < maxPages; page++) {
+      const offset = startOffset + page * PAGE_SIZE;
+      process.stdout.write(
+        `\r  page ${page + 1}/${maxPages} (offset=${offset}), decks used so far: ${decksWithData}`.padEnd(90),
+      );
+      const rows = await fetchPage(category, offset);
+      await sleep(REQUEST_DELAY_MS);
+      if (!rows || rows.length === 0) {
+        console.log('\n  No more decks in this category — moving on.');
+        break;
+      }
 
-    for (const row of rows) {
-      const key = String(row.deckNum);
-      if (alreadyScraped.has(key)) {
-        continue;
+      for (const row of rows) {
+        const key = String(row.deckNum);
+        if (alreadyScraped.has(key)) {
+          continue;
+        }
+        const cardIds = [
+          ...parseCardIds(row.main_deck),
+          ...parseCardIds(row.extra_deck),
+          ...parseCardIds(row.side_deck),
+        ];
+        if (cardIds.length > 0) {
+          recordCooccurrence(pairWeights, cardIds);
+          decksWithData++;
+        }
+        alreadyScraped.add(key);
+        scrapedNow.push(key);
       }
-      const cardIds = [
-        ...parseCardIds(row.main_deck),
-        ...parseCardIds(row.extra_deck),
-        ...parseCardIds(row.side_deck),
-      ];
-      if (cardIds.length > 0) {
-        recordCooccurrence(pairWeights, cardIds);
-        decksWithData++;
-      }
-      scrapedNow.push(key);
     }
   }
   console.log('');
