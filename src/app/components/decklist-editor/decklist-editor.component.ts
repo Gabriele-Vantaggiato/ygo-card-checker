@@ -100,6 +100,7 @@ import {
           (importYdke)="openImportYdkeDialog()"
           (exportYdke)="openYdkeDialog(activeDeck)"
           (sortDeck)="decklistStore.sortActiveDeck()"
+          (clearDeck)="decklistStore.clearActiveDeck()"
           (deleteDeck)="decklistStore.deleteActiveDecklist(); back.emit()"
         />
 

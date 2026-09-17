@@ -122,6 +122,14 @@ export class DecklistStore {
     this.replaceDeck(this.decklistService.sortDecklist(deck));
   }
 
+  clearActiveDeck(): void {
+    const deck = this.activeDecklist();
+    if (!deck) {
+      return;
+    }
+    this.replaceDeck(this.decklistService.replaceCards(deck, []));
+  }
+
   addCard(payload: AddToDecklistPayload, quantity = 1): void {
     const deckId = this.activeDecklistId();
     if (!deckId) {

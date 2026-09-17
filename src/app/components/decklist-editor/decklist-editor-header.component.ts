@@ -67,6 +67,11 @@ import { FormatStore } from '../../core/stores/format.store';
           <span duelDropdownTrigger aria-hidden="true">⋯</span>
           <li><button type="button" (click)="sortDeck.emit()">{{ 'decklist.editor.sort' | translate }}</button></li>
           <li>
+            <button type="button" class="text-error" (click)="clearDeck.emit()">
+              {{ 'decklist.clear' | translate }}
+            </button>
+          </li>
+          <li>
             <button type="button" class="text-error" (click)="deleteDeck.emit()">
               {{ 'decklist.delete' | translate }}
             </button>
@@ -143,5 +148,6 @@ export class DecklistEditorHeaderComponent {
   readonly importYdke = output<void>();
   readonly exportYdke = output<void>();
   readonly sortDeck = output<void>();
+  readonly clearDeck = output<void>();
   readonly deleteDeck = output<void>();
 }
