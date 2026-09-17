@@ -364,14 +364,18 @@ export function seriesNamesForCard(input: {
   if (input.archetype) {
     names.add(input.archetype);
   }
-  if (/\bPhoton\b/i.test(input.name)) {
+  // "Galaxy-Eyes Photon Dragon" belongs to the Galaxy-Eyes archetype, not the separate,
+  // unrelated real "Photon" archetype (2008 Cyber Dragon support) that just happens to
+  // share the word — cross-tagging pulled its whole unrelated roster into Galaxy-Eyes
+  // deck suggestions. The bare "Photon" name match below is skipped for Galaxy-Eyes cards.
+  const isGalaxyEyes = /\bGalaxy-Eyes\b/i.test(input.name);
+  if (/\bPhoton\b/i.test(input.name) && !isGalaxyEyes) {
     names.add('Photon');
   }
-  if (/\bGalaxy-Eyes\b/i.test(input.name)) {
+  if (isGalaxyEyes) {
     names.add('Galaxy-Eyes');
     names.add('Galaxy');
-    names.add('Photon');
-  } else   if (/\bGalaxy\b/i.test(input.name)) {
+  } else if (/\bGalaxy\b/i.test(input.name)) {
     names.add('Galaxy');
   }
   if (/\bCyber\b/i.test(input.name)) {

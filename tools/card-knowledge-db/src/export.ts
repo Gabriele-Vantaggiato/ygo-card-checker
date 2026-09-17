@@ -328,14 +328,11 @@ async function main(): Promise<void> {
     for (const token of seriesNamesForCard({ name: card.name, archetype: card.archetype })) {
       series.add(token);
     }
-    const tags = tagsByCard.get(card.id) ?? [];
-    if (tags.includes('mentions_photon')) {
-      series.add('Photon');
-    }
-    if (tags.includes('mentions_galaxy')) {
-      series.add('Galaxy');
-      series.add('Galaxy-Eyes');
-    }
+    // NOTE: deliberately not adding series tokens from the mentions_photon/mentions_galaxy
+    // tags here — those fire from a bare name/archetype word match (see mechanic-tags.ts)
+    // and reintroduce the exact "Galaxy-Eyes Photon Dragon" != "Photon" archetype
+    // conflation that seriesNamesForCard above already handles correctly. Real archetype
+    // membership already flows from row.archetype via seriesRows above.
     if (series.size > 0) {
       seriesByCard.set(card.id, [...series]);
     }
