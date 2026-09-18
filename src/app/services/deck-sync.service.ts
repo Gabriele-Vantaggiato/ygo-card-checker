@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { customAlphabet } from 'nanoid';
 import { supabase } from '../core/supabase-client';
 import { Decklist, DecklistStorage } from '../models/decklist.model';
 import { AuthService } from './auth.service';
@@ -11,8 +10,6 @@ interface DeckRow {
   id: string;
   name: string;
   cards: Decklist['cards'];
-  is_public: boolean;
-  share_slug: string | null;
   updated_at: string;
 }
 
@@ -41,7 +38,7 @@ export class DeckSyncService {
 
     const { data, error } = await supabase
       .from('decks')
-      .select('id, name, cards, is_public, share_slug, updated_at')
+      .select('id, name, cards, updated_at')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });
 
@@ -158,41 +155,4 @@ export class DeckSyncService {
       throw new Error(error.message);
     }
   }
-
-  /** Enables/disables the public read-only share link for a deck. Returns the slug (or null if disabled). */
-  async setPublic(deckId: string, isPublic: boolean): Promise<string | null> {
-    const userId = this.authService.currentUser?.id;
-    if (!userId) {
-      throw new Error('Not logged in');
-    }
-
-    if (!isPublic) {
-      const { error } = await supabase
-        .from('decks')
-        .update({ is_public: false })
-        .eq('id', deckId)
-        .eq('user_id', userId);
-      if (error) throw new Error(error.message);
-      return null;
-    }
-
-    const { data: existing, error: readError } = await supabase
-      .from('decks')
-      .select('share_slug')
-      .eq('id', deckId)
-      .eq('user_id', userId)
-      .single();
-    if (readError) throw new Error(readError.message);
-
-    const slug = existing?.share_slug ?? generateShareSlug();
-    const { error } = await supabase
-      .from('decks')
-      .update({ is_public: true, share_slug: slug })
-      .eq('id', deckId)
-      .eq('user_id', userId);
-    if (error) throw new Error(error.message);
-    return slug;
-  }
 }
-
-const generateShareSlug = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10);

@@ -53,6 +53,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/share/pages/share-deck.page').then((m) => m.ShareDeckPage),
       },
+      {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/profile/pages/profile.page').then((m) => m.ProfilePage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },
