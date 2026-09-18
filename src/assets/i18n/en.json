@@ -825,5 +825,12 @@
   "search.advancedFilters.close": "Close",
   "search.advancedFilters.searchButton": "Search",
   "search.advancedFilters.placeholder": "Card name or effect text…",
-  "search.resultsHeading": "Cards found ({count})"
+  "search.resultsHeading": "Cards found ({count})",
+  "deckHealth.warning.noStarters": "No starters: nothing in this deck reliably opens your turn.",
+  "deckHealth.warning.lackBoardbreakers": "No boardbreakers: you have no way to interact with your opponent's board.",
+  "deckHealth.warning.fewHandtraps": "Only {count} hand traps (recommended at least {min}).",
+  "deckHealth.warning.tooManyGarnets": "{count} garnets: cards that do nothing outside their own engine.",
+  "deckHealth.warning.tooManyNormalSummonReliant": "{count} monsters rely on a plain Normal Summon with no alternate route onto the field.",
+  "comboEngine.detected": "Detected engine",
+  "comboFlow.title": "Combo flow"
 }

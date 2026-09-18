@@ -5,6 +5,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { deriveCardFrame } from './card-frame';
 import type { StructuredEffect } from './effect-parser';
 import type { SyncMeta, YgoProDeckCard } from './types';
+import type { SemanticProfile, SemanticProfileRow } from './semantic-model';
+import { parseSemanticProfileRow } from './semantic-model';
 
 const TOOL_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const REPO_ROOT = join(TOOL_ROOT, '..', '..');
@@ -328,6 +330,122 @@ export function loadEffectsByCard(db: DatabaseSync): Map<number, StructuredEffec
     map.set(row.card_id, bucket);
   }
   return map;
+}
+
+// --- Pillar 1: semantic profile (roles/triggers/outcomes/cost flags/restrictions) ---
+
+export function upsertSemanticProfile(
+  db: DatabaseSync,
+  cardId: number,
+  profile: SemanticProfile,
+  source: 'rule' | 'llm' | 'manual' = 'rule',
+): void {
+  db.prepare(
+    `INSERT INTO card_semantic_profile (
+      card_id, roles_json, triggers_json, outcomes_json, cost_flags_json, restrictions_json, source, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(card_id) DO UPDATE SET
+      roles_json = excluded.roles_json,
+      triggers_json = excluded.triggers_json,
+      outcomes_json = excluded.outcomes_json,
+      cost_flags_json = excluded.cost_flags_json,
+      restrictions_json = excluded.restrictions_json,
+      source = excluded.source,
+      updated_at = excluded.updated_at`,
+  ).run(
+    cardId,
+    JSON.stringify(profile.roles),
+    JSON.stringify(profile.triggers),
+    JSON.stringify(profile.outcomes),
+    JSON.stringify(profile.costFlags),
+    JSON.stringify(profile.restrictions),
+    source,
+    new Date().toISOString(),
+  );
+}
+
+export function loadSemanticProfiles(db: DatabaseSync): Map<number, SemanticProfile> {
+  const rows = db
+    .prepare(
+      'SELECT card_id, roles_json, triggers_json, outcomes_json, cost_flags_json, restrictions_json FROM card_semantic_profile',
+    )
+    .all() as SemanticProfileRow[];
+  const map = new Map<number, SemanticProfile>();
+  for (const row of rows) {
+    map.set(row.card_id, parseSemanticProfileRow(row));
+  }
+  return map;
+}
+
+export function countSemanticProfiles(db: DatabaseSync): number {
+  return (db.prepare('SELECT COUNT(*) AS c FROM card_semantic_profile').get() as { c: number }).c;
+}
+
+// --- Pillar 3: Engine detection (ComboEngine / ComboEngineCard) ---
+
+export function clearComboEngines(db: DatabaseSync): void {
+  db.exec('DELETE FROM combo_engine_cards');
+  db.exec('DELETE FROM combo_engines');
+}
+
+export function upsertComboEngine(
+  db: DatabaseSync,
+  input: { key: string; name: string; description: string | null; minCardsThreshold: number },
+): number {
+  db.prepare(
+    `INSERT INTO combo_engines (key, name, description, min_cards_threshold, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       name = excluded.name,
+       description = excluded.description,
+       min_cards_threshold = excluded.min_cards_threshold,
+       updated_at = excluded.updated_at`,
+  ).run(input.key, input.name, input.description, input.minCardsThreshold, new Date().toISOString());
+  return (db.prepare('SELECT id FROM combo_engines WHERE key = ?').get(input.key) as { id: number }).id;
+}
+
+export function insertComboEngineCard(
+  db: DatabaseSync,
+  engineId: number,
+  cardId: number,
+  role: 'core' | 'support',
+  minCopies: number,
+): void {
+  db.prepare(
+    `INSERT INTO combo_engine_cards (engine_id, card_id, role, min_copies)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(engine_id, card_id) DO UPDATE SET role = excluded.role, min_copies = excluded.min_copies`,
+  ).run(engineId, cardId, role, minCopies);
+}
+
+// --- Pillar 4: Combo Flows ---
+
+export function clearComboFlows(db: DatabaseSync): void {
+  db.exec('DELETE FROM combo_flow_key_cards');
+  db.exec('DELETE FROM combo_flows');
+}
+
+export function upsertComboFlow(
+  db: DatabaseSync,
+  input: { key: string; title: string; engineId: number | null; steps: string[] },
+): number {
+  db.prepare(
+    `INSERT INTO combo_flows (key, title, engine_id, steps_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       title = excluded.title,
+       engine_id = excluded.engine_id,
+       steps_json = excluded.steps_json,
+       updated_at = excluded.updated_at`,
+  ).run(input.key, input.title, input.engineId, JSON.stringify(input.steps), new Date().toISOString());
+  return (db.prepare('SELECT id FROM combo_flows WHERE key = ?').get(input.key) as { id: number }).id;
+}
+
+export function insertComboFlowKeyCard(db: DatabaseSync, flowId: number, cardId: number): void {
+  db.prepare(
+    `INSERT INTO combo_flow_key_cards (flow_id, card_id) VALUES (?, ?)
+     ON CONFLICT(flow_id, card_id) DO NOTHING`,
+  ).run(flowId, cardId);
 }
 
 export function loadParsedEffectsForCard(

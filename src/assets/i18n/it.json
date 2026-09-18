@@ -825,5 +825,12 @@
   "search.advancedFilters.close": "Chiudi",
   "search.advancedFilters.searchButton": "Cerca",
   "search.advancedFilters.placeholder": "Nome carta o testo effetto…",
-  "search.resultsHeading": "Carte trovate ({count})"
+  "search.resultsHeading": "Carte trovate ({count})",
+  "deckHealth.warning.noStarters": "Nessuno starter: nulla in questo deck apre il turno in modo affidabile.",
+  "deckHealth.warning.lackBoardbreakers": "Nessun boardbreaker: non hai modo di interagire con il board avversario.",
+  "deckHealth.warning.fewHandtraps": "Solo {count} hand trap (consigliate almeno {min}).",
+  "deckHealth.warning.tooManyGarnets": "{count} garnet: carte inutili fuori dal proprio engine.",
+  "deckHealth.warning.tooManyNormalSummonReliant": "{count} mostri dipendono da una semplice Evocazione Normale senza vie alternative in campo.",
+  "comboEngine.detected": "Engine rilevato",
+  "comboFlow.title": "Combo flow"
 }

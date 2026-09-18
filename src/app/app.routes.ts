@@ -48,6 +48,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/replay/pages/replay.page').then((m) => m.ReplayPage),
       },
+      {
+        path: 'd/:slug',
+        loadComponent: () =>
+          import('./features/share/pages/share-deck.page').then((m) => m.ShareDeckPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -11,6 +11,8 @@ import {
   maxCopiesForStatus,
 } from '../../../models/decklist.model';
 import { DecklistService } from '../../../services/decklist.service';
+import { AuthService } from '../../../services/auth.service';
+import { DeckSyncService } from '../../../services/deck-sync.service';
 import { CardLegalityFacade } from '../../../services/card-legality.facade';
 import { I18nService, Lang } from '../../../services/i18n.service';
 import { YgoApiService } from '../../../services/ygo-api.service';
@@ -34,6 +36,11 @@ export class DecklistStore {
   private readonly ydkeService = inject(YdkeService);
   private readonly ygoApi = inject(YgoApiService);
   private readonly cardLegality = inject(CardLegalityFacade);
+  private readonly authService = inject(AuthService);
+  private readonly deckSyncService = inject(DeckSyncService);
+
+  /** True once a logged-in session's decks (local-import-if-first-login) have loaded — from then on, persist() writes to Supabase instead of localStorage. */
+  private cloudSyncEnabled = false;
 
   private readonly storage = signal(this.decklistService.load());
 
@@ -55,6 +62,36 @@ export class DecklistStore {
       this.bootstrapDefaultDecklist();
     } else if (!this.storage().activeId) {
       this.patchStorage((s) => ({ ...s, activeId: s.decklists[0]?.id ?? null }));
+    }
+
+    this.authService.session$.subscribe((session) => {
+      if (session) {
+        void this.enableCloudSync();
+      } else {
+        this.cloudSyncEnabled = false;
+      }
+    });
+  }
+
+  /** On login: adopt the account's existing decks, or (first login, empty account) import the local ones once. */
+  private async enableCloudSync(): Promise<void> {
+    try {
+      const localSnapshot = this.storage();
+      const remote = await this.deckSyncService.load();
+
+      if (remote.decklists.length === 0 && localSnapshot.decklists.length > 0) {
+        await this.deckSyncService.importLocalDecks(localSnapshot);
+        this.cloudSyncEnabled = true;
+        return;
+      }
+
+      if (remote.decklists.length > 0) {
+        this.storage.set(remote);
+      }
+      this.cloudSyncEnabled = true;
+    } catch {
+      // Network/RLS failure — stay on localStorage for this session rather than losing edits.
+      this.cloudSyncEnabled = false;
     }
   }
 
@@ -680,6 +717,10 @@ export class DecklistStore {
   }
 
   private persist(): void {
+    if (this.cloudSyncEnabled) {
+      void this.deckSyncService.save(this.storage());
+      return;
+    }
     this.decklistService.save(this.storage());
   }
 }

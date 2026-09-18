@@ -123,3 +123,58 @@ CREATE TABLE IF NOT EXISTS card_scripts (
   updated_at TEXT NOT NULL,
   FOREIGN KEY (card_id) REFERENCES cards(id)
 );
+
+-- Pillar 1: semantic enrichment (roles/triggers/outcomes/cost flags/restrictions).
+-- One row per card, flat JSON columns — same pattern as formats_json/setcode_json above.
+CREATE TABLE IF NOT EXISTS card_semantic_profile (
+  card_id INTEGER PRIMARY KEY,
+  roles_json TEXT NOT NULL DEFAULT '[]',
+  triggers_json TEXT NOT NULL DEFAULT '[]',
+  outcomes_json TEXT NOT NULL DEFAULT '[]',
+  cost_flags_json TEXT NOT NULL DEFAULT '{"discardsForCost":false,"tributesForCost":false,"banishesForCost":false}',
+  restrictions_json TEXT NOT NULL DEFAULT '{}',
+  source TEXT NOT NULL CHECK (source IN ('rule', 'llm', 'manual')) DEFAULT 'rule',
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (card_id) REFERENCES cards(id)
+);
+
+-- Pillar 3: modular engine detection. "combo_" prefix avoids colliding with the
+-- existing frontend AssistanceEngine / 'engine' relation-kind naming.
+CREATE TABLE IF NOT EXISTS combo_engines (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  min_cards_threshold INTEGER NOT NULL DEFAULT 2,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS combo_engine_cards (
+  engine_id INTEGER NOT NULL,
+  card_id INTEGER NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('core', 'support')) DEFAULT 'core',
+  min_copies INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (engine_id, card_id),
+  FOREIGN KEY (engine_id) REFERENCES combo_engines(id),
+  FOREIGN KEY (card_id) REFERENCES cards(id)
+);
+CREATE INDEX IF NOT EXISTS idx_combo_engine_cards_card ON combo_engine_cards(card_id);
+
+-- Pillar 4: combo flows, gated by an Engine or an explicit set of key cards.
+CREATE TABLE IF NOT EXISTS combo_flows (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  engine_id INTEGER,
+  steps_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (engine_id) REFERENCES combo_engines(id)
+);
+
+CREATE TABLE IF NOT EXISTS combo_flow_key_cards (
+  flow_id INTEGER NOT NULL,
+  card_id INTEGER NOT NULL,
+  PRIMARY KEY (flow_id, card_id),
+  FOREIGN KEY (flow_id) REFERENCES combo_flows(id),
+  FOREIGN KEY (card_id) REFERENCES cards(id)
+);

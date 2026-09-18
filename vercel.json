@@ -1,4 +1,7 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist/ygo-card-checker/browser"
+  "outputDirectory": "dist/ygo-card-checker/browser",
+  "crons": [
+    { "path": "/api/cron/update-synergies", "schedule": "0 3 * * 1" }
+  ]
 }
