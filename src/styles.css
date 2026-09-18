@@ -2,6 +2,7 @@
 @import "./styles/flow-lab.css";
 @import "./styles/landing.css";
 @import "./styles/landing-cinema.css";
+@import "./styles/landing-readability.css";
 
 @plugin "daisyui" {
   themes: duel --default;
@@ -1144,3 +1145,39 @@ body:has(.mobile-card-sheet) { overflow: hidden; }
 .flow-jump{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid #343630;font-size:12px;color:#b9b7ad}.flow-jump select{max-width:290px}.flow-jump>span{margin-left:auto;font-size:11px}@media(max-width:600px){.flow-jump>span{display:none}}
 /* Card-first Flow nodes and portable documents */
 .flow-file-tools{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 24px;border-bottom:1px solid #343630;background:#d5b77a07}.flow-file-tools strong{font-size:13px;color:#e0cca2}.flow-file-tools p,.flow-palette-help{font-size:12px;line-height:1.7;color:#b9b7ad;margin-top:5px}.flow-catalog-controls{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.flow-catalog-controls input{flex:1;min-width:200px;max-width:550px}.flow-catalog-controls select{max-width:340px}.flow-palette-card{flex-basis:105px;padding:8px;border:1px solid transparent;border-radius:8px;transition:background .2s,border-color .2s}.flow-palette-card:hover,.flow-palette-card:focus-visible{border-color:#d5b77a88;background:#d5b77a0b}.flow-palette-card img{width:76px;height:111px;margin:auto auto 8px}.flow-palette-card b{display:block;margin-top:6px;color:#d5b77a;font-size:10px}.flow-step{height:208px}.flow-step-body{height:139px;align-items:flex-start}.flow-step-body img{width:70px;height:102px;flex-shrink:0;box-shadow:0 4px 12px #0008}.flow-step-body small{-webkit-line-clamp:5}.flow-card-details{border-bottom:1px solid #d5b77a33;padding-bottom:20px}.flow-card-details-heading{display:flex;gap:12px;align-items:flex-start;margin-bottom:18px}.flow-card-details-heading>img{width:86px;border-radius:5px}.flow-card-details h3{font-size:14px;line-height:1.5;margin-top:7px}.flow-card-details h4{font-size:12px;color:#d5b77a;margin-bottom:8px}.flow-card-details .flow-card-effect{white-space:pre-line;font-size:12px;color:#deded2;line-height:1.9;max-height:260px;overflow:auto;margin-bottom:14px}.flow-card-stats{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.flow-card-stats span{font-size:9px;border:1px solid #565140;padding:3px 5px;border-radius:4px}.flow-card-details .duel-eyebrow{font-size:8px}.flow-inspector{scroll-margin-top:100px}
+
+/* Keep the deck library available immediately, including on small screens. */
+.library-workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.library-workspace-header h1 {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+.library-workspace-header p {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-base-content);
+}
+@media (max-width: 1023px) {
+  .mobile-tab-bar {
+    overflow-x: auto;
+    gap: 0;
+  }
+  .mobile-tab {
+    min-width: 3.5rem;
+    padding-inline: 0;
+  }
+  .mobile-tab-label {
+    font-size: 0.875rem;
+    color: var(--color-base-content);
+    text-overflow: clip;
+  }
+  .mobile-tab-active .mobile-tab-label {
+    color: var(--color-primary);
+  }
+}

@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { I18nService } from '../../services/i18n.service';
 import { DecklistStore } from '../../features/decklist/stores/decklist.store';
 import { FormatStore } from '../../core/stores/format.store';
@@ -10,34 +9,18 @@ import { DecklistTileComponent } from './decklist-tile.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-decklist-grid',
   standalone: true,
-  imports: [TranslatePipe, DecklistTileComponent, RouterLink],
+  imports: [TranslatePipe, DecklistTileComponent],
   template: `
     <section class="library-page">
-      <header class="duel-hero">
-        <div class="duel-hero-copy">
-          <p class="duel-eyebrow"><span class="duel-diamond" aria-hidden="true"></span> {{ 'studio.eyebrow' | translate }}</p>
-          <h1>{{ 'studio.title' | translate }}<br><em>{{ 'studio.titleAccent' | translate }}</em></h1>
-          <p class="duel-hero-description">{{ 'studio.description' | translate }}</p>
-          <div class="flex flex-wrap gap-3 mt-6">
-            <button type="button" class="btn btn-primary gap-3" (click)="createRequested.emit()"><span aria-hidden="true">＋</span>{{ 'decklist.create.button' | translate }}</button>
-            <a routerLink="/search" class="btn btn-ghost gap-3">{{ 'studio.explore' | translate }} <span aria-hidden="true">↗</span></a>
-          </div>
-          <p class="duel-hero-note"><span aria-hidden="true">◇</span> {{ 'studio.localNote' | translate }}</p>
+      <header class="library-workspace-header">
+        <div>
+          <h1>Deck Studio</h1>
+          <p>{{ 'studio.localNote' | translate }}</p>
         </div>
-        <div class="duel-hero-art" aria-hidden="true">
-          <div class="duel-sigil"><span>✦</span></div>
-          <div class="hero-card hero-card-left"><img src="https://images.ygoprodeck.com/images/cards/46986414.jpg" alt="" width="421" height="614" fetchpriority="low" (error)="hideBrokenArt($event)"></div>
-          <div class="hero-card hero-card-right"><img src="https://images.ygoprodeck.com/images/cards/84013237.jpg" alt="" width="421" height="614" fetchpriority="low" (error)="hideBrokenArt($event)"></div>
-          <div class="hero-card hero-card-center"><img src="https://images.ygoprodeck.com/images/cards/89631139.jpg" alt="" width="421" height="614" fetchpriority="low" (error)="hideBrokenArt($event)"></div>
-          <span class="hero-art-caption">THE HEART OF THE CARDS</span>
-        </div>
+        <button type="button" class="btn btn-primary" (click)="createRequested.emit()">
+          <span aria-hidden="true">＋</span>{{ 'decklist.create.button' | translate }}
+        </button>
       </header>
-
-      <div class="studio-tool-links">
-        <a routerLink="/search" class="studio-tool-link"><span class="studio-tool-number">01</span><div><strong>{{ 'studio.searchTitle' | translate }}</strong><span>{{ 'studio.searchHint' | translate }}</span></div><span aria-hidden="true">↗</span></a>
-        <a routerLink="/overlay" class="studio-tool-link"><span class="studio-tool-number">02</span><div><strong>{{ 'studio.overlayTitle' | translate }}</strong><span>{{ 'studio.overlayHint' | translate }}</span></div><span aria-hidden="true">↗</span></a>
-        <a routerLink="/flow" class="studio-tool-link"><span class="studio-tool-number">03</span><div><strong>{{ 'studio.flowTitle' | translate }}</strong><span>{{ 'studio.flowHint' | translate }}</span></div><span aria-hidden="true">↗</span></a>
-      </div>
 
       <section class="library-collection" aria-labelledby="collection-title">
         <div class="library-heading">
@@ -92,5 +75,4 @@ export class DecklistGridComponent {
     return format ? format.name[this.i18n.lang()] : '—';
   });
   setSort(value: string): void { if (value === 'recent' || value === 'name' || value === 'size') this.sort.set(value); }
-  hideBrokenArt(event: Event): void { (event.target as HTMLImageElement).style.display = 'none'; }
 }

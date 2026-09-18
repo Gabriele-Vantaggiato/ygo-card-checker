@@ -1,0 +1,41 @@
+/* Readable content takes precedence over decorative scene sizing. */
+.duel-landing.lp-cinema .lp-lead,
+.duel-landing.lp-cinema .lp-scene-copy > p:not(.lp-eyebrow):not(.lp-fine-print),
+.duel-landing.lp-cinema .lp-manifesto > p:last-of-type,
+.duel-landing.lp-cinema .lp-faq p {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+.duel-landing.lp-cinema .lp-button,
+.duel-landing.lp-cinema .lp-text-link,
+.duel-landing.lp-cinema .lp-faq summary,
+.duel-landing.lp-cinema .lp-motion-control,
+.duel-landing.lp-cinema .lp-chapters a,
+.duel-landing.lp-cinema .lp-feature-list,
+.duel-landing.lp-cinema .lp-fine-print {
+  font-size: 0.875rem;
+}
+.duel-landing.lp-cinema .lp-eyebrow,
+.duel-landing.lp-cinema .lp-hero-note,
+.duel-landing.lp-cinema .lp-scroll-cue,
+.duel-landing.lp-cinema .lp-art-caption,
+.duel-landing.lp-cinema .lp-visual-label,
+.duel-landing.lp-cinema .lp-detail-eyebrow,
+.duel-landing.lp-cinema .lp-fan-note {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+.duel-landing.lp-cinema .lp-chapters a {
+  gap: 0.25rem;
+  letter-spacing: 0;
+  flex-wrap: wrap;
+}
+.duel-landing.lp-cinema .lp-motion-control {
+  min-height: 2.75rem;
+}
+@container duel (max-width: 640px) {
+  .duel-landing.lp-cinema .lp-hero-bottom {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+}

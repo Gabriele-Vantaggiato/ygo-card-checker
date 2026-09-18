@@ -4,6 +4,7 @@ import { LanguageToggleComponent } from '../../components/language-toggle/langua
 import { FormatSelectorComponent } from '../../components/format-selector/format-selector.component';
 import { DialogHostComponent } from '../../components/dialog-host/dialog-host.component';
 import { ToastHostComponent } from '../../components/toast-host/toast-host.component';
+import { AuthButtonComponent } from '../../components/auth-button/auth-button.component';
 import { I18nService } from '../../services/i18n.service';
 import { FormatStore } from '../stores/format.store';
 
@@ -28,6 +29,7 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
     TranslatePipe,
     NavIconComponent,
     DuelFieldBackgroundComponent,
+    AuthButtonComponent,
   ],
   template: `
     <div class="app-shell">
@@ -86,6 +88,10 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
           <div class="flex-none">
             <app-language-toggle />
           </div>
+
+          <div class="flex-none">
+            <app-auth-button />
+          </div>
         </header>
 
         <div id="main-content" tabindex="-1" class="flex-1 pb-[max(5.5rem,calc(4.75rem+env(safe-area-inset-bottom)))] lg:pb-0">
@@ -120,9 +126,9 @@ import { DuelFieldBackgroundComponent } from '../../shared/ui/duel-field-bg/duel
           <span class="mobile-tab-icon"><app-nav-icon name="combo" /></span>
           <span class="mobile-tab-label">{{ 'nav.combo' | translate }}</span>
         </a>
-        <a routerLink="/flow" ariaCurrentWhenActive="page" routerLinkActive="mobile-tab-active" class="mobile-tab">
+        <a routerLink="/flow" [attr.aria-label]="'nav.flow' | translate" ariaCurrentWhenActive="page" routerLinkActive="mobile-tab-active" class="mobile-tab">
           <span class="mobile-tab-icon"><app-nav-icon name="flow" /></span>
-          <span class="mobile-tab-label">{{ 'nav.flow' | translate }}</span>
+          <span class="mobile-tab-label">Flow</span>
         </a>
       </nav>
 
