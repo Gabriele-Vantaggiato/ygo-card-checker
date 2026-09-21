@@ -14,15 +14,17 @@ import { SearchToolbarComponent } from '../../shared/ui/search-toolbar/search-to
   host: { class: 'block' },
   template: `
     <div class="checker-search w-full relative">
-      <app-search-toolbar
-        [query]="query()"
-        [loading]="loading() || legalityLoading()"
-        [filtersOpen]="filtersOpen()"
-        [filterCount]="filterCount()"
-        (queryChange)="queryChange.emit($event)"
-        (search)="search.emit()"
-        (filtersToggle)="filtersToggle.emit()"
-      />
+      <div class="checker-search-toolbar-slot">
+        <app-search-toolbar
+          [query]="query()"
+          [loading]="loading() || legalityLoading()"
+          [filtersOpen]="filtersOpen()"
+          [filterCount]="filterCount()"
+          (queryChange)="queryChange.emit($event)"
+          (search)="search.emit()"
+          (filtersToggle)="filtersToggle.emit()"
+        />
+      </div>
 
       <div class="checker-search-results">
         @if (loading() && suggestions().length === 0) {

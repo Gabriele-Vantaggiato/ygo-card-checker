@@ -1,10 +1,12 @@
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -15,19 +17,19 @@ import { CardDetailTabsComponent } from '../../../components/card-detail-tabs/ca
 import { FormatSelectorComponent } from '../../../components/format-selector/format-selector.component';
 import { SearchHistoryComponent } from '../../../components/search-history/search-history.component';
 import { CardSearchFiltersPanelComponent } from '../../../shared/ui/card-search-filters-panel/card-search-filters-panel.component';
+import { SearchToolbarComponent } from '../../../shared/ui/search-toolbar/search-toolbar.component';
 import { I18nService } from '../../../services/i18n.service';
 import { CheckerStore } from '../stores/checker.store';
 import { DecklistStore } from '../../decklist/stores/decklist.store';
+import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
+import { YgoCard } from '../../../models/ygo-card.model';
+import { SearchHistoryEntry } from '../../../models/search-history.model';
 
 interface DeckReturnContext {
   deckId: string;
   deckName: string;
   cardId: number;
 }
-
-import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
-import { YgoCard } from '../../../models/ygo-card.model';
-import { SearchHistoryEntry } from '../../../models/search-history.model';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,6 +41,7 @@ import { SearchHistoryEntry } from '../../../models/search-history.model';
     CardDetailTabsComponent,
     SearchHistoryComponent,
     CardSearchFiltersPanelComponent,
+    SearchToolbarComponent,
     TranslatePipe,
   ],
   providers: [CheckerStore],
@@ -95,85 +98,88 @@ import { SearchHistoryEntry } from '../../../models/search-history.model';
         </div>
       }
 
-      @if (store.selectedCard(); as selected) {
-        <div class="checker-mobile-jump lg:hidden">
-          <button type="button" class="btn btn-ghost btn-xs" (click)="scrollToSearch()">
-            {{ 'checker.jumpSearch' | translate }}
-          </button>
-          <span class="checker-mobile-jump-name">{{ selected.name }}</span>
-          <button type="button" class="btn btn-ghost btn-xs" (click)="scrollToDetail()">
-            {{ 'checker.jumpResult' | translate }}
-          </button>
-        </div>
-      }
-
-      <div
-        class="checker-layout"
-        [class.checker-has-selection]="!!store.selectedCard()"
-        [class.checker-is-searching]="isSearching()"
-      >
-        <aside #searchPane class="checker-sidebar fade-in-panel" id="checker-search">
-          <div class="checker-sidebar-search">
-            <app-card-search
-              [query]="store.searchQuery()"
-              [suggestions]="store.suggestions()"
-              [suggestionLegality]="store.suggestionLegality()"
-              [loading]="store.searchLoading()"
-              [legalityLoading]="store.suggestionLegalityLoading()"
-              [selectedCardId]="store.selectedCard()?.id ?? null"
-              [filtersOpen]="store.filtersOpen()"
-              [filterCount]="store.advancedFilterCount()"
-              (queryChange)="store.setSearchQuery($event)"
-              (cardSelected)="onSearchCardSelected($event)"
-              (search)="store.submitSearch()"
-              (filtersToggle)="store.filtersOpen.set(!store.filtersOpen())"
-            />
-            @if (store.filtersOpen()) {
-              <app-card-search-filters-panel
-                [filters]="store.advancedFilters()"
-                (filtersChange)="store.setAdvancedFilters($event)"
-                (close)="store.filtersOpen.set(false)"
-              />
-            }
-          </div>
-
-          <div class="checker-sidebar-history" [class.checker-history-dimmed]="isSearching()">
-            <app-search-history
-              #searchHistory
-              [pinned]="true"
-              [entries]="store.searchHistory()"
-              [selectedCardId]="store.selectedCard()?.id ?? null"
-              [formatId]="store.selectedFormatId()"
-              [collapsed]="isSearching()"
-              (cardSelected)="onHistoryCardSelected($event)"
-              (remove)="store.removeSearchHistoryEntry($event)"
-              (clear)="store.clearSearchHistory()"
-            />
-          </div>
-        </aside>
-
-        <section
-          #detailPane
-          id="checker-detail"
-          class="checker-detail fade-in-panel"
-        >
-          <app-card-detail-tabs
-            [card]="store.selectedCard()"
-            [result]="store.legalityResult()"
-            [format]="store.selectedFormat()"
-            [historyEntries]="store.searchHistory()"
-            [relatedLoading]="store.relatedLoading()"
-            [relatedAvailable]="store.relatedAvailable()"
-            [relatedSeries]="store.relatedSeries()"
-            [relatedMentions]="store.relatedMentions()"
-            [relatedEffects]="store.relatedEffects()"
-            [relatedTags]="store.relatedTags()"
-            [relatedGroups]="store.relatedGroups()"
-            [relatedSuggestions]="store.relatedSuggestions()"
-            (historyPick)="store.selectFromHistory($event)"
-            (relatedCardSelect)="store.openRelatedCard($event)"
+      <!-- Sticky scope spans search + detail so the bar stays for the whole page scroll. -->
+      <div class="checker-sticky-search-scope">
+        <div class="checker-sticky-search lg:hidden">
+          <app-search-toolbar
+            [query]="store.searchQuery()"
+            [loading]="store.searchLoading() || store.suggestionLegalityLoading()"
+            [filtersOpen]="store.filtersOpen()"
+            [filterCount]="store.advancedFilterCount()"
+            (queryChange)="store.setSearchQuery($event)"
+            (search)="store.submitSearch()"
+            (filtersToggle)="store.filtersOpen.set(!store.filtersOpen())"
           />
-        </section>
+        </div>
+
+        <div
+          class="checker-layout"
+          [class.checker-has-selection]="!!store.selectedCard()"
+          [class.checker-is-searching]="isSearching()"
+        >
+          <aside class="checker-sidebar fade-in-panel" id="checker-search">
+            <div class="checker-sidebar-search">
+              <app-card-search
+                [query]="store.searchQuery()"
+                [suggestions]="store.suggestions()"
+                [suggestionLegality]="store.suggestionLegality()"
+                [loading]="store.searchLoading()"
+                [legalityLoading]="store.suggestionLegalityLoading()"
+                [selectedCardId]="store.selectedCard()?.id ?? null"
+                [filtersOpen]="store.filtersOpen()"
+                [filterCount]="store.advancedFilterCount()"
+                (queryChange)="store.setSearchQuery($event)"
+                (cardSelected)="onSearchCardSelected($event)"
+                (search)="store.submitSearch()"
+                (filtersToggle)="store.filtersOpen.set(!store.filtersOpen())"
+              />
+              @if (store.filtersOpen()) {
+                <app-card-search-filters-panel
+                  [filters]="store.advancedFilters()"
+                  (filtersChange)="store.setAdvancedFilters($event)"
+                  (close)="store.filtersOpen.set(false)"
+                />
+              }
+            </div>
+
+            <div class="checker-sidebar-history" [class.checker-history-dimmed]="isSearching()">
+              <app-search-history
+                #searchHistory
+                [pinned]="true"
+                [entries]="store.searchHistory()"
+                [selectedCardId]="store.selectedCard()?.id ?? null"
+                [formatId]="store.selectedFormatId()"
+                [collapsed]="isSearching()"
+                (cardSelected)="onHistoryCardSelected($event)"
+                (remove)="store.removeSearchHistoryEntry($event)"
+                (clear)="store.clearSearchHistory()"
+              />
+            </div>
+          </aside>
+
+          <section
+            #detailPane
+            id="checker-detail"
+            class="checker-detail fade-in-panel"
+          >
+            <app-card-detail-tabs
+              [card]="store.selectedCard()"
+              [result]="store.legalityResult()"
+              [format]="store.selectedFormat()"
+              [historyEntries]="store.searchHistory()"
+              [relatedLoading]="store.relatedLoading()"
+              [relatedAvailable]="store.relatedAvailable()"
+              [relatedSeries]="store.relatedSeries()"
+              [relatedMentions]="store.relatedMentions()"
+              [relatedEffects]="store.relatedEffects()"
+              [relatedTags]="store.relatedTags()"
+              [relatedGroups]="store.relatedGroups()"
+              [relatedSuggestions]="store.relatedSuggestions()"
+              (historyPick)="store.selectFromHistory($event)"
+              (relatedCardSelect)="store.openRelatedCard($event)"
+            />
+          </section>
+        </div>
       </div>
     </main>
   `,
@@ -187,12 +193,29 @@ export class CheckerPage {
   private readonly decklistStore = inject(DecklistStore);
 
   private readonly searchHistoryPanel = viewChild<SearchHistoryComponent>('searchHistory');
-  private readonly searchPane = viewChild<ElementRef<HTMLElement>>('searchPane');
   private readonly detailPane = viewChild<ElementRef<HTMLElement>>('detailPane');
 
   readonly deckReturn = signal<DeckReturnContext | null>(null);
+  private readonly pendingDetailScroll = signal(false);
 
   constructor() {
+    // Scroll after Angular has committed the selected card + legality DOM (incl. .card-art-frame).
+    afterRenderEffect(() => {
+      if (!this.pendingDetailScroll()) {
+        return;
+      }
+      const card = this.store.selectedCard();
+      const result = this.store.legalityResult();
+      if (!card || !result) {
+        return;
+      }
+
+      untracked(() => {
+        this.pendingDetailScroll.set(false);
+        this.scrollToDetail();
+      });
+    });
+
     this.route.queryParamMap
       .pipe(
         map((params) => ({
@@ -206,6 +229,7 @@ export class CheckerPage {
       .subscribe(({ cardId, from, deckId }) => {
         const numericCardId = Number(cardId);
         this.store.openCardById(numericCardId);
+        this.pendingDetailScroll.set(true);
 
         if (from === 'decklist' && deckId) {
           const deck = this.decklistStore.getDeckById(deckId);
@@ -262,19 +286,68 @@ export class CheckerPage {
   onSearchCardSelected(card: YgoCard): void {
     this.store.selectCard(card);
     this.searchHistoryPanel()?.collapse();
-    queueMicrotask(() => this.scrollToDetail());
+    this.pendingDetailScroll.set(true);
   }
 
   onHistoryCardSelected(entry: SearchHistoryEntry): void {
     this.store.selectFromHistory(entry);
-    queueMicrotask(() => this.scrollToDetail());
-  }
-
-  scrollToSearch(): void {
-    this.searchPane()?.nativeElement.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    this.pendingDetailScroll.set(true);
   }
 
   scrollToDetail(): void {
-    this.detailPane()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const detail = this.detailPane()?.nativeElement;
+    if (!detail) {
+      return;
+    }
+
+    const reduced = this.prefersReducedMotion();
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+
+    if (!isMobile) {
+      detail.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+      return;
+    }
+
+    const target =
+      (detail.querySelector('.card-art-frame') as HTMLElement | null) ?? detail;
+    this.scrollElementToViewportCenter(target, reduced);
+  }
+
+  private prefersReducedMotion(): boolean {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  private scrollElementToViewportCenter(el: HTMLElement, reducedMotion: boolean): void {
+    const rect = el.getBoundingClientRect();
+    const stickyTop = this.measureStickyTopOffset();
+    const stickyBottom = this.measureStickyBottomOffset();
+    const visibleHeight = Math.max(0, window.innerHeight - stickyTop - stickyBottom);
+    const visibleCenter = stickyTop + visibleHeight / 2;
+    const elementCenter = rect.top + rect.height / 2;
+    const top = Math.max(0, window.scrollY + (elementCenter - visibleCenter));
+
+    window.scrollTo({ top, behavior: reducedMotion ? 'auto' : 'smooth' });
+  }
+
+  private measureStickyTopOffset(): number {
+    const searchToolbar = document.querySelector('.checker-sticky-search') as HTMLElement | null;
+    if (searchToolbar) {
+      const rect = searchToolbar.getBoundingClientRect();
+      if (rect.height > 0 && rect.top < window.innerHeight * 0.35) {
+        return Math.max(0, Math.round(rect.bottom));
+      }
+    }
+
+    const navbar = document.querySelector('.studio-navbar') as HTMLElement | null;
+    return navbar ? Math.max(0, Math.round(navbar.getBoundingClientRect().bottom)) : 64;
+  }
+
+  private measureStickyBottomOffset(): number {
+    const tabBar = document.querySelector('.mobile-tab-bar') as HTMLElement | null;
+    if (!tabBar) {
+      return 0;
+    }
+    const rect = tabBar.getBoundingClientRect();
+    return rect.height > 0 ? Math.max(0, Math.round(window.innerHeight - rect.top)) : 0;
   }
 }

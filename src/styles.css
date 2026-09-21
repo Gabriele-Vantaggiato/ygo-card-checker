@@ -380,18 +380,43 @@
     @apply w-[9.5rem] shrink-0;
   }
 
+  /* Mobile: format select always under the title, full width (unifies iOS/Android). */
+  @media (max-width: 639px) {
+    .checker-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+      flex-wrap: nowrap;
+      gap: 12px;
+    }
+
+    .checker-toolbar-format {
+      width: 100%;
+      max-width: none;
+    }
+  }
+
+  /* Mobile: page-scoped sticky search — parent wraps sidebar + detail so it never unsticks early. */
+  @media (max-width: 1023px) {
+    .checker-sticky-search {
+      position: sticky;
+      top: 0;
+      z-index: 31;
+      margin-inline: -18px;
+      padding: 0.65rem 18px;
+      background: var(--color-base-100);
+      border-bottom: 1px solid color-mix(in oklch, var(--color-base-300) 55%, transparent);
+      box-shadow: 0 8px 20px #0003;
+    }
+
+    /* In-sidebar toolbar is replaced by the page-level sticky one on mobile. */
+    .checker-page .checker-search-toolbar-slot {
+      display: none;
+    }
+  }
+
   .checker-deck-return {
     @apply sticky top-14 z-[6] flex flex-wrap items-center justify-between gap-2 rounded-xl
       border border-primary/25 bg-primary/10 px-3 py-2 sm:px-4 backdrop-blur-sm;
-  }
-
-  .checker-mobile-jump {
-    @apply sticky top-14 z-[6] flex items-center gap-2 rounded-xl border border-base-300/60
-      bg-base-100/90 px-2 py-1.5 shadow-sm shadow-black/15 backdrop-blur-md;
-  }
-
-  .checker-mobile-jump-name {
-    @apply min-w-0 flex-1 truncate text-center text-xs font-semibold text-base-content/80;
   }
 
   .checker-layout {
@@ -408,7 +433,7 @@
   }
 
   .checker-sidebar {
-    @apply rounded-2xl border border-base-300/55 bg-base-100/90 shadow-lg shadow-black/20 ring-1 ring-white/5
+    @apply rounded-2xl border border-base-300/55 bg-base-100 shadow-lg shadow-black/20 ring-1 ring-white/5
       overflow-hidden divide-y divide-base-300/40
       lg:sticky lg:top-[3.75rem] lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto lg:overscroll-y-contain
       scroll-mt-20;
@@ -421,7 +446,7 @@
   }
 
   .checker-sidebar-search {
-    @apply bg-gradient-to-b from-primary/[0.07] to-transparent;
+    @apply bg-transparent;
   }
 
   .checker-history-dimmed {
@@ -1061,7 +1086,7 @@
   .checker-search-input { min-height: 48px; font-size: 16px; }
   .checker-search-hint { font-size: 12px; padding-top: 4px; }
   .checker-sidebar, .checker-detail, .deck-editor-rail, .deck-rail { top: 80px; max-height: calc(100dvh - 96px); }
-  .checker-mobile-jump, .checker-deck-return { top: 64px; }
+  .checker-deck-return { top: 64px; }
   .checker-sidebar, .checker-detail { scroll-margin-top: 120px; }
   @media (min-width: 1024px) {
     .checker-sidebar, .checker-detail, .deck-editor-rail, .deck-rail { max-height: calc(100dvh - 80px); }
@@ -1106,8 +1131,8 @@
   .library-empty h3 { line-height: 1.5; }
   .studio-footer { flex-direction: column; padding: 20px 18px; font-size: 11px; }
   .page-title, .checker-toolbar-title { font-size: 26px; line-height: 1.2; }
-  .checker-toolbar { align-items: flex-start; flex-wrap: wrap; }
-  .checker-mobile-jump, .checker-deck-return { top: 64px; }
+  .checker-toolbar { align-items: stretch; flex-wrap: nowrap; }
+  .checker-deck-return { top: 64px; }
   .deck-tile-name { font-size: 18px; }
   .deck-tile-caption { padding: 30px 12px 14px; }
   .mobile-tab-bar { z-index: 40; background: color-mix(in oklch,var(--color-base-100) 96%,transparent); backdrop-filter: blur(16px); }
