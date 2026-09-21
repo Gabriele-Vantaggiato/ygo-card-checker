@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, combineLatest, of } from 'rxjs';
 import { map, startWith, switchMap } from 'rxjs/operators';
 import {
+  CardKnowledgeEntry,
   CardKnowledgeRelated,
   CardRelatedResult,
 } from '../../models/card-knowledge.model';
@@ -91,11 +92,16 @@ export class CardRelatedKnowledgeService {
                     rag.profile,
                     'main',
                   );
+                  const decisionPrompt = this.decision.preferences().prompt;
+                  const query = decisionPrompt
+                    ? `${decisionPrompt}\nRelated to ${card.name}: ${card.desc}`
+                    : `${card.name}. ${card.desc}`;
                   return this.decision.rank$(
-                    this.decision.preferences().prompt || `${card.name}. ${card.desc}`,
-                    scored.map(s => ({ cardId: s.cardId, text: [s.name, s.archetype,
-                      ...(index.entries[String(s.cardId)]?.tags ?? []).map(t => t.replaceAll('_', ' ')),
-                    ].filter(Boolean).join('. ') })),
+                    query,
+                    scored.map(s => ({
+                      cardId: s.cardId,
+                      text: this.decisionText(s, index.entries[String(s.cardId)]),
+                    })),
                   ).pipe(map(ranked => {
                     const order = new Map(ranked.map((item, i) => [item.cardId, i]));
                     const ordered = ranked.length
@@ -113,5 +119,28 @@ export class CardRelatedKnowledgeService {
 
   private toSuggestion(related: CardKnowledgeRelated, sourceName: string) {
     return toSuggestion(related, sourceName, (key) => this.i18n.t(key));
+  }
+
+  private decisionText(
+    suggestion: CardRelatedResult['suggestions'][number],
+    entry: CardKnowledgeEntry | undefined,
+  ): string {
+    // The static index does not always contain full card descriptions. Feed every
+    // available semantic signal to E5, while keeping the input bounded by the
+    // decision service before it reaches the worker.
+    const source = entry;
+    const effects = (source?.effects ?? []).map(effect => [
+      effect.kind,
+      ...Object.values(effect.payload ?? {}).filter(value => typeof value === 'string'),
+    ].filter(Boolean).join(' '));
+    return [
+      suggestion.name,
+      suggestion.archetype,
+      suggestion.relation.replaceAll('_', ' '),
+      ...(source?.tags ?? []).map(tag => tag.replaceAll('_', ' ')),
+      ...(source?.series ?? []),
+      ...(source?.mentions ?? []),
+      ...effects,
+    ].filter(Boolean).join('. ');
   }
 }
