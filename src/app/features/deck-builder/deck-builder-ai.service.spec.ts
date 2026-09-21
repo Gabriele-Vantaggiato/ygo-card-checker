@@ -3,6 +3,8 @@ import { of, throwError } from 'rxjs';
 import { GeminiCoachService } from '../../services/gemini-coach.service';
 import { DeckBuilderAiService, parseAndValidateSuggestions } from './deck-builder-ai.service';
 import { GateCardFacts } from './deck-builder-gate.util';
+import { signal } from '@angular/core';
+import { CardDecisionService } from '../../services/decision/card-decision.service';
 
 const candidates: GateCardFacts[] = [
   { id: 1, name: 'Galaxy Knight', archetype: 'Galaxy-Eyes', setcodes: [], type: 'Effect Monster', isExtraDeck: false, banTcg: null },
@@ -40,6 +42,25 @@ describe('parseAndValidateSuggestions', () => {
 });
 
 describe('DeckBuilderAiService', () => {
+  it('uses the local model for the admissible pool and never calls Gemini on local fallback', () => {
+    const gemini = jasmine.createSpyObj<GeminiCoachService>('GeminiCoachService', ['ask$']);
+    const rank = jasmine.createSpy('rank$').and.returnValue(of([{ cardId: 2, score: 0.8 }]));
+    TestBed.configureTestingModule({ providers: [
+      { provide: GeminiCoachService, useValue: gemini },
+      { provide: CardDecisionService, useValue: {
+        preferences: signal({ enabled: true, prompt: 'Find an extender' }), rank$: rank,
+      } },
+    ] });
+    const service = TestBed.inject(DeckBuilderAiService);
+    service.rank$(candidates, 'deck summary', 'en').subscribe(result => {
+      expect(result.map(c => c.cardId)).toEqual([2]);
+    });
+    expect(rank.calls.mostRecent().args[0]).toBe('Find an extender');
+    expect(rank.calls.mostRecent().args[1].map((c: { cardId: number }) => c.cardId)).toEqual([1, 2]);
+    rank.and.returnValue(of([]));
+    service.rank$(candidates, 'deck summary', 'en').subscribe(result => expect(result).toEqual([]));
+    expect(gemini.ask$).not.toHaveBeenCalled();
+  });
   it('returns an empty list without calling Gemini when there are no candidates', (done) => {
     const gemini = jasmine.createSpyObj<GeminiCoachService>('GeminiCoachService', ['ask$']);
     TestBed.configureTestingModule({ providers: [{ provide: GeminiCoachService, useValue: gemini }] });

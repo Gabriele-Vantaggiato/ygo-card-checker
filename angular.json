@@ -18,7 +18,9 @@
               "zone.js"
             ],
             "tsConfig": "tsconfig.app.json",
+            "webWorkerTsConfig": "tsconfig.worker.json",
             "assets": [
+              { "glob": "ort-wasm-simd-threaded*", "input": "node_modules/onnxruntime-web/dist", "output": "assets/onnx" },
               {
                 "glob": "**/*",
                 "input": "public"

@@ -1,7 +1,7 @@
 import { isPlayableInFormat } from '../../utils/format-legality.utils';
 import { Injectable, inject } from '@angular/core';
 import { Observable, combineLatest, of } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { map, startWith, switchMap } from 'rxjs/operators';
 import {
   CardKnowledgeRelated,
   CardRelatedResult,
@@ -14,6 +14,7 @@ import { CardKnowledgeIndexService } from '../card-knowledge-index.service';
 import { SynergyRetrievalService } from '../synergy-retrieval.service';
 import { DeckStrategyStore } from '../../features/decklist/stores/deck-strategy.store';
 import { I18nService } from '../i18n.service';
+import { CardDecisionService } from '../decision/card-decision.service';
 import {
   applyStrategyToSuggestions,
   filterSuggestions$,
@@ -41,12 +42,13 @@ export class CardRelatedKnowledgeService {
   private readonly i18n = inject(I18nService);
   private readonly strategy = inject(DeckStrategyStore);
   private readonly synergyRetrieval = inject(SynergyRetrievalService);
+  private readonly decision = inject(CardDecisionService);
 
   private readonly index$ = this.indexService.related$;
   private readonly formatLegality$ = this.indexService.formatLegality$;
 
   findRelated$(card: YgoCard, format: YgoFormat): Observable<CardRelatedResult> {
-    return combineLatest([this.index$, this.formatLegality$, this.strategy.ragResult$]).pipe(
+    return combineLatest([this.index$, this.formatLegality$, this.strategy.ragResult$, this.decision.preferences$]).pipe(
       switchMap(([index, formatIndex, rag]) => {
         if (!index) {
           return of(EMPTY_RESULT);
@@ -82,18 +84,25 @@ export class CardRelatedKnowledgeService {
                 (related) => this.toSuggestion(related, card.name),
                 this.cardLegality,
               ).pipe(
-                map((suggestions) => {
+                switchMap((suggestions) => {
                   const scored = applyStrategyToSuggestions(
                     suggestions,
                     index.entries,
                     rag.profile,
                     'main',
                   );
-                  return {
-                    ...base,
-                    suggestions: scored,
-                    groups: groupSuggestions(scored),
-                  };
+                  return this.decision.rank$(
+                    this.decision.preferences().prompt || `${card.name}. ${card.desc}`,
+                    scored.map(s => ({ cardId: s.cardId, text: [s.name, s.archetype,
+                      ...(index.entries[String(s.cardId)]?.tags ?? []).map(t => t.replaceAll('_', ' ')),
+                    ].filter(Boolean).join('. ') })),
+                  ).pipe(map(ranked => {
+                    const order = new Map(ranked.map((item, i) => [item.cardId, i]));
+                    const ordered = ranked.length
+                      ? [...scored].sort((a, b) => (order.get(a.cardId) ?? 999) - (order.get(b.cardId) ?? 999))
+                      : scored;
+                    return { ...base, suggestions: ordered, groups: groupSuggestions(ordered) };
+                  }), startWith({ ...base, suggestions: scored, groups: groupSuggestions(scored) }));
                 }),
               );
             }),

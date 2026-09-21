@@ -869,10 +869,11 @@ export class DecklistEditorComponent {
 
   refreshCompleteDeckPlan(): void {
     const format = this.formatStore.selectedFormat();
-    if (!format || this.completeDeckPlanning()) {
+    if (!format) {
       return;
     }
     this.completeDeckPlanSub?.unsubscribe();
+    this.completeDeckPlan.set(null);
     this.completeDeckPlanning.set(true);
     this.completeDeckPlanSub = this.completion
       .buildPlan$(this.liveDeck(), format, {

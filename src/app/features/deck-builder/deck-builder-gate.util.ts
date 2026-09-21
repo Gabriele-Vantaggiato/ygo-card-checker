@@ -9,6 +9,7 @@
 export interface GateCardFacts {
   id: number;
   name: string;
+  desc?: string;
   archetype: string | null;
   setcodes: readonly number[];
   type: string;

@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { DeckBuilderPlan } from '../../features/deck-builder/deck-builder.model';
 import { DECK_SECTION_I18N_KEYS, DeckSectionKey } from '../../utils/deck-section.utils';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { CardDecisionOptionsComponent } from '../card-decision-options/card-decision-options.component';
 
 @Component({
   selector: 'app-complete-deck-dialog',
   standalone: true,
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, TranslatePipe, CardDecisionOptionsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open()) {
@@ -56,6 +57,8 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               }
             </p>
           </div>
+
+          <app-card-decision-options (changed)="refresh.emit()" />
 
           @if (plan()?.identity; as identity) {
             <div class="mt-3 rounded-lg border border-base-300/60 bg-base-200/40 p-3">

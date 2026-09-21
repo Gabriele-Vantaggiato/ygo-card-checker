@@ -23,8 +23,8 @@ export interface DeckBuilderPlan {
   currentExtra: number;
   currentSide: number;
   adds: DeckBuilderAdd[];
-  /** True when Gemini actually produced the ranking/reasoning; false = deterministic
-   *  co-occurrence-only fallback was used (no key configured, or the call failed). */
+  /** True when a model ranking was accepted (local E5 or configured Gemini).
+   * False means the deterministic co-occurrence fallback was used. */
   aiUsed: boolean;
 }
 

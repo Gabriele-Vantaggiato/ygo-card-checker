@@ -183,10 +183,12 @@ export class DeckBuilderService {
                   const verdict = legality.get(c.id)?.verdict;
                   return verdict === 'legal' || verdict === 'restricted';
                 });
-                const factsById = new Map(scored.map((s) => [s.facts.id, s.facts]));
-                const legalFacts = legalCards
-                  .map((c) => factsById.get(c.id))
-                  .filter((f): f is GateCardFacts => !!f);
+                const legalById = new Map(legalCards.map(c => [c.id, c]));
+                // Preserve co-occurrence order even when the card API returns a different order.
+                const legalFacts = scored.flatMap(({ facts }) => {
+                  const card = legalById.get(facts.id);
+                  return card ? [{ ...facts, desc: card.desc }] : [];
+                });
                 if (legalFacts.length === 0) {
                   return null;
                 }

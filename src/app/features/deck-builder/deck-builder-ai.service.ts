@@ -3,6 +3,7 @@ import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { GeminiCoachService } from '../../services/gemini-coach.service';
 import { GateCardFacts } from './deck-builder-gate.util';
+import { CardDecisionService } from '../../services/decision/card-decision.service';
 
 export interface DeckBuilderSuggestion {
   cardId: number;
@@ -14,6 +15,7 @@ const MAX_REASON_LENGTH = 300;
 @Injectable({ providedIn: 'root' })
 export class DeckBuilderAiService {
   private readonly gemini = inject(GeminiCoachService);
+  private readonly decision = inject(CardDecisionService);
 
   /**
    * Ranks/explains within an ALREADY gate-filtered candidate pool — this service never
@@ -21,7 +23,8 @@ export class DeckBuilderAiService {
    * validated against `candidates` before being handed back; a card id the model
    * mentions that isn't in the pool is silently dropped, never shown. Returns [] (not
    * an error) whenever Gemini is unavailable/unconfigured/fails — callers fall back to
-   * the deterministic co-occurrence ranking.
+   * the deterministic co-occurrence ranking. Opting into local decisions uses E5 only;
+   * failures/abstentions in that mode never trigger a cloud request.
    */
   rank$(
     candidates: readonly GateCardFacts[],
@@ -30,6 +33,18 @@ export class DeckBuilderAiService {
   ): Observable<DeckBuilderSuggestion[]> {
     if (candidates.length === 0) {
       return of([]);
+    }
+    if (this.decision.preferences().enabled) {
+      const objective = this.decision.preferences().prompt || deckSummary;
+      return this.decision.rank$(objective, candidates.map(c => ({
+        cardId: c.id,
+        text: `${c.name}. ${c.type}. ${c.archetype ?? ''}. ${c.desc ?? ''}`,
+      }))).pipe(map(ranked => ranked.map(item => ({
+        cardId: item.cardId,
+        reason: lang === 'it'
+          ? 'Affinità con l’obiettivo, combinata con le sinergie note (sperimentale).'
+          : 'Objective relevance combined with known synergies (experimental).',
+      }))));
     }
     const prompt = buildPrompt(candidates, deckSummary, lang);
     return this.gemini.ask$(prompt).pipe(

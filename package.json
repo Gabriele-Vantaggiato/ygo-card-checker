@@ -68,6 +68,7 @@
     "@angular/forms": "^20.3.0",
     "@angular/platform-browser": "^20.3.0",
     "@angular/router": "^20.3.0",
+    "@huggingface/transformers": "3.8.1",
     "@supabase/supabase-js": "^2.116.0",
     "nanoid": "^6.0.1",
     "pixelmatch": "^7.2.0",

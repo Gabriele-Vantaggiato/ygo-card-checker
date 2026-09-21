@@ -847,5 +847,14 @@
   "deckHealth.warning.tooManyGarnets": "{count} garnets: cards that do nothing outside their own engine.",
   "deckHealth.warning.tooManyNormalSummonReliant": "{count} monsters rely on a plain Normal Summon with no alternate route onto the field.",
   "comboEngine.detected": "Detected engine",
-  "comboFlow.title": "Combo flow"
+  "comboFlow.title": "Combo flow",
+  "decision.title": "Experimental local ranking",
+  "decision.hint": "Open E5 model: reorders admissible cards without API keys. First use downloads about 150 MB; processing stays in your browser. Does not simulate combos or duels.",
+  "decision.goal": "Shared goal for AutoComplete and Related Cards",
+  "decision.placeholder": "E.g. find cards that remove opposing spells and traps",
+  "decision.status.idle": "Request suggestions to begin.",
+  "decision.status.loading": "Downloading and preparing the model…",
+  "decision.status.ranking": "Comparing candidate cards…",
+  "decision.status.ready": "Semantic ranking combined with known synergies.",
+  "decision.status.fallback": "Model unavailable or ambiguous result: using known synergies."
 }

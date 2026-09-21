@@ -847,5 +847,14 @@
   "deckHealth.warning.tooManyGarnets": "{count} garnet: carte inutili fuori dal proprio engine.",
   "deckHealth.warning.tooManyNormalSummonReliant": "{count} mostri dipendono da una semplice Evocazione Normale senza vie alternative in campo.",
   "comboEngine.detected": "Engine rilevato",
-  "comboFlow.title": "Combo flow"
+  "comboFlow.title": "Combo flow",
+  "decision.title": "Ranking locale sperimentale",
+  "decision.hint": "Modello aperto E5: riordina le carte già ammesse, senza chiavi API. Primo utilizzo: download di circa 150 MB; elaborazione nel browser. Non simula combo o duelli.",
+  "decision.goal": "Obiettivo condiviso per AutoComplete e Related Card",
+  "decision.placeholder": "Es. cerco carte per rimuovere magie e trappole avversarie",
+  "decision.status.idle": "Attiva un suggerimento per iniziare.",
+  "decision.status.loading": "Scaricamento e preparazione del modello…",
+  "decision.status.ranking": "Confronto con le carte candidate…",
+  "decision.status.ready": "Ranking semantico combinato con le sinergie note.",
+  "decision.status.fallback": "Modello indisponibile o risultato ambiguo: uso le sinergie note."
 }

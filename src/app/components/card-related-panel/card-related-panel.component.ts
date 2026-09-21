@@ -10,11 +10,12 @@ import { I18nService } from '../../services/i18n.service';
 
 import { CardPreviewDirective } from '../../shared/ui/card-preview/card-preview.directive';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { CardDecisionOptionsComponent } from '../card-decision-options/card-decision-options.component';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-card-related-panel',
   standalone: true,
-  imports: [CardPreviewDirective, TranslatePipe],
+  imports: [CardPreviewDirective, TranslatePipe, CardDecisionOptionsComponent],
   template: `
     <section
       [class.card]="!embedded()"
@@ -31,6 +32,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
           <p class="text-sm text-base-content/60">{{ 'knowledge.subtitle' | translate }}</p>
         </header>
 
+        <app-card-decision-options />
         @if (!available()) {
           <p class="text-sm text-base-content/60">{{ 'knowledge.unavailable' | translate }}</p>
         } @else if (loading()) {
