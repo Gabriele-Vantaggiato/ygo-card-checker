@@ -1,12 +1,10 @@
 import {
-  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
   inject,
   signal,
-  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -196,26 +194,8 @@ export class CheckerPage {
   private readonly detailPane = viewChild<ElementRef<HTMLElement>>('detailPane');
 
   readonly deckReturn = signal<DeckReturnContext | null>(null);
-  private readonly pendingDetailScroll = signal(false);
 
   constructor() {
-    // Scroll after Angular has committed the selected card + legality DOM (incl. .card-art-frame).
-    afterRenderEffect(() => {
-      if (!this.pendingDetailScroll()) {
-        return;
-      }
-      const card = this.store.selectedCard();
-      const result = this.store.legalityResult();
-      if (!card || !result) {
-        return;
-      }
-
-      untracked(() => {
-        this.pendingDetailScroll.set(false);
-        this.scrollToDetail();
-      });
-    });
-
     this.route.queryParamMap
       .pipe(
         map((params) => ({
@@ -229,7 +209,6 @@ export class CheckerPage {
       .subscribe(({ cardId, from, deckId }) => {
         const numericCardId = Number(cardId);
         this.store.openCardById(numericCardId);
-        this.pendingDetailScroll.set(true);
 
         if (from === 'decklist' && deckId) {
           const deck = this.decklistStore.getDeckById(deckId);
@@ -286,68 +265,19 @@ export class CheckerPage {
   onSearchCardSelected(card: YgoCard): void {
     this.store.selectCard(card);
     this.searchHistoryPanel()?.collapse();
-    this.pendingDetailScroll.set(true);
+    queueMicrotask(() => this.scrollToDetail());
   }
 
   onHistoryCardSelected(entry: SearchHistoryEntry): void {
     this.store.selectFromHistory(entry);
-    this.pendingDetailScroll.set(true);
+    queueMicrotask(() => this.scrollToDetail());
   }
 
   scrollToDetail(): void {
-    const detail = this.detailPane()?.nativeElement;
-    if (!detail) {
-      return;
-    }
-
-    const reduced = this.prefersReducedMotion();
-    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
-
-    if (!isMobile) {
-      detail.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
-      return;
-    }
-
-    const target =
-      (detail.querySelector('.card-art-frame') as HTMLElement | null) ?? detail;
-    this.scrollElementToViewportCenter(target, reduced);
-  }
-
-  private prefersReducedMotion(): boolean {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }
-
-  private scrollElementToViewportCenter(el: HTMLElement, reducedMotion: boolean): void {
-    const rect = el.getBoundingClientRect();
-    const stickyTop = this.measureStickyTopOffset();
-    const stickyBottom = this.measureStickyBottomOffset();
-    const visibleHeight = Math.max(0, window.innerHeight - stickyTop - stickyBottom);
-    const visibleCenter = stickyTop + visibleHeight / 2;
-    const elementCenter = rect.top + rect.height / 2;
-    const top = Math.max(0, window.scrollY + (elementCenter - visibleCenter));
-
-    window.scrollTo({ top, behavior: reducedMotion ? 'auto' : 'smooth' });
-  }
-
-  private measureStickyTopOffset(): number {
-    const searchToolbar = document.querySelector('.checker-sticky-search') as HTMLElement | null;
-    if (searchToolbar) {
-      const rect = searchToolbar.getBoundingClientRect();
-      if (rect.height > 0 && rect.top < window.innerHeight * 0.35) {
-        return Math.max(0, Math.round(rect.bottom));
-      }
-    }
-
-    const navbar = document.querySelector('.studio-navbar') as HTMLElement | null;
-    return navbar ? Math.max(0, Math.round(navbar.getBoundingClientRect().bottom)) : 64;
-  }
-
-  private measureStickyBottomOffset(): number {
-    const tabBar = document.querySelector('.mobile-tab-bar') as HTMLElement | null;
-    if (!tabBar) {
-      return 0;
-    }
-    const rect = tabBar.getBoundingClientRect();
-    return rect.height > 0 ? Math.max(0, Math.round(window.innerHeight - rect.top)) : 0;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.detailPane()?.nativeElement.scrollIntoView({
+      behavior: reduced ? 'auto' : 'smooth',
+      block: 'start',
+    });
   }
 }

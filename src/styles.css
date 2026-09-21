@@ -403,7 +403,8 @@
       z-index: 31;
       margin-inline: -18px;
       padding: 0.65rem 18px;
-      background: var(--color-base-100);
+      /* Match neutral page chrome (base-200), not the bluish html oklch. */
+      background: var(--color-base-200);
       border-bottom: 1px solid color-mix(in oklch, var(--color-base-300) 55%, transparent);
       box-shadow: 0 8px 20px #0003;
     }
@@ -411,6 +412,21 @@
     /* In-sidebar toolbar is replaced by the page-level sticky one on mobile. */
     .checker-page .checker-search-toolbar-slot {
       display: none;
+    }
+
+    .checker-sidebar {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+
+    .checker-sidebar-search,
+    .checker-sidebar-history {
+      padding-inline: 0;
+    }
+
+    .page-usage-note {
+      background: transparent;
     }
   }
 
