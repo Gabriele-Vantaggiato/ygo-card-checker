@@ -6,6 +6,7 @@ import {
   DecisionCandidate, DecisionResponse, DecisionScore, MAX_DECISION_CANDIDATES,
   blendDecisionRanking,
 } from './card-decision.model';
+import { AiProviderPreferencesService } from '../ai-provider-preferences.service';
 
 export const DECISION_WORKER = new InjectionToken<() => Worker>('decision worker', {
   providedIn: 'root',
@@ -14,9 +15,11 @@ export const DECISION_WORKER = new InjectionToken<() => Worker>('decision worker
 
 @Injectable({ providedIn: 'root' })
 export class CardDecisionService {
+  private static readonly STORAGE_KEY = 'ygo-card-decision-preferences';
   private readonly createWorker = inject(DECISION_WORKER);
+  private readonly aiPreferences = inject(AiProviderPreferencesService);
   // Explicit opt-in; no model download on page load and no private prompt persisted.
-  readonly preferences = signal({ enabled: false, prompt: '' });
+  readonly preferences = signal(this.readPreferences());
   readonly preferences$ = toObservable(this.preferences).pipe(
     distinctUntilChanged((a, b) => a.enabled === b.enabled && a.prompt === b.prompt),
   );
@@ -29,12 +32,34 @@ export class CardDecisionService {
   constructor() { inject(DestroyRef).onDestroy(() => this.stop()); }
 
   setPreferences(enabled: boolean, prompt: string): void {
-    this.preferences.set({ enabled, prompt: prompt.trim().slice(0, 500) });
+    const next = { enabled, prompt: prompt.trim().slice(0, 500) };
+    this.preferences.set(next);
+    try {
+      localStorage.setItem(CardDecisionService.STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // Private browsing/storage-disabled environments still support the feature per page.
+    }
     if (!enabled) { this.stop(); this.status.set('idle'); }
   }
 
+  private readPreferences(): { enabled: boolean; prompt: string } {
+    try {
+      const raw = localStorage.getItem(CardDecisionService.STORAGE_KEY);
+      if (!raw) return { enabled: false, prompt: '' };
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return { enabled: false, prompt: '' };
+      const value = parsed as { enabled?: unknown; prompt?: unknown };
+      return {
+        enabled: value.enabled === true,
+        prompt: typeof value.prompt === 'string' ? value.prompt.trim().slice(0, 500) : '',
+      };
+    } catch {
+      return { enabled: false, prompt: '' };
+    }
+  }
+
   rank$(query: string, candidates: readonly DecisionCandidate[]): Observable<DecisionScore[]> {
-    if (!this.preferences().enabled || !query.trim() || candidates.length < 2) return of([]);
+    if ((this.aiPreferences.preferences().provider !== 'local' && !this.preferences().enabled) || !query.trim() || candidates.length < 2) return of([]);
     const pool = candidates.slice(0, MAX_DECISION_CANDIDATES)
       .map(c => ({ cardId: c.cardId, text: c.text.slice(0, 1200) }));
     if (pool.some(c => !Number.isSafeInteger(c.cardId) || c.cardId <= 0 || !c.text.trim())) return of([]);

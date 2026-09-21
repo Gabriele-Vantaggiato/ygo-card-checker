@@ -13,11 +13,13 @@ import {
 import { detectMatchupKeys } from '../utils/matchup.utils';
 import { CardKnowledgeIndexService } from './card-knowledge-index.service';
 import { OllamaCompletionIntent, OllamaService } from './ollama.service';
+import { OpenRouterService } from './openrouter.service';
 
 @Injectable({ providedIn: 'root' })
 export class CompletionRagService {
   private readonly indexService = inject(CardKnowledgeIndexService);
   private readonly ollama = inject(OllamaService);
+  private readonly openRouter = inject(OpenRouterService, { optional: true });
 
   buildProfile$(
     direction: DeckCompletionDirection,
@@ -36,7 +38,7 @@ export class CompletionRagService {
           sources.push('matchup');
         }
 
-        if (!useOllama || prompt.trim().length < 8) {
+        if (prompt.trim().length < 8) {
           return of({
             profile,
             summary: profileSummary(profile),
@@ -45,35 +47,20 @@ export class CompletionRagService {
           });
         }
 
-        return this.ollama.isAvailable$().pipe(
-          switchMap((available) => {
-            if (!available) {
-              return of({
-                profile,
-                summary: profileSummary(profile),
-                sources,
-                ollamaUsed: false,
-              });
+        const freeIntent$ = this.openRouter?.parseCompletionIntent$(prompt, direction, catalog) ?? of(null);
+        return freeIntent$.pipe(
+          switchMap((intent) => {
+            if (intent) {
+              profile = this.mergeOllamaIntent(profile, intent, index);
+              return of({ profile, summary: profileSummary(profile), sources: [...sources, 'openrouter'] as CompletionRagResult['sources'], ollamaUsed: false });
             }
-
-            return this.ollama.parseCompletionIntent$(prompt, direction, catalog).pipe(
-              map((intent) => {
-                if (!intent) {
-                  return {
-                    profile,
-                    summary: profileSummary(profile),
-                    sources,
-                    ollamaUsed: false,
-                  };
-                }
-
-                profile = this.mergeOllamaIntent(profile, intent, index);
-                return {
-                  profile,
-                  summary: profileSummary(profile),
-                  sources: [...sources, 'ollama'] as CompletionRagResult['sources'],
-                  ollamaUsed: true,
-                };
+            if (!useOllama) return of({ profile, summary: profileSummary(profile), sources, ollamaUsed: false });
+            return this.ollama.isAvailable$().pipe(
+              switchMap((available) => available ? this.ollama.parseCompletionIntent$(prompt, direction, catalog) : of(null)),
+              map((ollamaIntent) => {
+                if (!ollamaIntent) return { profile, summary: profileSummary(profile), sources, ollamaUsed: false };
+                profile = this.mergeOllamaIntent(profile, ollamaIntent, index);
+                return { profile, summary: profileSummary(profile), sources: [...sources, 'ollama'] as CompletionRagResult['sources'], ollamaUsed: true };
               }),
             );
           }),

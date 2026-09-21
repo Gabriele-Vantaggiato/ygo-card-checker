@@ -7,6 +7,7 @@ import { AuthService } from '../../../services/auth.service';
 import { DeckSyncService } from '../../../services/deck-sync.service';
 import { Profile, ProfileService, PublicDeck } from '../../../services/profile.service';
 import { decklistToYdkeUrl } from '../../../services/ydke.service';
+import { AiProvider, AiProviderPreferencesService } from '../../../services/ai-provider-preferences.service';
 
 /**
  * Profile page: view/edit own profile (username, avatar, friend code), publish
@@ -116,6 +117,23 @@ import { decklistToYdkeUrl } from '../../../services/ydke.service';
           </div>
         </section>
 
+        <section class="space-y-3 rounded-lg border border-base-300/60 p-4">
+          <div>
+            <h2 class="section-title">Modello decisionale</h2>
+            <p class="text-sm text-base-content/60">Scegli dove eseguire l’assistenza. Le chiavi restano nel tuo browser e non vengono salvate su Vercel.</p>
+          </div>
+          <select class="select select-bordered w-full" [ngModel]="aiPreferences.preferences().provider" (ngModelChange)="setAiProvider($event)" name="aiProvider">
+            <option value="local">Locale E5 + DB (senza chiavi)</option>
+            <option value="openrouter">Qwen/DeepSeek tramite OpenRouter</option>
+            <option value="gemini">Gemini con la mia chiave</option>
+            <option value="ollama">Ollama locale</option>
+          </select>
+          @if (aiPreferences.preferences().provider === 'openrouter') {
+            <input class="input input-bordered w-full" type="text" [ngModel]="aiPreferences.preferences().openRouterModel" (ngModelChange)="setAiModel($event)" placeholder="openrouter/free oppure slug Qwen/DeepSeek" name="aiModel" />
+            <input class="input input-bordered w-full" type="password" [ngModel]="aiPreferences.preferences().openRouterApiKey" (ngModelChange)="setAiKey($event)" placeholder="Chiave OpenRouter personale" name="aiKey" autocomplete="off" />
+          }
+        </section>
+
         <!-- I tuoi deck -->
         <section class="space-y-2">
           <h2 class="section-title">I tuoi deck</h2>
@@ -200,6 +218,7 @@ export class ProfilePage {
   private readonly profileService = inject(ProfileService);
   private readonly deckSyncService = inject(DeckSyncService);
   private readonly formatStore = inject(FormatStore);
+  protected readonly aiPreferences = inject(AiProviderPreferencesService);
 
   protected readonly loading = signal(true);
   protected readonly profile = signal<Profile | null>(null);
@@ -222,6 +241,10 @@ export class ProfilePage {
   protected readonly publishError = signal<string | null>(null);
   protected readonly unpublishingDeckId = signal<string | null>(null);
   protected readonly unpublishError = signal<string | null>(null);
+
+  protected setAiProvider(provider: AiProvider): void { this.aiPreferences.update({ provider }); }
+  protected setAiModel(openRouterModel: string): void { this.aiPreferences.update({ openRouterModel }); }
+  protected setAiKey(openRouterApiKey: string): void { this.aiPreferences.update({ openRouterApiKey }); }
 
   constructor() {
     if (this.authService.isLoggedIn()) {

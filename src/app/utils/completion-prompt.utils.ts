@@ -18,7 +18,7 @@ export interface CompletionScoringProfile {
 export interface CompletionRagResult {
   profile: CompletionScoringProfile;
   summary: string | null;
-  sources: Array<'rules' | 'matchup' | 'ollama'>;
+  sources: Array<'rules' | 'matchup' | 'ollama' | 'openrouter'>;
   ollamaUsed: boolean;
 }
 

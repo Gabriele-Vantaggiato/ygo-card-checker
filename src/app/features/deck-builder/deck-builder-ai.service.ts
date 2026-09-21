@@ -1,9 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { GeminiCoachService } from '../../services/gemini-coach.service';
 import { GateCardFacts } from './deck-builder-gate.util';
 import { CardDecisionService } from '../../services/decision/card-decision.service';
+import { OpenRouterService } from '../../services/openrouter.service';
+import { AiProviderPreferencesService } from '../../services/ai-provider-preferences.service';
 
 export interface DeckBuilderSuggestion {
   cardId: number;
@@ -16,6 +18,8 @@ const MAX_REASON_LENGTH = 300;
 export class DeckBuilderAiService {
   private readonly gemini = inject(GeminiCoachService);
   private readonly decision = inject(CardDecisionService);
+  private readonly openRouter = inject(OpenRouterService, { optional: true });
+  private readonly aiPreferences = inject(AiProviderPreferencesService);
 
   /**
    * Ranks/explains within an ALREADY gate-filtered candidate pool — this service never
@@ -34,8 +38,11 @@ export class DeckBuilderAiService {
     if (candidates.length === 0) {
       return of([]);
     }
-    if (this.decision.preferences().enabled) {
-      const objective = this.decision.preferences().prompt || deckSummary;
+    if (this.aiPreferences.preferences().provider === 'local' || this.decision.preferences().enabled) {
+      const prompt = this.decision.preferences().prompt;
+      const objective = prompt
+        ? `${prompt}\nCurrent deck:\n${deckSummary}`
+        : deckSummary;
       return this.decision.rank$(objective, candidates.map(c => ({
         cardId: c.id,
         text: `${c.name}. ${c.type}. ${c.archetype ?? ''}. ${c.desc ?? ''}`,
@@ -47,8 +54,18 @@ export class DeckBuilderAiService {
       }))));
     }
     const prompt = buildPrompt(candidates, deckSummary, lang);
-    return this.gemini.ask$(prompt).pipe(
-      map((raw) => parseAndValidateSuggestions(raw, candidates)),
+    if (this.aiPreferences.preferences().provider === 'local') return of([]);
+    const freeModel$ = this.openRouter?.ask$(prompt) ?? of('');
+    return freeModel$.pipe(
+      switchMap((raw) => {
+        const parsed = parseAndValidateSuggestions(raw, candidates);
+        if (parsed.length > 0) return of(parsed);
+        if (this.aiPreferences.preferences().provider !== 'gemini') return of([]);
+        return this.gemini.ask$(prompt).pipe(
+          map((fallback) => parseAndValidateSuggestions(fallback, candidates)),
+          catchError(() => of([])),
+        );
+      }),
       catchError(() => of([])),
     );
   }

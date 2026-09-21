@@ -1,9 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { GeminiCoachService } from '../../services/gemini-coach.service';
 import { GateCardFacts } from './deck-builder-gate.util';
 import { DECK_ROLE_CATEGORIES, DeckRoleAnalysis, DeckRoleCategoryId } from './deck-analysis.model';
+import { OpenRouterService } from '../../services/openrouter.service';
+import { AiProviderPreferencesService } from '../../services/ai-provider-preferences.service';
 
 export interface DeckAnalysisCard {
   cardId: number;
@@ -18,6 +20,8 @@ const MAX_REASON_LENGTH = 300;
 @Injectable({ providedIn: 'root' })
 export class DeckAnalysisAiService {
   private readonly gemini = inject(GeminiCoachService);
+  private readonly openRouter = inject(OpenRouterService, { optional: true });
+  private readonly aiPreferences = inject(AiProviderPreferencesService);
 
   /**
    * Classifies the deck's OWN cards into fixed functional roles (starters, extenders,
@@ -36,8 +40,18 @@ export class DeckAnalysisAiService {
       return of([]);
     }
     const prompt = buildPrompt(deckCards, candidatePool, lang);
-    return this.gemini.ask$(prompt).pipe(
-      map((raw) => parseAndValidateAnalysis(raw, deckCards, candidatePool)),
+    if (this.aiPreferences.preferences().provider === 'local') return of([]);
+    const freeModel$ = this.openRouter?.ask$(prompt) ?? of('');
+    return freeModel$.pipe(
+      switchMap((raw) => {
+        const parsed = parseAndValidateAnalysis(raw, deckCards, candidatePool);
+        if (parsed.length > 0) return of(parsed);
+        if (this.aiPreferences.preferences().provider !== 'gemini') return of([]);
+        return this.gemini.ask$(prompt).pipe(
+          map((fallback) => parseAndValidateAnalysis(fallback, deckCards, candidatePool)),
+          catchError(() => of([])),
+        );
+      }),
       catchError(() => of([])),
     );
   }
