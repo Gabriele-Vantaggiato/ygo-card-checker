@@ -264,9 +264,44 @@
     @apply text-sm text-base-content/65 mt-1 max-w-md leading-relaxed;
   }
 
+  /* Flex-wrap (not CSS grid): CDK grid drop indices are unreliable. */
+  .deck-section-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-content: flex-start;
+  }
+
+  .deck-section-empty {
+    flex: 1 1 100%;
+  }
+
   .deck-card-tile {
     @apply transition-all duration-200 ease-out;
     touch-action: none;
+    flex: 0 0 calc((100% - 4 * 0.5rem) / 5);
+    max-width: calc((100% - 4 * 0.5rem) / 5);
+  }
+
+  @media (min-width: 640px) {
+    .deck-card-tile {
+      flex-basis: calc((100% - 5 * 0.5rem) / 6);
+      max-width: calc((100% - 5 * 0.5rem) / 6);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .deck-card-tile {
+      flex-basis: calc((100% - 7 * 0.5rem) / 8);
+      max-width: calc((100% - 7 * 0.5rem) / 8);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .deck-card-tile {
+      flex-basis: calc((100% - 9 * 0.5rem) / 10);
+      max-width: calc((100% - 9 * 0.5rem) / 10);
+    }
   }
 
   .deck-card-tile:hover {
@@ -287,6 +322,12 @@
 
   .deck-section-list.cdk-drop-list-dragging .deck-card-tile:not(.cdk-drag-placeholder) {
     transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  /* No hover scale / lift on siblings while dragging — less visual noise. */
+  .deck-section-list.cdk-drop-list-dragging .deck-card-tile:hover {
+    transform: none;
+    box-shadow: none;
   }
 
   .deck-move-sheet {

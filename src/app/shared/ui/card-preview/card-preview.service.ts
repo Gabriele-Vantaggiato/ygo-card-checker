@@ -20,8 +20,21 @@ export class CardPreviewService implements OnDestroy {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private serial = 0;
   private previousDescription: string | null = null;
+  /** When true (e.g. deck DnD), hover previews are ignored. */
+  private suppressed = false;
+
+  /** Hide any open preview and block new ones until `resume()`. */
+  suppress(): void {
+    this.suppressed = true;
+    this.close();
+  }
+
+  resume(): void {
+    this.suppressed = false;
+  }
 
   show(owner: HTMLElement, card: PreviewCard): void {
+    if (this.suppressed) return;
     if (this.owner === owner && this.popup) { this.keepOpen(); return; }
     this.close();
     this.owner = owner;

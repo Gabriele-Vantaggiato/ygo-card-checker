@@ -1,8 +1,9 @@
 import { CdkDrag, CdkDragDrop, CdkDragPlaceholder, CdkDragPreview, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, input, output, signal, viewChildren } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, inject, input, output, signal, viewChildren } from '@angular/core';
 import { DecklistCard } from '../../models/decklist.model';
 import { CardPreviewDirective } from '../../shared/ui/card-preview/card-preview.directive';
+import { CardPreviewService } from '../../shared/ui/card-preview/card-preview.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 import { verdictBannerClass } from '../../utils/legality-display.utils';
@@ -17,6 +18,9 @@ export interface DeckCardMoveEvent {
   cardId: number;
   from: DeckSectionKey;
   to: DeckSectionKey;
+  /** Present for CDK drop; omit for the move-sheet (appends to target end). */
+  previousIndex?: number;
+  currentIndex?: number;
 }
 
 export interface DeckCardRemoveEvent {
@@ -92,10 +96,11 @@ export interface DeckCardRemoveEvent {
             </div>
 
             <div
-              class="deck-section-list grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-1.5 min-h-[5.5rem] rounded-xl border border-dashed border-base-300/70 bg-base-200/20 transition-colors"
+              class="deck-section-list p-1.5 min-h-[5.5rem] rounded-xl border border-dashed border-base-300/70 bg-base-200/20 transition-colors"
               cdkDropList
               [id]="'deck-drop-' + section.key"
               [cdkDropListData]="section.key"
+              [cdkDropListSortingDisabled]="true"
               [cdkDropListEnterPredicate]="canEnterSection"
               (cdkDropListDropped)="onDrop($event)"
               (cdkDropListEntered)="activeDropSection.set(section.key)"
@@ -103,7 +108,7 @@ export interface DeckCardRemoveEvent {
             >
               @if (section.expandedCards.length === 0) {
                 <p
-                  class="col-span-full text-xs text-base-content/50 px-2 py-5 text-center pointer-events-none"
+                  class="deck-section-empty text-xs text-base-content/50 px-2 py-5 text-center pointer-events-none"
                 >
                   {{ section.emptyKey | translate }}
                 </p>
@@ -113,8 +118,7 @@ export interface DeckCardRemoveEvent {
                     class="group relative aspect-[59/86] rounded deck-card-tile"
                     cdkDrag
                     [cdkDragData]="cell.card"
-                    [cdkDragDisabled]="coarsePointer"
-                    [cdkDragStartDelay]="dragStartDelayMs"
+                    [cdkDragStartDelay]="coarsePointer ? dragStartDelayMs : 0"
                     (cdkDragStarted)="onDragStarted(section.key)"
                     (cdkDragEnded)="onDragEnded()"
                   >
@@ -246,6 +250,7 @@ export class DeckSectionGridComponent {
   readonly cardInspect = output<DecklistCard>();
   readonly coarsePointer = window.matchMedia('(pointer: coarse)').matches;
   private readonly anchors = viewChildren<ElementRef<HTMLElement>>('sectionAnchor');
+  private readonly cardPreview = inject(CardPreviewService);
 
   jumpTo(key: DeckSectionKey): void {
     const section = this.anchors().find(item => item.nativeElement.dataset['section'] === key)?.nativeElement;
@@ -271,24 +276,82 @@ export class DeckSectionGridComponent {
 
   onDrop(event: CdkDragDrop<DeckSectionKey, DeckSectionKey, DecklistCard>): void {
     this.activeDropSection.set(null);
-    if (event.previousContainer === event.container) {
-      return;
-    }
     const card = event.item.data;
     const from = event.previousContainer.data;
     const to = event.container.data;
-    if (!card || from === to) {
+    if (!card) {
       return;
     }
-    this.cardMove.emit({ cardId: card.id, from, to });
+
+    // CSS grid/flex-wrap makes CDK currentIndex unreliable — resolve from pointer.
+    const previousIndex = event.previousIndex;
+    const currentIndex = this.resolveDropIndex(event);
+    if (from === to && previousIndex === currentIndex) {
+      return;
+    }
+
+    this.cardMove.emit({
+      cardId: card.id,
+      from,
+      to,
+      previousIndex,
+      currentIndex,
+    });
+  }
+
+  /**
+   * Find the insert index from the drop pointer (reading order), then convert to
+   * moveItemInArray semantics when reordering inside the same list.
+   *
+   * CDK's own currentIndex is unreliable with wrapped card grids.
+   */
+  private resolveDropIndex(
+    event: CdkDragDrop<DeckSectionKey, DeckSectionKey, DecklistCard>,
+  ): number {
+    const point = event.dropPoint;
+    const container = event.container.element.nativeElement;
+    const tiles = Array.from(
+      container.querySelectorAll<HTMLElement>(':scope > .deck-card-tile'),
+    ).filter((el) => !el.classList.contains('cdk-drag-placeholder'));
+
+    if (!point || tiles.length === 0) {
+      return event.currentIndex;
+    }
+
+    let insertBefore = tiles.length;
+    for (let i = 0; i < tiles.length; i++) {
+      const rect = tiles[i]!.getBoundingClientRect();
+      if (point.y < rect.top) {
+        insertBefore = i;
+        break;
+      }
+      if (point.y <= rect.bottom && point.x < rect.left + rect.width / 2) {
+        insertBefore = i;
+        break;
+      }
+    }
+
+    const sameList = event.previousContainer === event.container;
+    if (!sameList) {
+      return insertBefore;
+    }
+
+    // Same-list: DOM still includes the dragged tile at previousIndex.
+    const previousIndex = event.previousIndex;
+    if (insertBefore === previousIndex || insertBefore === previousIndex + 1) {
+      return previousIndex;
+    }
+    return insertBefore > previousIndex ? insertBefore - 1 : insertBefore;
   }
 
   onDragStarted(from: DeckSectionKey): void {
+    this.cardPreview.suppress();
     this.activeDropSection.set(from);
   }
 
   onDragEnded(): void {
     this.activeDropSection.set(null);
+    this.cardPreview.resume();
   }
 
   clearDropTarget(section: DeckSectionKey): void {
