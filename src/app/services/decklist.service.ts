@@ -93,22 +93,44 @@ export class DecklistService {
       };
     }
 
+    const nextCard: DecklistCard = {
+      id: payload.id,
+      name: payload.name,
+      type: payload.type,
+      imageUrlSmall: payload.imageUrlSmall,
+      quantity: addable,
+      section: payload.section ?? targetSection,
+      banlistStatus: payload.banlistStatus ?? null,
+      legalityVerdict: payload.legalityVerdict ?? null,
+    };
+
+    // Append at the end of the target section so DnD order of other cards is kept.
+    const cards = [...decklist.cards];
+    let insertAt = -1;
+    for (let i = cards.length - 1; i >= 0; i--) {
+      if (resolveDeckSection(cards[i]!) === targetSection) {
+        insertAt = i + 1;
+        break;
+      }
+    }
+    if (insertAt < 0) {
+      if (targetSection === 'main') {
+        insertAt = 0;
+      } else if (targetSection === 'extra') {
+        insertAt = cards.reduce(
+          (idx, c, i) => (resolveDeckSection(c) === 'main' ? i + 1 : idx),
+          0,
+        );
+      } else {
+        insertAt = cards.length;
+      }
+    }
+    cards.splice(insertAt, 0, nextCard);
+
     return {
       ...decklist,
       updatedAt: new Date().toISOString(),
-      cards: [
-        ...decklist.cards,
-        {
-          id: payload.id,
-          name: payload.name,
-          type: payload.type,
-          imageUrlSmall: payload.imageUrlSmall,
-          quantity: addable,
-          section: payload.section,
-          banlistStatus: payload.banlistStatus ?? null,
-          legalityVerdict: payload.legalityVerdict ?? null,
-        },
-      ],
+      cards,
     };
   }
 
@@ -208,7 +230,10 @@ export class DecklistService {
     return this.setCards(decklist, nextCards);
   }
 
-  /** Replace cards without auto-sorting (keeps DnD / manual order). */
+  /**
+   * Replace cards preserving array order (DnD / manual layout).
+   * Use `sortDecklist` only when the user explicitly asks to sort.
+   */
   setCards(decklist: Decklist, cards: DecklistCard[]): Decklist {
     return {
       ...decklist,
@@ -233,12 +258,9 @@ export class DecklistService {
     };
   }
 
+  /** Same as setCards — order is part of the saved deck state. */
   replaceCards(decklist: Decklist, cards: DecklistCard[]): Decklist {
-    return {
-      ...decklist,
-      updatedAt: new Date().toISOString(),
-      cards: this.sortCards(cards),
-    };
+    return this.setCards(decklist, cards);
   }
 
   mergeCards(decklist: Decklist, imported: readonly DecklistCard[]): Decklist {

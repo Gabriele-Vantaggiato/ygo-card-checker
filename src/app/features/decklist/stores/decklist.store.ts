@@ -194,7 +194,8 @@ export class DecklistStore {
 
     const addQty = Math.min(Math.max(1, quantity), allowed);
     const updated = this.decklistService.addCardToDecklist(deck, payload, addQty);
-    this.replaceDeck(this.decklistService.sortDecklist(updated));
+    // Preserve manual / DnD order — new cards append; Sort button remains explicit.
+    this.replaceDeck(updated);
     this.patchStorage((s) => ({ ...s, activeId: deckId }));
     return true;
   }
@@ -488,14 +489,13 @@ export class DecklistStore {
             const updated = replace
               ? this.decklistService.replaceCards(deck, imported)
               : this.decklistService.mergeCards(deck, imported);
-            const sorted = this.decklistService.sortDecklist(updated);
-            this.replaceDeck(sorted);
+            this.replaceDeck(updated);
             this.patchStorage((s) => ({ ...s, activeId: deckId }));
 
             return {
               ok: true,
-              total: this.decklistService.totalCards(sorted.cards),
-              unique: sorted.cards.length,
+              total: this.decklistService.totalCards(updated.cards),
+              unique: updated.cards.length,
               unresolved,
             };
           }),
@@ -566,14 +566,13 @@ export class DecklistStore {
             const updated = replace
               ? this.decklistService.replaceCards(deck, imported)
               : this.decklistService.mergeCards(deck, imported);
-            const sorted = this.decklistService.sortDecklist(updated);
-            this.replaceDeck(sorted);
+            this.replaceDeck(updated);
             this.patchStorage((s) => ({ ...s, activeId: deckId }));
 
             return {
               ok: true,
-              total: this.decklistService.totalCards(sorted.cards),
-              unique: sorted.cards.length,
+              total: this.decklistService.totalCards(updated.cards),
+              unique: updated.cards.length,
             };
           }),
         );
@@ -604,7 +603,7 @@ export class DecklistStore {
       updated = this.decklistService.addCardToDecklist(updated, payload, add.quantity);
     }
 
-    this.replaceDeck(this.decklistService.sortDecklist(updated));
+    this.replaceDeck(updated);
     this.patchStorage((s) => ({ ...s, activeId: deckId }));
     return true;
   }
@@ -662,7 +661,7 @@ export class DecklistStore {
           };
         }),
       };
-      this.replaceDeck(this.decklistService.sortDecklist(updated));
+      this.replaceDeck(updated);
     });
   }
 
