@@ -270,7 +270,32 @@ export class DecklistStore {
     if (updated === deck) {
       return false;
     }
-    this.replaceDeck(this.decklistService.sortDecklist(updated));
+    this.replaceDeck(updated);
+    return true;
+  }
+
+  /** DnD: reorder within a section or move a copy between sections at a drop index. */
+  applyCopyDrop(
+    fromSection: DeckSection,
+    toSection: DeckSection,
+    previousIndex: number,
+    currentIndex: number,
+  ): boolean {
+    const deck = this.activeDecklist();
+    if (!deck) {
+      return false;
+    }
+    const updated = this.decklistService.applyCopyDrop(
+      deck,
+      fromSection,
+      toSection,
+      previousIndex,
+      currentIndex,
+    );
+    if (updated === deck) {
+      return false;
+    }
+    this.replaceDeck(updated);
     return true;
   }
 

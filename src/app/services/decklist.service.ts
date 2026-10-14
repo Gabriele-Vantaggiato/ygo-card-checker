@@ -7,7 +7,7 @@ import {
   DeckSection,
   maxCopiesForStatus,
 } from '../models/decklist.model';
-import { sortDeckCards } from '../utils/deck-card.utils';
+import { applyDeckCopyDrop, sortDeckCards } from '../utils/deck-card.utils';
 import { canPlaceCardInSection } from '../utils/deck-section.utils';
 import { resolveDeckSection } from './ydke.service';
 
@@ -134,8 +134,9 @@ export class DecklistService {
   }
 
   /**
-   * Moves a single copy between Main / Extra / Side.
+   * Moves a single copy between Main / Extra / Side (appends to the end of the target).
    * Allows the same passcode in multiple sections as separate rows.
+   * Preserves manual order — does not auto-sort.
    */
   moveOneCopyToSection(
     decklist: Decklist,
@@ -147,41 +148,73 @@ export class DecklistService {
       return decklist;
     }
 
-    const sourceIndex = decklist.cards.findIndex(
+    const source = decklist.cards.find(
       (c) => c.id === cardId && resolveDeckSection(c) === fromSection,
     );
-    if (sourceIndex < 0) {
+    if (!source || !canPlaceCardInSection(source.type, toSection)) {
       return decklist;
     }
 
-    const source = decklist.cards[sourceIndex]!;
-    if (!canPlaceCardInSection(source.type, toSection)) {
+    const fromPasscodes = decklist.cards
+      .filter((c) => resolveDeckSection(c) === fromSection)
+      .flatMap((c) => Array.from({ length: c.quantity }, () => c.id));
+    const previousIndex = fromPasscodes.indexOf(cardId);
+    if (previousIndex < 0) {
       return decklist;
     }
 
-    let nextCards = decklist.cards.map((c) => ({ ...c }));
-    const current = nextCards[sourceIndex]!;
-    if (current.quantity <= 1) {
-      nextCards = nextCards.filter((_, i) => i !== sourceIndex);
-    } else {
-      nextCards[sourceIndex] = { ...current, quantity: current.quantity - 1 };
-    }
+    const toCount = decklist.cards
+      .filter((c) => resolveDeckSection(c) === toSection)
+      .reduce((sum, c) => sum + c.quantity, 0);
 
-    const targetIndex = nextCards.findIndex(
-      (c) => c.id === cardId && resolveDeckSection(c) === toSection,
+    return this.setCards(
+      decklist,
+      applyDeckCopyDrop(decklist.cards, fromSection, toSection, previousIndex, toCount),
     );
-    if (targetIndex >= 0) {
-      const target = nextCards[targetIndex]!;
-      nextCards[targetIndex] = { ...target, quantity: target.quantity + 1, section: toSection };
-    } else {
-      nextCards.push({
-        ...source,
-        quantity: 1,
-        section: toSection,
-      });
+  }
+
+  /**
+   * Drag-and-drop: reorder within a section or move a copy between sections at an index.
+   * Preserves manual order — does not auto-sort.
+   */
+  applyCopyDrop(
+    decklist: Decklist,
+    fromSection: DeckSection,
+    toSection: DeckSection,
+    previousIndex: number,
+    currentIndex: number,
+  ): Decklist {
+    if (fromSection !== toSection) {
+      const fromPasscodes = decklist.cards
+        .filter((c) => resolveDeckSection(c) === fromSection)
+        .flatMap((c) => Array.from({ length: c.quantity }, () => c.id));
+      const movingId = fromPasscodes[previousIndex];
+      const moving = movingId != null ? decklist.cards.find((c) => c.id === movingId) : null;
+      if (!moving || !canPlaceCardInSection(moving.type, toSection)) {
+        return decklist;
+      }
     }
 
-    return this.replaceCards(decklist, nextCards);
+    const nextCards = applyDeckCopyDrop(
+      decklist.cards,
+      fromSection,
+      toSection,
+      previousIndex,
+      currentIndex,
+    );
+    if (nextCards === decklist.cards) {
+      return decklist;
+    }
+    return this.setCards(decklist, nextCards);
+  }
+
+  /** Replace cards without auto-sorting (keeps DnD / manual order). */
+  setCards(decklist: Decklist, cards: DecklistCard[]): Decklist {
+    return {
+      ...decklist,
+      updatedAt: new Date().toISOString(),
+      cards: cards.map((c) => ({ ...c })),
+    };
   }
 
   totalCards(cards: DecklistCard[]): number {

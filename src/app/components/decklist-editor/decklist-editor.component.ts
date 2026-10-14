@@ -32,7 +32,6 @@ import {
   deckSections,
   expandCardsForGrid,
   sectionCardCount,
-  sortDeckCards,
   splitDeckSections,
 } from '../../utils/deck-card.utils';
 import { DECK_SECTION_I18N_KEYS, DeckSectionKey } from '../../utils/deck-section.utils';
@@ -364,7 +363,8 @@ export class DecklistEditorComponent {
   });
 
   readonly sectionViewModels = computed((): DeckSectionViewModel[] => {
-    const sections = deckSections(sortDeckCards(this.liveDeck().cards));
+    // Keep stored order so DnD / manual arrangement is not undone on every render.
+    const sections = deckSections(this.liveDeck().cards);
     return sections.map((section) => {
       const stats = computeTypeStats(section.cards);
       return {
@@ -553,7 +553,15 @@ export class DecklistEditorComponent {
   }
 
   moveCardCopy(event: DeckCardMoveEvent): void {
-    const ok = this.decklistStore.moveOneCopyToSection(event.cardId, event.from, event.to);
+    const ok =
+      event.previousIndex != null && event.currentIndex != null
+        ? this.decklistStore.applyCopyDrop(
+            event.from,
+            event.to,
+            event.previousIndex,
+            event.currentIndex,
+          )
+        : this.decklistStore.moveOneCopyToSection(event.cardId, event.from, event.to);
     if (!ok) {
       return;
     }
