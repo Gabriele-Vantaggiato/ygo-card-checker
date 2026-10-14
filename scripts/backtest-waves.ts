@@ -22,6 +22,8 @@ const arg = (name: string, fallback: string): string => {
 const FORMATS = arg('formats', 'hat,edison').split(',');
 const KEEP = Number(arg('keep', '0.25'));
 const LIMIT = Number(arg('limit', '150'));
+const TARGET = Number(arg('target', '40'));
+const FOCUS = arg('focus', 'balanced') as 'balanced' | 'brick' | 'synergy' | 'consistency';
 
 const meta = metaMapFromRecord(JSON.parse(readFileSync(join(DIR, 'cards.json'), 'utf8')).cards);
 const links = new Map(
@@ -50,7 +52,7 @@ for (const formatId of FORMATS) {
   const usage = new Map(Object.entries(usageAll[formatId] ?? {}).map(([id, v]) => [Number(id), v]));
   const competitive: CompetitiveContext = { meta, links, usage };
 
-  const agg = { n: 0, stopped: new Map<string, number>(), waves: 0, choices: 0, oneRecallMain: 0, waveRecallMain: 0, oneRecallExtra: 0, waveRecallExtra: 0, oneOverall: 0, waveOverall: 0, oneBrick: 0, waveBrick: 0, complete: 0 };
+  const agg = { cons: 0, syn: 0, over3: 0, short: 0, n: 0, stopped: new Map<string, number>(), waves: 0, choices: 0, oneRecallMain: 0, waveRecallMain: 0, oneRecallExtra: 0, waveRecallExtra: 0, oneOverall: 0, waveOverall: 0, oneBrick: 0, waveBrick: 0, complete: 0 };
 
   for (const [index, target] of pool.slice(0, LIMIT).entries()) {
     const others = pool.filter((d) => d.id !== target.id);
@@ -68,8 +70,8 @@ for (const formatId of FORMATS) {
       usage,
       staples: buildFormatStaples(others),
       stats: buildFormatCardStats(others),
-      targets: { main: 40, extra: 15, side: 15 },
-      ...(arg('optimize', '1') === '1' ? { competitive, optimizer: { lambda: Number(arg('lambda', '2')) } } : {}),
+      targets: { main: TARGET, extra: 15, side: 15 },
+      ...(arg('optimize', '1') === '1' ? { competitive: { ...competitive, focus: FOCUS }, optimizer: { lambda: Number(arg('lambda', FOCUS === 'balanced' ? '4' : '10')), candidatePool: Number(arg('pool', '24')), minProbability: Number(arg('minprob', '0.12')), maxSwaps: Number(arg('swaps', '30')) } } : {}),
     };
 
     // (a) one shot
@@ -98,6 +100,12 @@ for (const formatId of FORMATS) {
     agg.waveRecallExtra += overlap(realExtra, counts(waveExtra)) / Math.max(target.extra.length, 1);
     const one = scoreDeck(oneMain, competitive, { samples: 300 });
     const wave = scoreDeck(waveMain, competitive, { samples: 300 });
+    agg.cons += wave.consistency;
+    agg.syn += wave.synergy.inTurn;
+    if (waveMain.length < TARGET) agg.short++;
+    const totals = new Map<number, number>();
+    for (const [key, qty] of sim.deck) totals.set(Number(key.split(':')[1]), (totals.get(Number(key.split(':')[1])) ?? 0) + qty);
+    if ([...totals.values()].some((q) => q > 3)) agg.over3++;
     agg.oneOverall += one.overall;
     agg.waveOverall += wave.overall;
     agg.oneBrick += one.brickRate;
@@ -110,5 +118,6 @@ for (const formatId of FORMATS) {
   console.log(`waves per deck ${f(agg.waves, 1)}, choices per deck ${f(agg.choices, 2)}, reached 40 main ${pct(agg.complete)}, stop reasons ${[...agg.stopped].map(([k, v]) => `${k}:${v}`).join(' ')}`);
   console.log(`                    main recall   extra recall   brick   overall`);
   console.log(`one-shot            ${pct(agg.oneRecallMain).padStart(10)}   ${pct(agg.oneRecallExtra).padStart(11)}   ${f(agg.oneBrick)}   ${f(agg.oneOverall)}`);
+  console.log(`waves extra metrics: consistency ${f(agg.cons)}  inTurn ${f(agg.syn)}  decks short of ${TARGET} main: ${pct(agg.short)}  decks with a card above 3 copies in total: ${pct(agg.over3)}`);
   console.log(`waves (default)     ${pct(agg.waveRecallMain).padStart(10)}   ${pct(agg.waveRecallExtra).padStart(11)}   ${f(agg.waveBrick)}   ${f(agg.waveOverall)}`);
 }

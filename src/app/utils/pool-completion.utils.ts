@@ -197,11 +197,21 @@ export function planPoolAdds(
   if (totalWeight === 0) return [];
   type Slot = ConsensusSlot;
 
+  const caps = copyCaps(matches);
+  const planned = new Map<string, PoolAdd>();
+  const sectionsOfDeck: readonly PoolSection[] = ['main', 'extra', 'side'];
+  /** Copies of the card in the other sections: what the user already has plus what is planned so far. */
+  const elsewhere = (cardId: number, section: PoolSection): number =>
+    sectionsOfDeck
+      .filter((other) => other !== section)
+      .reduce((sum, other) => sum + (userBySection.get(`${other}:${cardId}`) ?? 0) + (planned.get(`${other}:${cardId}`)?.quantity ?? 0), 0);
+  /** Most copies this section may hold for the card: its total cap minus the copies sitting in other sections. */
+  const sectionCap = (cardId: number, section: PoolSection): number =>
+    Math.max(0, (caps.get(cardId) ?? DEFAULT_COPY_CAP) - elsewhere(cardId, section));
   const bySection = (section: PoolSection) =>
     slots
-      .filter((slot) => slot.section === section)
+      .filter((slot) => slot.section === section && slot.copy <= sectionCap(slot.cardId, section))
       .sort((a, b) => b.probability - a.probability || a.rank - b.rank || a.copy - b.copy);
-  const planned = new Map<string, PoolAdd>();
   const take = (slot: Slot): void => {
     const key = `${slot.section}:${slot.cardId}`;
     const existing = planned.get(key);
@@ -267,6 +277,7 @@ export function planPoolAdds(
       staples,
       have: (cardId) => userBySection.get(`${section}:${cardId}`) ?? 0,
       adjust: section === 'extra' ? reachability : undefined,
+      maxCopies: (cardId) => sectionCap(cardId, section),
       makeSlot: (cardId, copy, probability): Slot => ({
         cardId,
         section,
@@ -293,6 +304,22 @@ export function planPoolAdds(
   }
 
   return [...planned.values()];
+}
+
+/** Default limit of copies of one card across the whole deck. */
+export const DEFAULT_COPY_CAP = 3;
+
+/**
+ * Most copies of each card (Main + Extra + Side together) that any matched real deck plays. The decks are legal
+ * for the format, so this also respects banlist limits (a Limited card tops out at one).
+ */
+export function copyCaps(matches: readonly PoolMatch[]): Map<number, number> {
+  const caps = new Map<number, number>();
+  for (const match of matches) {
+    const total = countCopies([...match.deck.main, ...match.deck.extra, ...match.deck.side]);
+    for (const [id, qty] of total) caps.set(id, Math.max(caps.get(id) ?? 0, qty));
+  }
+  return caps;
 }
 
 export interface PoolCompletion {

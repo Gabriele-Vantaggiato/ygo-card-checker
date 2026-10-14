@@ -21,7 +21,8 @@ import { CompletionMemoryService } from '../../services/completion-memory.servic
 import { I18nService } from '../../services/i18n.service';
 import { resolveDeckSection } from '../../services/ydke.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { CompetitiveScore, scoreDeck } from '../../utils/competitive-score.utils';
+import { CompetitiveFocus, CompetitiveScore, scoreDeck } from '../../utils/competitive-score.utils';
+import { ArchetypeSeed, StarterPack, buildArchetypeSeeds, drawStarterPacks } from '../../utils/starter-packs.utils';
 import { rankPoolDecks } from '../../utils/pool-completion.utils';
 import {
   Wave,
@@ -47,6 +48,7 @@ interface AppliedWave {
 }
 
 const KIND_GLYPH: Record<WaveKind, string> = {
+  pack: '✧',
   core: '◆',
   need: '❖',
   partners: '⛓',
@@ -56,6 +58,11 @@ const KIND_GLYPH: Record<WaveKind, string> = {
   side: '▣',
 };
 const MAX_AUTO_WAVES = 30;
+const MAIN_SIZES = [40, 45, 50, 55, 60] as const;
+const FOCUSES: readonly CompetitiveFocus[] = ['balanced', 'brick', 'synergy', 'consistency'];
+/** Below this many main+extra cards the deck is too small to compare with real decks: offer starter packs. */
+const MIN_CARDS_FOR_WAVES = 3;
+const PACKS_PER_DRAW = 3;
 
 /**
  * Guided completion in waves. Each wave is a small group of cards with the reason for each one; once taken,
@@ -93,7 +100,12 @@ const MAX_AUTO_WAVES = 30;
                   <p class="text-xs sm:text-sm text-base-content/60 mt-0.5 break-words line-clamp-2 sm:line-clamp-none">{{ line }}</p>
                 }
               </div>
-              <button type="button" class="btn btn-ghost btn-xs sm:btn-sm shrink-0" (click)="classicRequested.emit()">{{ 'wave.classic' | translate }}</button>
+              <div class="flex items-center gap-1 shrink-0">
+                @if (phase() === 'wave' && history().length === 0) {
+                  <button type="button" class="btn btn-outline btn-xs sm:btn-sm" (click)="showPacks.set(true)">✧ {{ 'wave.pack.open' | translate }}</button>
+                }
+                <button type="button" class="btn btn-ghost btn-xs sm:btn-sm" (click)="classicRequested.emit()">{{ 'wave.classic' | translate }}</button>
+              </div>
             </div>
 
             <!-- progress -->
@@ -114,6 +126,31 @@ const MAX_AUTO_WAVES = 30;
                 </div>
               }
             </div>
+
+            <!-- settings: main deck size and what to optimise -->
+            @if (phase() !== 'loading' && phase() !== 'unsupported') {
+              <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                <div class="flex items-center gap-1.5" role="radiogroup" [attr.aria-label]="'wave.settings.size' | translate">
+                  <span class="text-base-content/60">{{ 'wave.settings.size' | translate }}</span>
+                  @for (size of sizes; track size) {
+                    <label class="btn btn-xs" [class.btn-primary]="targetMain() === size" [class.btn-ghost]="targetMain() !== size">
+                      <input type="radio" class="sr-only" name="wave-size" [checked]="targetMain() === size" (change)="setTarget(size)" />{{ size }}
+                    </label>
+                  }
+                </div>
+                <label class="flex items-center gap-1.5">
+                  <span class="text-base-content/60">{{ 'wave.settings.focus' | translate }}</span>
+                  <select class="select select-bordered select-xs" [value]="focus()" (change)="setFocus($any($event.target).value)" [attr.aria-label]="'wave.settings.focus' | translate">
+                    @for (f of focuses; track f) {
+                      <option [value]="f" [selected]="focus() === f">{{ ('wave.focus.' + f) | translate }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+              @if (focus() !== 'balanced') {
+                <p class="mt-1 text-[11px] text-base-content/50">{{ ('wave.focusHint.' + focus()) | translate }}</p>
+              }
+            }
 
             <!-- timeline -->
             @if (history().length > 0) {
@@ -141,6 +178,43 @@ const MAX_AUTO_WAVES = 30;
                   <span class="loading loading-spinner loading-lg"></span>
                   <p class="text-sm">{{ 'wave.loading' | translate }}</p>
                 </div>
+              }
+              @case ('packs') {
+                <section class="wave-enter space-y-4" aria-labelledby="wave-packs-title" aria-live="polite">
+                  <div class="flex items-start gap-3">
+                    <span class="grid place-items-center w-11 h-11 rounded-full bg-primary/15 text-primary text-xl shrink-0" aria-hidden="true">✧</span>
+                    <div class="min-w-0">
+                      <h4 id="wave-packs-title" class="font-display text-xl font-semibold leading-tight">{{ 'wave.pack.title' | translate }}</h4>
+                      <p class="text-sm text-base-content/65 mt-0.5">{{ 'wave.pack.hint' | translate }}</p>
+                    </div>
+                  </div>
+                  <ul class="grid gap-3 sm:grid-cols-3">
+                    @for (pack of packs(); track pack.archetype) {
+                      <li>
+                        <button type="button" class="wave-tile w-full h-full text-left rounded-xl border border-base-300 hover:border-primary bg-base-200/50 p-3 flex flex-col gap-2 focus-visible:ring-2 focus-visible:ring-primary" (click)="choosePack(pack)" [attr.aria-label]="('wave.pack.choose' | translate) + ': ' + pack.archetype">
+                          <div class="flex justify-center -space-x-5 py-1" aria-hidden="true">
+                            @for (id of pack.cardIds; track id; let i = $index) {
+                              @if (infoOf(id)?.imageUrlSmall; as src) {
+                                <img [src]="src" alt="" class="w-16 aspect-[59/86] object-cover rounded shadow-lg border border-base-300"
+                                     [style.transform]="'rotate(' + ((i - 1) * 7) + 'deg) translateY(' + (i === 1 ? 0 : 4) + 'px)'" loading="lazy" />
+                              } @else {
+                                <div class="w-16 aspect-[59/86] rounded bg-base-300/60 animate-pulse"></div>
+                              }
+                            }
+                          </div>
+                          <p class="font-display text-lg font-semibold leading-tight break-words">{{ pack.archetype }}</p>
+                          <p class="text-xs text-base-content/60">{{ 'wave.pack.meta' | translate: { decks: '' + pack.deckCount, pct: '' + packPct(pack) } }}</p>
+                          <p class="text-xs text-base-content/70 break-words">{{ packCardNames(pack) }}</p>
+                          @if (pack.bestDeck?.placement; as place) {
+                            <p class="text-[11px] text-base-content/50">{{ 'wave.pack.best' | translate: { place: '' + place } }}</p>
+                          }
+                          <span class="btn btn-primary btn-sm mt-auto pointer-events-none">{{ 'wave.pack.choose' | translate }}</span>
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                  <p class="text-xs text-base-content/50">{{ 'wave.pack.note' | translate }}</p>
+                </section>
               }
               @case ('unsupported') {
                 <div class="py-10 text-center space-y-3">
@@ -236,6 +310,12 @@ const MAX_AUTO_WAVES = 30;
 
           <!-- footer -->
           <footer class="px-4 sm:px-5 py-3 border-t border-base-300/50 shrink-0 flex flex-wrap items-center gap-2 bg-base-100/60">
+            @if (phase() === 'packs') {
+              <button type="button" class="btn btn-primary btn-sm order-first w-full sm:order-last sm:w-auto" (click)="drawPacks()">↻ {{ 'wave.pack.shuffle' | translate }}</button>
+              @if (showPacks()) {
+                <button type="button" class="btn btn-ghost btn-xs sm:btn-sm" (click)="showPacks.set(false)">{{ 'wave.pack.back' | translate }}</button>
+              }
+            }
             @if (phase() === 'wave') {
               <button type="button" class="btn btn-primary btn-sm order-first w-full sm:order-last sm:w-auto" [disabled]="!canApplyWave()" (click)="applyCurrent()">
                 {{ 'wave.apply' | translate }}
@@ -357,7 +437,7 @@ export class WaveCompletionDialogComponent {
   readonly open = input(false);
   readonly deck = input.required<Decklist>();
   readonly format = input<YgoFormat | null>(null);
-  readonly targetMain = input(40);
+  readonly initialTargetMain = input(40, { alias: 'targetMain' });
   readonly includeSide = input(true);
 
   readonly closed = output<void>();
@@ -366,7 +446,30 @@ export class WaveCompletionDialogComponent {
   readonly classicRequested = output<void>();
 
   private readonly loadState = signal<'idle' | 'loading' | 'ready' | 'unsupported'>('idle');
-  private readonly ctx = signal<WaveContext | null>(null);
+  private readonly baseCtx = signal<WaveContext | null>(null);
+  readonly sizes = MAIN_SIZES;
+  readonly focuses = FOCUSES;
+  readonly targetMain = signal<number>(40);
+  readonly focus = signal<CompetitiveFocus>('balanced');
+  readonly showPacks = signal(false);
+  readonly packs = signal<StarterPack[]>([]);
+  private seeds: ArchetypeSeed[] = [];
+  private readonly seenArchetypes = new Set<string>();
+
+  /** The planner context with the user's settings: main size and what to optimise for. */
+  private readonly ctx = computed<WaveContext | null>(() => {
+    const base = this.baseCtx();
+    if (!base) return null;
+    const focus = this.focus();
+    return {
+      ...base,
+      targets: { ...base.targets, main: this.targetMain() },
+      ...(base.competitive ? { competitive: { ...base.competitive, focus } } : {}),
+      // a focused goal lets the score outweigh how closely the deck mirrors similar decks
+      // a focused goal searches wider (measured: -6% to -9% hands without the engine for the brick goal)
+      optimizer: focus === 'balanced' ? { lambda: 4 } : { lambda: 10, candidatePool: 100, minProbability: 0, maxSwaps: 100 },
+    };
+  });
   readonly draft = signal<Map<string, number>>(new Map());
   readonly rejected = signal<Set<number>>(new Set());
   readonly history = signal<AppliedWave[]>([]);
@@ -405,10 +508,12 @@ export class WaveCompletionDialogComponent {
     return r && !r.done ? r.wave : null;
   });
 
-  readonly phase = computed<'loading' | 'unsupported' | 'wave' | 'summary'>(() => {
+  readonly phase = computed<'loading' | 'unsupported' | 'packs' | 'wave' | 'summary'>(() => {
     const state = this.loadState();
     if (state === 'loading' || state === 'idle') return 'loading';
     if (state === 'unsupported') return 'unsupported';
+    const smallStart = this.history().length === 0 && this.startingCards() < MIN_CARDS_FOR_WAVES;
+    if ((smallStart || this.showPacks()) && this.seeds.length > 0) return 'packs';
     const r = this.result();
     if (!r) return 'loading';
     return r.done ? 'summary' : 'wave';
@@ -440,6 +545,9 @@ export class WaveCompletionDialogComponent {
     const byAi = top === null ? -1 : wave.choice.options.findIndex((o) => o.cardId === top);
     return byAi >= 0 ? byAi : wave.choice.recommended;
   });
+
+  /** Main + extra cards of the draft: the seed the closest decks are compared with. */
+  private readonly startingCards = computed(() => this.countSection('main') + this.countSection('extra'));
 
   readonly counts = computed(() => ({
     main: this.countSection('main'),
@@ -559,6 +667,7 @@ export class WaveCompletionDialogComponent {
       const wave = this.waveOf();
       const history = this.history();
       const ids = new Set<number>();
+      for (const pack of this.packs()) for (const id of pack.cardIds) ids.add(id);
       for (const c of wave?.cards ?? []) this.collectIds(c, ids);
       for (const c of wave?.choice?.options ?? []) this.collectIds(c, ids);
       for (const h of history) {
@@ -629,6 +738,73 @@ export class WaveCompletionDialogComponent {
     });
     this.rejected.set(new Set([...this.rejected(), ...ids]));
     this.picked.set(null);
+  }
+
+  setTarget(size: number): void {
+    this.targetMain.set(this.clampSize(size));
+    this.picked.set(null);
+  }
+
+  setFocus(value: string): void {
+    this.focus.set((FOCUSES as readonly string[]).includes(value) ? (value as CompetitiveFocus) : 'balanced');
+    this.picked.set(null);
+  }
+
+  /** Draws three new starter packs from archetypes the player has not just seen. */
+  drawPacks(): void {
+    const ctx = this.baseCtx();
+    if (!ctx || this.seeds.length === 0) return;
+    const packs = drawStarterPacks(this.seeds, ctx.meta, PACKS_PER_DRAW, Math.random, this.seenArchetypes);
+    packs.forEach((p) => this.seenArchetypes.add(p.archetype));
+    // once every archetype has been shown, start over
+    if (this.seenArchetypes.size >= this.seeds.length) this.seenArchetypes.clear();
+    this.packs.set(packs);
+  }
+
+  /** The three cards of the chosen pack join the deck as the opening step; waves continue from there. */
+  choosePack(pack: StarterPack): void {
+    const format = this.format();
+    if (!format) return;
+    const taken: WaveCard[] = pack.cardIds.map((cardId) => ({
+      cardId,
+      section: 'main',
+      quantity: 1,
+      probability: 1,
+      playedBy: pack.deckCount,
+      of: pack.deckCount,
+      why: [],
+    }));
+    const wave: Wave = {
+      id: `pack-${pack.archetype}`,
+      kind: 'pack',
+      cards: taken,
+      choice: null,
+      basis: { decks: pack.deckCount, best: { name: pack.bestDeck?.name ?? pack.archetype, coverage: 1, archetype: pack.archetype, url: pack.bestDeck?.url ?? null } },
+    };
+    this.pushHistory({ wave, taken, picked: null, skipped: false, auto: false });
+    this.archetype = pack.archetype;
+    this.memory.record({
+      formatId: format.id,
+      archetype: pack.archetype,
+      waveKind: 'pack',
+      accepted: pack.cardIds,
+      rejected: [],
+      chosen: null,
+      passedOver: [],
+    });
+    const next = new Map(this.draft());
+    for (const id of pack.cardIds) next.set(`main:${id}`, (next.get(`main:${id}`) ?? 0) + 1);
+    this.draft.set(next);
+    this.showPacks.set(false);
+    this.picked.set(null);
+  }
+
+  packPct(pack: StarterPack): number {
+    return Math.round(pack.metaShare * 100);
+  }
+
+  packCardNames(pack: StarterPack): string {
+    return pack.cardIds.map((id) => this.nameOf(id)).join(' · ');
   }
 
   /** Asks the configured AI to read the effects of the current choice's options. Sends data only on click. */
@@ -816,7 +992,12 @@ export class WaveCompletionDialogComponent {
     this.rejected.set(new Set());
     this.picked.set(null);
     this.advice.set(new Map());
-    this.ctx.set(null);
+    this.baseCtx.set(null);
+    this.showPacks.set(false);
+    this.packs.set([]);
+    this.seenArchetypes.clear();
+    this.targetMain.set(this.clampSize(this.initialTargetMain()));
+    this.focus.set('balanced');
     this.reference.set(null);
     this.archetype = null;
     const draft = new Map<string, number>();
@@ -839,8 +1020,10 @@ export class WaveCompletionDialogComponent {
           this.classicRequested.emit();
           return;
         }
-        this.ctx.set(ctx);
+        this.baseCtx.set(ctx);
         this.reference.set(this.tournamentReference(ctx));
+        this.seeds = buildArchetypeSeeds(ctx.pool);
+        this.drawPacks();
         this.loadState.set('ready');
       });
   }
@@ -868,6 +1051,10 @@ export class WaveCompletionDialogComponent {
       usage: total.usage / n,
       overall: total.overall / n,
     };
+  }
+
+  private clampSize(size: number): number {
+    return (MAIN_SIZES as readonly number[]).includes(size) ? size : size < 40 ? 40 : size > 60 ? 60 : Math.round(size / 5) * 5;
   }
 
   private countSection(section: WaveSection): number {

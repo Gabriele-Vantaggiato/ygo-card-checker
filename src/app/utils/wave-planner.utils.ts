@@ -4,7 +4,7 @@ import { CompetitiveContext, SynergyLinks, scoreDeck } from './competitive-score
 import { OptimizeOptions, optimizeMainFill } from './competitive-optimizer.utils';
 import { buildMonsterPool, isExtraReachable } from './extra-reachability.utils';
 import { FormatCardStats, FormatStaples, typicalCopies } from './format-staples.utils';
-import { ConsensusSlot, PoolMatch, consensusSlots, rankPoolDecks } from './pool-completion.utils';
+import { ConsensusSlot, DEFAULT_COPY_CAP, PoolMatch, consensusSlots, copyCaps, rankPoolDecks } from './pool-completion.utils';
 import { selectStructuredSection } from './structured-sections.utils';
 
 /**
@@ -13,7 +13,7 @@ import { selectStructuredSection } from './structured-sections.utils';
  * and needs are recomputed, and the next wave is decided on the updated deck.
  */
 
-export type WaveKind = 'core' | 'need' | 'partners' | 'engine' | 'support' | 'extra' | 'side';
+export type WaveKind = 'pack' | 'core' | 'need' | 'partners' | 'engine' | 'support' | 'extra' | 'side';
 export type WaveSection = 'main' | 'extra' | 'side';
 export type LinkRelation = 'gy' | 'engine' | 'search' | 'mention' | 'shared';
 
@@ -98,6 +98,9 @@ const CLOSE_CALL_RANGE: readonly [number, number] = [0.3, 0.65];
 const STRONG_LINK_PROBABILITY = 0.4;
 const CORE_PROBABILITY = 0.6;
 const PREFERENCE_STEP = 0.08;
+/** Reserve slots from the format's most played cards: minimum share of decks and weight against similar-deck consensus. */
+const MIN_RESERVE_SHARE = 0.1;
+const RESERVE_WEIGHT = 0.5;
 const MIN_MATCH_OPTIONS = { limit: 8, minCoverage: 0.3, minOverlap: 3 } as const;
 
 const RELATION_NAMES: Record<number, LinkRelation | undefined> = { 1: 'gy', 2: 'engine', 3: 'search', 4: 'mention', 5: 'shared' };
@@ -220,7 +223,32 @@ export function nextWave(state: WaveState, ctx: WaveContext): WaveResult {
   const matches = rankPoolDecks(userMainExtra(state), ctx.pool, MIN_MATCH_OPTIONS);
   if (matches.length === 0) return { done: true, reason: 'no-match' };
   const { slots: rawSlots, weights } = consensusSlots(state.userBySection, matches);
-  const slots = rawSlots.filter((s) => !state.rejected.has(s.cardId)).map((s) => applyPreference(s, state));
+  // a card is limited to its total copies across Main, Extra and Side, not per section
+  const caps = copyCaps(matches);
+  const haveIn = (section: WaveSection, cardId: number): number => state.userBySection.get(`${section}:${cardId}`) ?? 0;
+  const haveTotal = (cardId: number): number => haveIn('main', cardId) + haveIn('extra', cardId) + haveIn('side', cardId);
+  /** Copies the deck can still take of the card, in any section. */
+  const room = (cardId: number): number => Math.max(0, (caps.get(cardId) ?? DEFAULT_COPY_CAP) - haveTotal(cardId));
+  const slots = rawSlots
+    .filter((s) => !state.rejected.has(s.cardId) && s.copy - haveIn(s.section, s.cardId) <= room(s.cardId))
+    .map((s) => applyPreference(s, state));
+  // Similar decks hold ~40 cards, so a larger main deck would run out of candidates. Reserve slots from the
+  // format's most played main deck cards: low probability (they only fill what the similar decks cannot),
+  // `support: 0` so they never count as "decks disagree" contenders.
+  if (mainGap > 0) {
+    const present = new Set(slots.filter((s) => s.section === 'main').map((s) => `${s.cardId}:${s.copy}`));
+    for (const [cardId, usage] of ctx.stats.main) {
+      if (state.rejected.has(cardId) || usage.share < MIN_RESERVE_SHARE) continue;
+      const maxByData = usage.copyShare[2] > 0 ? 3 : usage.copyShare[1] > 0 ? 2 : 1;
+      const have = haveIn('main', cardId);
+      for (let copy = have + 1; copy <= maxByData; copy++) {
+        if (copy - have > room(cardId) || present.has(`${cardId}:${copy}`)) continue;
+        const probability = RESERVE_WEIGHT * usage.copyShare[copy - 1];
+        if (probability <= 0) continue;
+        slots.push(applyPreference({ cardId, section: 'main', copy, probability, support: 0, rank: matches.length, fromDeck: '' }, state));
+      }
+    }
+  }
   const basis = {
     decks: matches.length,
     best: { name: matches[0].deck.name, coverage: matches[0].coverage, archetype: matches[0].deck.archetype ?? null, url: matches[0].deck.url ?? null },
@@ -330,7 +358,7 @@ export function nextWave(state: WaveState, ctx: WaveContext): WaveResult {
 
     // 5. support: generic and flexible slots; when the decks disagree, let the user pick
     const sure = takeCopies(mainSlots.filter((s) => s.probability >= CLOSE_CALL_RANGE[1]), Math.min(MAX_WAVE_COPIES, mainGap));
-    const contenders = mainSlots.filter((s) => s.copy === 1 && s.probability >= CLOSE_CALL_RANGE[0] && s.probability < CLOSE_CALL_RANGE[1]);
+    const contenders = mainSlots.filter((s) => s.copy === 1 && s.support > 0 && s.probability >= CLOSE_CALL_RANGE[0] && s.probability < CLOSE_CALL_RANGE[1]);
     const distinct = [...new Map(contenders.map((s) => [s.cardId, s])).values()];
     if (distinct.length >= 2 && sure.length < Math.min(MAX_WAVE_COPIES, mainGap)) {
       let options = distinct.slice(0, MAX_CHOICE_OPTIONS).map((s): WaveCard => ({
@@ -368,6 +396,7 @@ export function nextWave(state: WaveState, ctx: WaveContext): WaveResult {
       staples: ctx.staples[section],
       have: (cardId) => state.userBySection.get(`${section}:${cardId}`) ?? 0,
       adjust: section === 'extra' ? (slot) => (isExtraReachable(ctx.meta.get(slot.cardId), monsters) ? 1 : 0.35) : undefined,
+      maxCopies: (cardId) => haveIn(section, cardId) + room(cardId),
       makeSlot: (cardId, copy, probability): ConsensusSlot => ({ cardId, section, copy, probability, support: 0, rank: matches.length, fromDeck: '' }),
     }).filter((p) => !state.rejected.has(p.slot.cardId));
     if (picks.length === 0) continue;

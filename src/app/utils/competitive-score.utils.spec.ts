@@ -1,5 +1,5 @@
 import { CardMeta, FLAG, KIND } from './card-meta.utils';
-import { CompetitiveContext, SynergyLinks, archetypeShare, brickRate, consistencyScore, engineCore, scoreDeck, usageScore } from './competitive-score.utils';
+import { CompetitiveContext, FOCUS_WEIGHTS, SynergyLinks, archetypeShare, overallScore, brickRate, consistencyScore, engineCore, scoreDeck, usageScore } from './competitive-score.utils';
 import { optimizeMainFill } from './competitive-optimizer.utils';
 
 const card = (flags = 0, archetype = 0, kind: number = KIND.monster): CardMeta => ({ roles: 0, kind, level: 4, tuner: false, flags, archetype });
@@ -102,6 +102,35 @@ describe('competitive score', () => {
 
     it('returns nothing to add when the gap is zero', () => {
       expect(optimizeMainFill(userMain, slots, 0, ctx)).toEqual([]);
+    });
+  });
+
+  describe('focus', () => {
+    it('every focus weighs the components to a total of 1', () => {
+      for (const w of Object.values(FOCUS_WEIGHTS)) {
+        expect(w.brick + w.usage + w.inTurn + w.crossTurn + w.consistency).toBeCloseTo(1);
+      }
+    });
+
+    it('rewards the focused trait more than the balanced weighting does', () => {
+      const lowBrick = overallScore(0.1, { inTurn: 0.2, crossTurn: 0 }, 0.2, 0.2, 'brick') - overallScore(0.6, { inTurn: 0.2, crossTurn: 0 }, 0.2, 0.2, 'brick');
+      const lowBrickBalanced = overallScore(0.1, { inTurn: 0.2, crossTurn: 0 }, 0.2, 0.2) - overallScore(0.6, { inTurn: 0.2, crossTurn: 0 }, 0.2, 0.2);
+      expect(lowBrick).toBeGreaterThan(lowBrickBalanced);
+
+      const syn = overallScore(0.3, { inTurn: 0.9, crossTurn: 0 }, 0.5, 0.2, 'synergy') - overallScore(0.3, { inTurn: 0.1, crossTurn: 0 }, 0.5, 0.2, 'synergy');
+      const synBalanced = overallScore(0.3, { inTurn: 0.9, crossTurn: 0 }, 0.5, 0.2) - overallScore(0.3, { inTurn: 0.1, crossTurn: 0 }, 0.5, 0.2);
+      expect(syn).toBeGreaterThan(synBalanced);
+
+      const cons = overallScore(0.3, { inTurn: 0.3, crossTurn: 0 }, 0.9, 0.2, 'consistency') - overallScore(0.3, { inTurn: 0.3, crossTurn: 0 }, 0.1, 0.2, 'consistency');
+      const consBalanced = overallScore(0.3, { inTurn: 0.3, crossTurn: 0 }, 0.9, 0.2) - overallScore(0.3, { inTurn: 0.3, crossTurn: 0 }, 0.1, 0.2);
+      expect(cons).toBeGreaterThan(consBalanced);
+    });
+
+    it('scoreDeck follows the context focus', () => {
+      const meta = new Map<number, CardMeta>([[1, card(FLAG.search)], [2, card()]]);
+      const base: CompetitiveContext = { meta, links: links([1, [[2, 2, 1]]]), usage: new Map() };
+      const deck = copies([1, 3], [2, 37]);
+      expect(scoreDeck(deck, { ...base, focus: 'brick' }).overall).not.toBe(scoreDeck(deck, base).overall);
     });
   });
 });

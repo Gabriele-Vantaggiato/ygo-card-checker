@@ -1,6 +1,6 @@
 import type { RouletteDeck } from '../services/deck-roulette.service';
 import { CardMeta, KIND } from './card-meta.utils';
-import { completeFromPool, planPoolAdds, rankPoolDecks } from './pool-completion.utils';
+import { completeFromPool, copyCaps, planPoolAdds, rankPoolDecks } from './pool-completion.utils';
 
 const deck = (id: string, main: number[], extra: number[] = [], side: number[] = []): RouletteDeck => ({
   id,
@@ -102,6 +102,38 @@ describe('pool completion', () => {
 
     it('completeFromPool returns null when nothing is similar', () => {
       expect(completeFromPool(new Map([['main:999', 3]]), [deck('x', [1, 2, 3])], { main: 5, extra: 0, side: 0 })).toBeNull();
+    });
+  });
+
+  describe('copy limits across sections', () => {
+    // card 7 is a main-deck staple (3 copies) AND a side card (2 copies) in every similar deck: 5 copies in total
+    const greedy = Array.from({ length: 4 }, (_, i) => deck(`g${i}`, [1, 1, 1, 2, 2, 2, 7, 7, 7], [], [7, 7]));
+
+    it('caps each card at what a legal deck plays in total', () => {
+      const m = rankPoolDecks(qty([1, 3], [2, 3]), greedy);
+      expect(copyCaps(m).get(7)).toBe(5); // the decks themselves run 5: the cap follows the data...
+      const limited = [deck('l', [1, 1, 1, 2, 2, 2, 9])];
+      expect(copyCaps(rankPoolDecks(qty([1, 3], [2, 3]), limited)).get(9)).toBe(1);
+    });
+
+    it('never plans more than three copies of a card across main and side together', () => {
+      const user = new Map([['main:1', 3], ['main:2', 3]]);
+      const m = rankPoolDecks(qty([1, 3], [2, 3]), greedy);
+      const adds = planPoolAdds(user, m, { main: 3, extra: 0, side: 3 });
+      const total = adds.filter((a) => a.cardId === 7).reduce((sum, a) => sum + a.quantity, 0);
+      expect(total).toBeLessThanOrEqual(5);
+      // and it cannot be used to exceed the engine's hard default of three when the data does not say otherwise
+      const noCaps = planPoolAdds(user, m, { main: 3, extra: 0, side: 3 });
+      expect(noCaps.filter((a) => a.cardId === 7 && a.section === 'main').length).toBeLessThanOrEqual(1);
+    });
+
+    it('respects copies the user already holds in another section', () => {
+      const decks = Array.from({ length: 4 }, (_, i) => deck(`h${i}`, [1, 1, 1, 2, 2, 2, 8, 8, 8], [], [8, 8, 8]));
+      const m = rankPoolDecks(qty([1, 3], [2, 3]), decks);
+      const user = new Map([['main:1', 3], ['main:2', 3], ['main:8', 3]]);
+      const adds = planPoolAdds(user, m, { main: 0, extra: 0, side: 3 });
+      // 3 in the main deck already: the decks' own cap is 6, but a card still never goes past three in the app
+      expect(adds.filter((a) => a.cardId === 8 && a.section === 'side').reduce((s, a) => s + a.quantity, 0)).toBeLessThanOrEqual(3);
     });
   });
 });

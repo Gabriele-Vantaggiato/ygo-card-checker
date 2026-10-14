@@ -20,6 +20,11 @@ export interface StructuredContext<T extends StructuredSlot> {
   staples: ReadonlyMap<number, StapleEntry>;
   /** Copies of the card the user already has in this section. */
   have: (cardId: number) => number;
+  /**
+   * Most copies of a card this section may hold, given what the deck has elsewhere (a card is limited to its
+   * total copies across Main, Extra and Side together). Defaults to three.
+   */
+  maxCopies?: (cardId: number) => number;
   /** Multiplier on a slot's score, e.g. to demote Extra Deck cards the main deck cannot summon. */
   adjust?: (slot: StructuredSlot) => number;
   /** Builds a candidate for a staple no matched deck plays. */
@@ -71,14 +76,16 @@ export function selectStructuredSection<T extends StructuredSlot>(ctx: Structure
   const staplePool: Scored[] = [];
   const specificPool: Scored[] = [];
 
+  const cap = (cardId: number): number => Math.min(MAX_COPIES, ctx.maxCopies ? ctx.maxCopies(cardId) : MAX_COPIES);
   for (const slot of ctx.slots) {
+    if (slot.copy > cap(slot.cardId)) continue;
     const entry = ctx.staples.get(slot.cardId) ?? null;
     if (entry) continue; // staples are scored below, with their format-wide copy shares
     specificPool.push({ slot, score: slot.probability * adjust(slot), staple: null });
   }
   for (const [cardId, entry] of ctx.staples) {
     const have = ctx.have(cardId);
-    for (let copy = have + 1; copy <= MAX_COPIES; copy++) {
+    for (let copy = have + 1; copy <= cap(cardId); copy++) {
       const fromDecks = consensus.get(`${cardId}:${copy}`);
       const formatShare = entry.copyShare[copy - 1] ?? 0;
       const probability = STAPLE_FORMAT_WEIGHT * formatShare + (1 - STAPLE_FORMAT_WEIGHT) * (fromDecks?.probability ?? 0);

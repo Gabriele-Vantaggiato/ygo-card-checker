@@ -20,6 +20,8 @@ export interface CompetitiveContext {
   links: SynergyLinks;
   /** Card id -> share (0..1) of competitive decks of the format that play it. */
   usage: ReadonlyMap<number, number>;
+  /** What to favour when comparing decks (default: balanced). */
+  focus?: CompetitiveFocus;
 }
 
 export interface SynergyScore {
@@ -53,6 +55,28 @@ const ENGINE_RELATIONS = new Set<number>([RELATION.gy, RELATION.engine, RELATION
  * tournament decks from random ones (AUC 0.40-0.50), so it is reported but never optimised.
  */
 export const OVERALL_WEIGHTS = { brick: 0.35, usage: 0.25, inTurn: 0.25, crossTurn: 0, consistency: 0.15 } as const;
+
+/** What the optimiser should favour. `balanced` is the default weighting above. */
+export type CompetitiveFocus = 'balanced' | 'brick' | 'synergy' | 'consistency';
+
+export interface ScoreWeights {
+  brick: number;
+  usage: number;
+  inTurn: number;
+  crossTurn: number;
+  consistency: number;
+}
+
+/**
+ * Weights per focus; each set sums to 1. A focused goal still keeps a floor on the others so the deck does not
+ * collapse into one trait (e.g. a pile of one card for consistency).
+ */
+export const FOCUS_WEIGHTS: Readonly<Record<CompetitiveFocus, ScoreWeights>> = {
+  balanced: OVERALL_WEIGHTS,
+  brick: { brick: 0.6, usage: 0.1, inTurn: 0.15, crossTurn: 0, consistency: 0.15 },
+  synergy: { brick: 0.2, usage: 0.1, inTurn: 0.55, crossTurn: 0, consistency: 0.15 },
+  consistency: { brick: 0.2, usage: 0.15, inTurn: 0.15, crossTurn: 0, consistency: 0.5 },
+};
 
 /** Reference values: what real tournament decks typically reach, used to scale components into 0..1. */
 const COHERENCE_REFERENCE = 0.5;
@@ -210,8 +234,14 @@ export function usageScore(mainCopies: readonly number[], usage: ReadonlyMap<num
   return sum / mainCopies.length;
 }
 
-export function overallScore(brick: number, synergy: SynergyScore, consistency: number, usage: number): number {
-  const w = OVERALL_WEIGHTS;
+export function overallScore(
+  brick: number,
+  synergy: SynergyScore,
+  consistency: number,
+  usage: number,
+  focus: CompetitiveFocus = 'balanced',
+): number {
+  const w = FOCUS_WEIGHTS[focus];
   return w.brick * (1 - brick) + w.usage * usage + w.inTurn * synergy.inTurn + w.crossTurn * synergy.crossTurn + w.consistency * consistency;
 }
 
@@ -221,5 +251,5 @@ export function scoreDeck(mainCopies: readonly number[], ctx: CompetitiveContext
   const synergy = synergyScore(mainCopies, ctx);
   const consistency = consistencyScore(mainCopies);
   const usage = usageScore(mainCopies, ctx.usage);
-  return { brickRate: brick, synergy, consistency, usage, overall: overallScore(brick, synergy, consistency, usage) };
+  return { brickRate: brick, synergy, consistency, usage, overall: overallScore(brick, synergy, consistency, usage, ctx.focus) };
 }

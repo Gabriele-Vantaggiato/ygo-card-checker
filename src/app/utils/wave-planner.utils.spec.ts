@@ -155,4 +155,38 @@ describe('wave planner', () => {
     const tagged = liked.wave.cards.find((c) => c.cardId === 16);
     if (tagged) expect(tagged.why.some((w) => w.kind === 'preference')).toBeTrue();
   });
+
+  it('never takes more copies of a card than the matched decks play in total, across sections', () => {
+    // every pool deck plays card 13 three times in the main deck and once more in the side: 4 in total
+    const withSide = Array.from({ length: 12 }, (_, i) => deck(`s${i}`, [100, 101, 102], [13, 200, 201]));
+    const ctx = baseCtx({ pool: withSide, staples: buildFormatStaples(withSide, { minShare: 0.2, minArchetypes: 1 }), stats: buildFormatCardStats(withSide) });
+    const sim = simulateWaves(new Map([['main:1', 3], ['main:2', 3], ['main:3', 3]]), ctx);
+    const total = (id: number) => [...sim.deck].filter(([k]) => k.endsWith(`:${id}`)).reduce((s, [, q]) => s + q, 0);
+    expect(total(13)).toBeLessThanOrEqual(4);
+    for (const id of new Set([...sim.deck.keys()].map((k) => Number(k.split(':')[1])))) expect(total(id)).toBeLessThanOrEqual(4);
+  });
+
+  it('does not put a card in the side deck when the main deck already uses its allowed copies', () => {
+    // limited card 13: every legal deck plays exactly one copy in total
+    const limited = Array.from({ length: 12 }, (_, i) => deck(`m${i}`, [100, 101, 102], [200, 201], [...engineMain.filter((id) => id !== 13), 13]));
+    const ctx = baseCtx({ pool: limited, staples: buildFormatStaples(limited, { minShare: 0.2, minArchetypes: 1 }), stats: buildFormatCardStats(limited) });
+    const sim = simulateWaves(new Map([['main:1', 3], ['main:2', 3], ['main:13', 1]]), ctx);
+    const total13 = [...sim.deck].filter(([k]) => k.endsWith(':13')).reduce((s, [, q]) => s + q, 0);
+    expect(total13).toBe(1);
+  });
+
+  it('fills a larger main deck with the most played cards of the format when the similar decks run out', () => {
+    // other archetypes all play cards 40 and 41 three times: they are format staples the engine decks lack
+    const staples = Array.from({ length: 8 }, (_, i) => deck(`t${i}`, [300 + i], [200], [40, 40, 40, 41, 41, 41, 50 + i, 50 + i, 50 + i], `Staple${i}`));
+    const all = [...pool, ...others, ...staples];
+    const ctx = (main: number) => baseCtx({ pool: all, staples: buildFormatStaples(all, { minShare: 0.2, minArchetypes: 2 }), stats: buildFormatCardStats(all), targets: { main, extra: 15, side: 15 } });
+    const seed = () => new Map([['main:1', 3], ['main:2', 3], ['main:3', 3]]);
+    const at40 = simulateWaves(seed(), ctx(40));
+    const at46 = simulateWaves(seed(), ctx(46));
+    expect(mainCount(at40.deck)).toBe(40);
+    expect(mainCount(at46.deck)).toBeGreaterThan(40);
+    // the extra cards come from the reserve, never above the three copies of a card
+    expect(at46.deck.get('main:40') ?? 0).toBeLessThanOrEqual(3);
+    for (const wave of at46.waves) expect(wave.choice?.options.every((o) => o.playedBy > 0) ?? true).toBeTrue();
+  });
 });
