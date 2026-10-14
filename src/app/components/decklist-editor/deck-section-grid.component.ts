@@ -1,8 +1,9 @@
 import { CdkDrag, CdkDragDrop, CdkDragPlaceholder, CdkDragPreview, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, input, output, signal, viewChildren } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, inject, input, output, signal, viewChildren } from '@angular/core';
 import { DecklistCard } from '../../models/decklist.model';
 import { CardPreviewDirective } from '../../shared/ui/card-preview/card-preview.directive';
+import { CardPreviewService } from '../../shared/ui/card-preview/card-preview.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DuelPanelComponent } from '../../shared/ui/duel-panel/duel-panel.component';
 import { verdictBannerClass } from '../../utils/legality-display.utils';
@@ -249,6 +250,7 @@ export class DeckSectionGridComponent {
   readonly cardInspect = output<DecklistCard>();
   readonly coarsePointer = window.matchMedia('(pointer: coarse)').matches;
   private readonly anchors = viewChildren<ElementRef<HTMLElement>>('sectionAnchor');
+  private readonly cardPreview = inject(CardPreviewService);
 
   jumpTo(key: DeckSectionKey): void {
     const section = this.anchors().find(item => item.nativeElement.dataset['section'] === key)?.nativeElement;
@@ -343,11 +345,13 @@ export class DeckSectionGridComponent {
   }
 
   onDragStarted(from: DeckSectionKey): void {
+    this.cardPreview.suppress();
     this.activeDropSection.set(from);
   }
 
   onDragEnded(): void {
     this.activeDropSection.set(null);
+    this.cardPreview.resume();
   }
 
   clearDropTarget(section: DeckSectionKey): void {
