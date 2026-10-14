@@ -117,6 +117,8 @@ export interface ReplayHistoryEntry {
   stats: ReplayAnalysis['stats'];
   findings: MissplayFinding[];
   lineComparisons: import('./duel-line.model').LineComparison[];
+  /** Distinct card codes of the opponent's deck (main + extra + side), when the replay recorded it. Ids only. */
+  opponentCards?: number[];
 }
 
 export interface DeckAdviceItem {

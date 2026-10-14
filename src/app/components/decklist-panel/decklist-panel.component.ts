@@ -7,6 +7,8 @@ import { A11yModule } from '@angular/cdk/a11y';
 import { DecklistEditorComponent } from '../decklist-editor/decklist-editor.component';
 import { DecklistGridComponent } from '../decklist-grid/decklist-grid.component';
 import { AiDeckGenerateDialogComponent } from './ai-deck-generate-dialog.component';
+import { DeckRouletteDialogComponent } from './deck-roulette-dialog.component';
+import { DeckCheckDialogComponent } from './deck-check-dialog.component';
 import { I18nService } from '../../services/i18n.service';
 import { DecklistStore } from '../../features/decklist/stores/decklist.store';
 
@@ -18,7 +20,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
   selector: 'app-decklist-panel',
   standalone: true,
   imports: [A11yModule, FormsModule, DecklistGridComponent, DecklistEditorComponent,
-    AiDeckGenerateDialogComponent, TranslatePipe],
+    AiDeckGenerateDialogComponent, DeckRouletteDialogComponent, DeckCheckDialogComponent, TranslatePipe],
   template: `
     <section class="flex flex-col min-h-0 gap-4">
       @if (createOpen()) {
@@ -40,6 +42,9 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
               <button type="button" class="btn btn-outline btn-sm gap-2" (click)="openAiGenerate()">
                 <span aria-hidden="true">✦</span>{{ 'decklist.aiGen.openButton' | translate }}
               </button>
+              <button type="button" class="btn btn-outline btn-sm gap-2" (click)="openRoulette()">
+                <span aria-hidden="true">🎲</span>{{ 'decklist.roulette.openButton' | translate }}
+              </button>
               <div class="flex gap-2">
                 <button type="button" class="btn btn-ghost" (click)="cancelCreateDeck()">
                   {{ 'decklist.dialog.cancel' | translate }}
@@ -59,11 +64,14 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
       <app-ai-deck-generate-dialog
         (deckReady)="onAiDeckReady($event)"
       />
+      <app-deck-roulette-dialog (deckReady)="onAiDeckReady($event)" />
+      <app-deck-check-dialog (deckSelected)="openEditor($event)" />
 
       @if (view() === 'grid') {
         <app-decklist-grid
           (deckSelected)="openEditor($event)"
           (createRequested)="openCreateDeck()"
+          (checkRequested)="openDeckCheck()"
         />
       } @else if (decklistStore.activeDecklist(); as deck) {
         <app-decklist-editor
@@ -82,6 +90,8 @@ export class DecklistPanelComponent {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly aiDialog = viewChild(AiDeckGenerateDialogComponent);
+  private readonly rouletteDialog = viewChild(DeckRouletteDialogComponent);
+  private readonly checkDialog = viewChild(DeckCheckDialogComponent);
 
   readonly view = signal<DecklistView>('grid');
   readonly createOpen = signal(false);
@@ -91,6 +101,15 @@ export class DecklistPanelComponent {
   openAiGenerate(): void {
     this.createOpen.set(false);
     this.aiDialog()?.show();
+  }
+
+  openDeckCheck(): void {
+    this.checkDialog()?.show();
+  }
+
+  openRoulette(): void {
+    this.createOpen.set(false);
+    this.rouletteDialog()?.show();
   }
 
   onAiDeckReady(deckId: string): void {

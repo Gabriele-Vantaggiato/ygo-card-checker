@@ -17,9 +17,14 @@ import { DecklistTileComponent } from './decklist-tile.component';
           <h1>Deck Studio</h1>
           <p>{{ 'studio.localNote' | translate }}</p>
         </div>
-        <button type="button" class="btn btn-primary" (click)="createRequested.emit()">
-          <span aria-hidden="true">＋</span>{{ 'decklist.create.button' | translate }}
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="btn btn-outline" (click)="checkRequested.emit()">
+            <span aria-hidden="true">✓</span>{{ 'decklist.check.button' | translate }}
+          </button>
+          <button type="button" class="btn btn-primary" (click)="createRequested.emit()">
+            <span aria-hidden="true">＋</span>{{ 'decklist.create.button' | translate }}
+          </button>
+        </div>
       </header>
 
       <section class="library-collection" aria-labelledby="collection-title">
@@ -57,6 +62,7 @@ import { DecklistTileComponent } from './decklist-tile.component';
 export class DecklistGridComponent {
   readonly deckSelected = output<string>();
   readonly createRequested = output<void>();
+  readonly checkRequested = output<void>();
   protected readonly decklistStore = inject(DecklistStore);
   protected readonly formatStore = inject(FormatStore);
   protected readonly i18n = inject(I18nService);

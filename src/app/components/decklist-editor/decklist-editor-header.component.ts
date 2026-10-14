@@ -86,6 +86,11 @@ import { FormatStore } from '../../core/stores/format.store';
         <button type="button" class="btn btn-primary btn-sm" (click)="completeDeck.emit()">
           {{ 'decklist.completeDeck' | translate }}
         </button>
+        @if (canUndoCompletion()) {
+          <button type="button" class="btn btn-ghost btn-sm gap-1" (click)="undoCompletion.emit()">
+            <span aria-hidden="true">↶</span>{{ 'decklist.completion.undo' | translate }}
+          </button>
+        }
 
         <app-duel-dropdown
           popoverId="deck-header-import-export"
@@ -134,6 +139,7 @@ export class DecklistEditorHeaderComponent {
   readonly deck = input.required<Decklist>();
   readonly cards = input.required<readonly DecklistCard[]>();
   readonly mainTarget = input(40);
+  readonly canUndoCompletion = input(false);
   readonly renaming = input(false);
   readonly renameDraft = input('');
 
@@ -143,6 +149,7 @@ export class DecklistEditorHeaderComponent {
   readonly renameCommit = output<void>();
   readonly renameCancel = output<void>();
   readonly completeDeck = output<void>();
+  readonly undoCompletion = output<void>();
   readonly importText = output<void>();
   readonly exportText = output<void>();
   readonly importYdke = output<void>();

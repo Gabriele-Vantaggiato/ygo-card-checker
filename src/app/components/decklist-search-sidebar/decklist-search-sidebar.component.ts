@@ -18,6 +18,7 @@ import { AdvancedCardSearchFilters, hasActiveAdvancedFilters } from '../../model
 import { CardSearchFacade } from '../../services/card-search.facade';
 import { I18nService } from '../../services/i18n.service';
 import { FormatStore } from '../../core/stores/format.store';
+import { CardBookmarksStore } from '../../core/stores/card-bookmarks.store';
 import { sortYgoCardsByPlayability } from '../../utils/card-sort.utils';
 import { maxCopiesForStatus } from '../../models/decklist.model';
 import { CardSearchResultRowComponent } from '../card-search-result-row/card-search-result-row.component';
@@ -82,6 +83,16 @@ const LIVE_TYPE_DEBOUNCE_MS = 280;
               />
               <button
                 type="button"
+                class="btn btn-ghost btn-sm btn-square shrink-0"
+                [class.text-warning]="bookmarks.bookmarkedIds().has(row.card.id)"
+                [attr.aria-pressed]="bookmarks.bookmarkedIds().has(row.card.id)"
+                [attr.aria-label]="'bookmarks.toggle' | translate"
+                (click)="toggleBookmark(row.card, $event)"
+              >
+                {{ bookmarks.bookmarkedIds().has(row.card.id) ? '★' : '☆' }}
+              </button>
+              <button
+                type="button"
                 class="btn btn-outline btn-sm btn-square shrink-0 mr-1"
                 [disabled]="row.isForbidden || !row.canAdd || legalityLoading()"
                 [attr.aria-label]="'decklist.editor.quickAdd' | translate"
@@ -107,6 +118,16 @@ const LIVE_TYPE_DEBOUNCE_MS = 280;
 })
 export class DecklistSearchSidebarComponent {
   private readonly toolbar = viewChild(SearchToolbarComponent);
+  toggleBookmark(card: YgoCard, event: Event): void {
+    event.stopPropagation();
+    this.bookmarks.toggle({
+      id: card.id,
+      name: card.name,
+      type: card.type,
+      imageUrlSmall: card.card_images[0]?.image_url_small ?? null,
+    });
+  }
+
   focusSearch(): void {
     this.toolbar()?.focusInput();
   }
@@ -117,6 +138,7 @@ export class DecklistSearchSidebarComponent {
   readonly quickAdd = output<YgoCard>();
 
   protected readonly i18n = inject(I18nService);
+  protected readonly bookmarks = inject(CardBookmarksStore);
   private readonly cardSearch = inject(CardSearchFacade);
   private readonly formatStore = inject(FormatStore);
   private readonly destroyRef = inject(DestroyRef);

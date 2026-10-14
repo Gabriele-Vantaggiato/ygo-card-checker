@@ -584,6 +584,15 @@ export class DecklistStore {
     return true;
   }
 
+  /** Puts a previously captured version of a deck back (used to undo a bulk change such as completion). */
+  restoreDeck(snapshot: Decklist): void {
+    if (!this.getDeckById(snapshot.id)) {
+      return;
+    }
+    this.replaceDeck(snapshot);
+    this.patchStorage((s) => ({ ...s, activeId: snapshot.id }));
+  }
+
   refreshActiveDeckLegality(format: YgoFormat): void {
     const deck = this.activeDecklist();
     if (!deck || deck.cards.length === 0) {

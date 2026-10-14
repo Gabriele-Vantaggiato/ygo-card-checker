@@ -8,6 +8,7 @@ import {
   YgoCard,
 } from '../models/ygo-card.model';
 import { BanlistStatus, YgoFormat } from '../models/ygo-format.model';
+import { MECHANIC_LABEL, bannedMechanicFor } from '../utils/format-mechanics.utils';
 import { BanlistService } from './banlist.service';
 
 @Injectable({ providedIn: 'root' })
@@ -91,6 +92,12 @@ export class LegalityService {
         inPool = false;
         reasons.push({ key: 'reason.rushDuel' });
       }
+    }
+
+    const mechanic = bannedMechanicFor(format.id, card.type);
+    if (mechanic) {
+      inPool = false;
+      reasons.push({ key: 'reason.mechanicNotInFormat', params: { mechanic: MECHANIC_LABEL[mechanic] } });
     }
 
     reasons.push(this.banlistReason(banlistStatus));

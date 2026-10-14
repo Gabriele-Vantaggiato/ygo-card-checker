@@ -90,4 +90,31 @@ describe('LegalityService', () => {
     const result = service.evaluate(card, tenguFormat, 'Unlimited');
     expect(result.verdict).toBe('not-legal');
   });
+
+  describe('format mechanics', () => {
+    const format = (id: string): YgoFormat => ({
+      ...tenguFormat,
+      id,
+      banlistId: null,
+      banlistSource: 'ban_tcg',
+      cardPoolEndDate: '2020-01-01',
+    });
+    const card = (type: string): YgoCard => ({ ...orbital7, type });
+    it('rejects Pendulum cards in HAT even when their date is inside the card pool', () => {
+      const result = service.evaluate(card('Pendulum Effect Monster'), format('hat'), 'Unlimited');
+      expect(result.verdict).toBe('not-legal');
+      expect(result.reasons.some((r) => r.key === 'reason.mechanicNotInFormat')).toBeTrue();
+    });
+
+    it('rejects Xyz in Edison and Synchro in GOAT, but allows Xyz in Tengu', () => {
+      expect(service.evaluate(card('XYZ Monster'), format('edison'), 'Unlimited').verdict).toBe('not-legal');
+      expect(service.evaluate(card('Synchro Monster'), format('goat'), 'Unlimited').verdict).toBe('not-legal');
+      expect(service.evaluate(card('XYZ Monster'), format('tengu'), 'Unlimited').verdict).toBe('legal');
+    });
+
+    it('does not restrict modern TCG or ordinary cards', () => {
+      expect(service.evaluate(card('Pendulum Effect Monster'), format('tcg'), 'Unlimited').verdict).toBe('legal');
+      expect(service.evaluate(card('Effect Monster'), format('hat'), 'Unlimited').verdict).toBe('legal');
+    });
+  });
 });

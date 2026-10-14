@@ -69,6 +69,96 @@ export class DeckBuilderAiService {
       catchError(() => of([])),
     );
   }
+  /**
+   * Picks among a handful of options for ONE slot, reading each card's effect text. Unlike rank$, the cloud
+   * prompt carries the effects and the reason the slot exists, so the answer can speak about costs, recursion
+   * and fit with the deck. Same safety rules: only the given ids are accepted, [] when no provider answers.
+   */
+  rankWithEffects$(
+    candidates: readonly GateCardFacts[],
+    deckSummary: string,
+    context: string,
+    lang: 'it' | 'en',
+  ): Observable<DeckBuilderSuggestion[]> {
+    if (candidates.length === 0) {
+      return of([]);
+    }
+    if (this.aiPreferences.preferences().provider === 'local' || this.decision.preferences().enabled) {
+      const objective = `${context}\nCurrent deck:\n${deckSummary}`;
+      return this.decision
+        .rank$(
+          objective,
+          candidates.map((c) => ({ cardId: c.id, text: `${c.name}. ${c.type}. ${c.desc ?? ''}` })),
+        )
+        .pipe(
+          map((ranked) =>
+            ranked.map((item) => ({
+              cardId: item.cardId,
+              reason:
+                lang === 'it'
+                  ? 'Il modello locale la ritiene più affine alla situazione (sperimentale).'
+                  : 'The local model finds it closest to the situation (experimental).',
+            })),
+          ),
+        );
+    }
+    const prompt = buildEffectPrompt(candidates, deckSummary, context, lang);
+    const freeModel$ = this.openRouter?.ask$(prompt) ?? of('');
+    return freeModel$.pipe(
+      switchMap((raw) => {
+        const parsed = parseAndValidateSuggestions(raw, candidates);
+        if (parsed.length > 0) return of(parsed);
+        if (this.aiPreferences.preferences().provider !== 'gemini') return of([]);
+        return this.gemini.ask$(prompt).pipe(
+          map((fallback) => parseAndValidateSuggestions(fallback, candidates)),
+          catchError(() => of([])),
+        );
+      }),
+      catchError(() => of([])),
+    );
+  }
+}
+
+const MAX_EFFECT_TEXT = 700;
+
+/** Prompt that includes every option's effect text and the reason the choice exists. Exported for tests. */
+export function buildEffectPrompt(
+  candidates: readonly GateCardFacts[],
+  deckSummary: string,
+  context: string,
+  lang: 'it' | 'en',
+): string {
+  const list = candidates
+    .map((c) => `- id ${c.id}: ${c.name} (${c.type})\n  ${(c.desc ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_EFFECT_TEXT) || '(no effect text)'}`)
+    .join('\n');
+  if (lang === 'it') {
+    return [
+      'Sei un assistente esperto di Yu-Gi-Oh! che aiuta a completare un mazzo.',
+      'Devi scegliere tra le carte candidate per UNO slot. Leggi il testo di ogni effetto, considera costi (come i Life Points), rischio di non poterla giocare, riciclo e sinergia con il mazzo.',
+      'Ordina le candidate dalla più alla meno adatta e spiega in una frase, citando l\'effetto, perché.',
+      'IMPORTANTE: puoi usare SOLO gli id elencati qui sotto. Non inventare carte.',
+      'Rispondi SOLO con un array JSON nel formato esatto: [{"id": <id numerico>, "reason": "<motivo breve, una frase>"}, ...]',
+      '',
+      `SITUAZIONE:\n${context}`,
+      '',
+      `MAZZO ATTUALE:\n${deckSummary}`,
+      '',
+      `CARTE CANDIDATE (id ammessi):\n${list}`,
+    ].join('\n');
+  }
+  return [
+    'You are a Yu-Gi-Oh! expert helping to complete a deck.',
+    'Choose among the candidate cards for ONE slot. Read each effect text and weigh costs (such as Life Points), the risk of being unable to play it, recursion and synergy with the deck.',
+    'Rank the candidates from most to least suitable and explain in one sentence, citing the effect, why.',
+    'IMPORTANT: you may only use the ids listed below. Never invent cards.',
+    'Reply with ONLY a JSON array in exactly this shape: [{"id": <numeric id>, "reason": "<short one-sentence reason>"}, ...]',
+    '',
+    `SITUATION:\n${context}`,
+    '',
+    `CURRENT DECK:\n${deckSummary}`,
+    '',
+    `CANDIDATE CARDS (admissible ids):\n${list}`,
+  ].join('\n');
 }
 
 function buildPrompt(

@@ -36,6 +36,7 @@ export class ReplayLineMemoryService {
         stats: analysis.stats,
         findings: analysis.findings,
         lineComparisons: analysis.lineComparisons ?? [],
+        opponentCards: opponentCardCodes(analysis.replay.decks),
       });
     }
     this.history.set([...historyMerged.values()].slice(-MAX_HISTORY));
@@ -60,6 +61,21 @@ export class ReplayLineMemoryService {
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(this.history())); } catch { /* Session memory remains available. */ }
   }
   readonly observations = this.rows.asReadonly();
+  /** Cards the opponents played in the recorded games, most frequent first (one count per game). */
+  opponentCardStats(limit = 20): Array<{ cardId: number; games: number }> {
+    const games = new Map<number, number>();
+    for (const entry of this.history()) {
+      for (const id of entry.opponentCards ?? []) games.set(id, (games.get(id) ?? 0) + 1);
+    }
+    return [...games.entries()]
+      .map(([cardId, count]) => ({ cardId, games: count }))
+      .sort((a, b) => b.games - a.games || a.cardId - b.cardId)
+      .slice(0, limit);
+  }
+  /** Number of recorded games that include the opponent's cards. */
+  opponentGamesRecorded(): number {
+    return this.history().filter((entry) => (entry.opponentCards?.length ?? 0) > 0).length;
+  }
   record(replays: readonly ParsedReplay[]): void {
     const merged = new Map(this.rows().map(row => [row.replayId, row]));
     for (const replay of replays) {
@@ -104,6 +120,14 @@ export function isObservedLine(value: unknown): value is ObservedLine {
     v.actions.every(a => a && ['normal_summon', 'special_summon', 'activate', 'set'].includes(a.kind) && card(a.cardId));
 }
 
+/** Distinct, valid card codes of a replay's opponent deck (empty when the replay did not record it). */
+export function opponentCardCodes(decks: ParsedReplay['decks']): number[] {
+  if (!decks) return [];
+  const valid = (id: unknown): id is number => typeof id === 'number' && Number.isSafeInteger(id) && id > 0 && id < 0x80000000;
+  const { main, extra, side } = decks.opponent;
+  return [...new Set([...main, ...extra, ...side].filter(valid))].slice(0, 80);
+}
+
 export function isReplayHistoryEntry(value: unknown): value is ReplayHistoryEntry {
   if (!value || typeof value !== 'object') return false;
   const v = value as Partial<ReplayHistoryEntry>;
@@ -114,5 +138,6 @@ export function isReplayHistoryEntry(value: unknown): value is ReplayHistoryEntr
     Number.isInteger(v.turnCount) && Number.isInteger(v.masterRule) &&
     str(v.savedAt, 40) && !!v.stats && typeof v.stats === 'object' &&
     Array.isArray(v.findings) && v.findings.length <= 100 &&
-    Array.isArray(v.lineComparisons) && v.lineComparisons.length <= 50;
+    Array.isArray(v.lineComparisons) && v.lineComparisons.length <= 50 &&
+    (v.opponentCards === undefined || (Array.isArray(v.opponentCards) && v.opponentCards.length <= 80 && v.opponentCards.every(id => Number.isSafeInteger(id) && id > 0)));
 }

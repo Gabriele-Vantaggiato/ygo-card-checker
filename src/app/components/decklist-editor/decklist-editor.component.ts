@@ -40,9 +40,12 @@ import { verdictShortKey } from '../../utils/legality-display.utils';
 import { DeckAssistPanelComponent } from './deck-assist-panel.component';
 import { DeckReplayPanelComponent } from './deck-replay-panel.component';
 import { DeckBuilderService } from '../../features/deck-builder/deck-builder.service';
+import { OpponentCardsPanelComponent } from './opponent-cards-panel.component';
+import { WaveCompletionDialogComponent } from './wave-completion-dialog.component';
+import { CardBookmarksPanelComponent } from '../card-bookmarks-panel/card-bookmarks-panel.component';
 import { DecklistSearchSidebarComponent } from '../decklist-search-sidebar/decklist-search-sidebar.component';
 import { DeckAnalysis, DeckAnalysisSuggestion } from '../../features/deck-builder/deck-analysis.model';
-import { DeckBuilderPlan } from '../../features/deck-builder/deck-builder.model';
+import { DeckBuilderAdd, DeckBuilderPlan } from '../../features/deck-builder/deck-builder.model';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { DecklistEditorHeaderComponent } from './decklist-editor-header.component';
 import { DeckCardMoveEvent, DeckSectionGridComponent } from './deck-section-grid.component';
@@ -74,6 +77,9 @@ import {
     DeckCardInspectPanelComponent,
     DeckCardInspectMobileComponent,
     CompleteDeckDialogComponent,
+    CardBookmarksPanelComponent,
+    OpponentCardsPanelComponent,
+    WaveCompletionDialogComponent,
     YdkeExportDialogComponent,
     YdkeImportDialogComponent,
     TextDeckExportDialogComponent,
@@ -86,6 +92,7 @@ import {
           [deck]="activeDeck"
           [cards]="liveDeck().cards"
           [mainTarget]="completeDeckTarget()"
+          [canUndoCompletion]="canUndoCompletion()"
           [renaming]="renaming()"
           [renameDraft]="renameDraft()"
           (back)="back.emit()"
@@ -93,7 +100,8 @@ import {
           (renameDraftChange)="renameDraft.set($event)"
           (renameCommit)="commitRename()"
           (renameCancel)="cancelRename()"
-          (completeDeck)="openCompleteDeckDialog()"
+          (completeDeck)="openWaveCompletion()"
+          (undoCompletion)="undoCompletion()"
           (importText)="openImportTextDialog()"
           (exportText)="openTextExportDialog(activeDeck)"
           (importYdke)="openImportYdkeDialog()"
@@ -159,6 +167,8 @@ import {
               (quickAdd)="addSearchCard($event)"
             />
 
+            <app-card-bookmarks-panel class="block min-w-0" (cardAdd)="addCardById($event)" />
+
             @if (inspectViewModel(); as inspectVm) {
               <app-deck-card-inspect-panel class="hidden lg:block"
                 [view]="inspectVm"
@@ -179,6 +189,7 @@ import {
             (cardSelected)="addRoleSuggestion($event)"
           />
           <app-deck-replay-panel [cards]="activeDeck.cards" />
+          <app-opponent-cards-panel (cardAdd)="addCardById($event, 'side')" />
         </div>
 
         <app-deck-card-inspect-mobile
@@ -202,6 +213,17 @@ import {
         </div>
       }
     }
+
+    <app-wave-completion-dialog
+      [open]="waveDialogOpen()"
+      [deck]="liveDeck()"
+      [format]="formatStore.selectedFormat()"
+      [targetMain]="completeDeckTarget()"
+      [includeSide]="completeDeckIncludeSide()"
+      (closed)="closeWaveCompletion()"
+      (classicRequested)="switchToClassicCompletion()"
+      (applied)="onWaveApplied($event)"
+    />
 
     <app-complete-deck-dialog
       [open]="completeDeckDialogOpen()"
@@ -318,10 +340,18 @@ export class DecklistEditorComponent {
   readonly deckAnalysisLoading = signal(false);
   readonly deckAnalysis = signal<DeckAnalysis>({ status: 'empty_deck', roles: [], aiUsed: false });
   readonly completeDeckDialogOpen = signal(false);
+  readonly waveDialogOpen = signal(false);
   readonly completeDeckTarget = signal(40);
   readonly completeDeckIncludeSide = signal(true);
   readonly completeDeckPlanning = signal(false);
   readonly completeDeckPlan = signal<DeckBuilderPlan | null>(null);
+  /** Deck as it was before the last completion; valid only while the deck is untouched since. */
+  private readonly completionUndo = signal<{ snapshot: Decklist; appliedAt: string } | null>(null);
+  readonly canUndoCompletion = computed(() => {
+    const undo = this.completionUndo();
+    const current = undo ? this.decklistStore.getDeckById(undo.snapshot.id) : null;
+    return !!undo && !!current && current.updatedAt === undo.appliedAt;
+  });
 
   readonly deckRevision = computed(() => {
     const deck = this.liveDeck();
@@ -573,7 +603,10 @@ export class DecklistEditorComponent {
 
   addSearchCard(card: YgoCard): void {
     const legality = this.searchLegalityMap().get(card.id);
+    const format = this.formatStore.selectedFormat();
+    const formatName = format ? format.name[this.i18n.lang()] : '';
     if (legality?.banlistStatus === 'Forbidden') {
+      this.toast.error(this.i18n.t('decklist.reject.forbidden', { name: card.name, format: formatName }));
       return;
     }
     const previousQuantity = this.decklistStore.quantityInActive(card.id);
@@ -585,7 +618,22 @@ export class DecklistEditorComponent {
       banlistStatus: legality?.banlistStatus ?? null,
       legalityVerdict: legality?.verdict ?? null,
     });
-    if (this.decklistStore.quantityInActive(card.id) > previousQuantity) this.toast.success(this.i18n.translate('ux.cardAdded', { name: card.name }), 1800);
+    if (this.decklistStore.quantityInActive(card.id) > previousQuantity) {
+      this.toast.success(this.i18n.translate('ux.cardAdded', { name: card.name }), 1800);
+      if (legality?.verdict === 'not-legal') {
+        this.toast.info(this.i18n.t('decklist.reject.notLegalAdded', { name: card.name, format: formatName }), 5000);
+      }
+      return;
+    }
+    const max = this.decklistStore.maxCopies(legality?.banlistStatus ?? null);
+    this.toast.info(
+      this.i18n.t('decklist.reject.maxCopies', {
+        name: card.name,
+        max: '' + max,
+        rule: this.i18n.t(`decklist.reject.rule.${legality?.banlistStatus ?? 'Unlimited'}`),
+      }),
+      4000,
+    );
   }
 
   openInspectedInSearch(): void {
@@ -801,13 +849,18 @@ export class DecklistEditorComponent {
   }
 
   addRoleSuggestion(suggestion: DeckAnalysisSuggestion): void {
+    this.addCardById(suggestion.cardId);
+  }
+
+  /** Adds one copy of a card (by id) to the open deck, evaluating its legality in the active format. */
+  addCardById(cardId: number, section?: 'main' | 'extra' | 'side'): void {
     const format = this.formatStore.selectedFormat();
     if (!format) {
       return;
     }
     const qty = 1;
     this.ygoApi
-      .getCardById$(suggestion.cardId, this.i18n.lang())
+      .getCardById$(cardId, this.i18n.lang())
       .pipe(
         switchMap((card) => {
           if (!card) {
@@ -830,10 +883,36 @@ export class DecklistEditorComponent {
             imageUrlSmall: card.card_images[0]?.image_url_small ?? null,
             banlistStatus: result.banlistStatus,
             legalityVerdict: result.verdict,
+            ...(section ? { section } : {}),
           },
           qty,
         );
       });
+  }
+
+  openWaveCompletion(): void {
+    this.waveDialogOpen.set(true);
+  }
+
+  closeWaveCompletion(): void {
+    this.waveDialogOpen.set(false);
+  }
+
+  /** Falls back to the one-shot completion (formats without enough data, or the user's choice). */
+  switchToClassicCompletion(): void {
+    this.waveDialogOpen.set(false);
+    this.openCompleteDeckDialog();
+  }
+
+  /** Adds everything taken in the wave-by-wave completion in one go, undoable like the classic completion. */
+  onWaveApplied(adds: DeckBuilderAdd[]): void {
+    const deck = this.deck();
+    const snapshot = this.decklistStore.getDeckById(deck.id) ?? deck;
+    if (this.decklistStore.applyDeckBuilderAdds(deck.id, adds)) {
+      const appliedAt = this.decklistStore.getDeckById(deck.id)?.updatedAt;
+      this.completionUndo.set(appliedAt ? { snapshot, appliedAt } : null);
+      this.waveDialogOpen.set(false);
+    }
   }
 
   openCompleteDeckDialog(): void {
@@ -900,9 +979,22 @@ export class DecklistEditorComponent {
     if (!plan || plan.status !== 'ready') {
       return;
     }
+    const snapshot = this.decklistStore.getDeckById(deck.id) ?? deck;
     if (this.decklistStore.applyDeckBuilderAdds(deck.id, plan.adds)) {
+      const appliedAt = this.decklistStore.getDeckById(deck.id)?.updatedAt;
+      this.completionUndo.set(appliedAt ? { snapshot, appliedAt } : null);
       this.closeCompleteDeckDialog();
     }
+  }
+
+  undoCompletion(): void {
+    const undo = this.completionUndo();
+    if (!undo || !this.canUndoCompletion()) {
+      return;
+    }
+    this.decklistStore.restoreDeck(undo.snapshot);
+    this.completionUndo.set(null);
+    this.toast.info(this.i18n.t('decklist.completion.undone'));
   }
 
   private searchLegalityMap(): Map<number, LegalityResult> {
