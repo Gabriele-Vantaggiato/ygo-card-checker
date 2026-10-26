@@ -21,11 +21,8 @@ function isNetworkError(err: unknown): boolean {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return true;
   }
-  if (err instanceof TypeError) {
-    return true;
-  }
   const message = (err as { message?: unknown } | null)?.message;
-  return typeof message === 'string' && /failed to fetch|networkerror|network request failed|load failed/i.test(message);
+  return typeof message === 'string' && /failed to fetch|network|load failed/i.test(message);
 }
 
 interface CollectionRow {
@@ -92,6 +89,8 @@ export class CollectionService {
 
   private pending = new Set<string>();
   private deleted = new Set<string>();
+  /** User whose data currently lives in items/pending/deleted. */
+  private stateOwner: string | null = null;
   private tail: Promise<unknown> = Promise.resolve();
 
   ownedQuantity(passcode: number): number {
@@ -103,9 +102,7 @@ export class CollectionService {
   }
 
   async addMany(drafts: readonly CollectionDraft[]): Promise<void> {
-    const userId = this.requireUser();
-    await this.enqueue(async () => {
-      this.assertUser(userId);
+    await this.write(async (userId) => {
       const now = new Date().toISOString();
       let next = [...this.items()];
       for (const draft of drafts) {
@@ -124,9 +121,7 @@ export class CollectionService {
   }
 
   async update(id: string, patch: CollectionItemPatch): Promise<void> {
-    const userId = this.requireUser();
-    await this.enqueue(async () => {
-      this.assertUser(userId);
+    await this.write(async (userId) => {
       const result = applyItemPatch(this.items(), id, patch, new Date().toISOString());
       if (!result) {
         return;
@@ -141,13 +136,43 @@ export class CollectionService {
   }
 
   async remove(id: string): Promise<void> {
-    const userId = this.requireUser();
-    await this.enqueue(async () => {
-      this.assertUser(userId);
+    await this.write(async (userId) => {
       this.pending.delete(id);
       this.deleted.add(id);
       await this.commit(userId, this.items().filter((item) => item.id !== id));
     });
+  }
+
+  /** Runs a write for the current user; never leaks the internal stale-user error. */
+  private async write(task: (userId: string) => Promise<void>): Promise<void> {
+    const userId = this.requireUser();
+    try {
+      await this.enqueue(async () => {
+        this.assertUser(userId);
+        if (this.stateOwner !== userId) {
+          // In-memory state belongs to someone else: drop it and load this user's own.
+          this.resetState();
+          await this.doLoad();
+          this.assertUser(userId);
+          if (this.stateOwner !== userId) {
+            throw new StaleUserError();
+          }
+        }
+        await task(userId);
+      });
+    } catch (err) {
+      if (err instanceof StaleUserError) {
+        throw new Error('Accedi per modificare la collezione');
+      }
+      throw err;
+    }
+  }
+
+  private resetState(): void {
+    this.items.set([]);
+    this.pending = new Set();
+    this.deleted = new Set();
+    this.stateOwner = null;
   }
 
   private enqueue<T>(task: () => Promise<T>): Promise<T> {
@@ -159,11 +184,12 @@ export class CollectionService {
   private async doLoad(): Promise<void> {
     const userId = this.userId();
     if (!userId) {
-      this.items.set([]);
-      this.pending = new Set();
-      this.deleted = new Set();
+      this.resetState();
       this.status.set('idle');
       return;
+    }
+    if (this.stateOwner !== userId) {
+      this.resetState();
     }
     this.status.set('loading');
     const [cached, pending, deleted] = await Promise.all([
@@ -172,8 +198,10 @@ export class CollectionService {
       this.cache.get<string[]>(this.key(userId, 'deleted')),
     ]);
     if (this.isStale(userId)) {
+      this.status.set('idle');
       return;
     }
+    this.stateOwner = userId;
     this.items.set(cached ?? []);
     this.pending = new Set(pending ?? []);
     this.deleted = new Set(deleted ?? []);
@@ -182,17 +210,20 @@ export class CollectionService {
       await this.flush(userId);
       const remote = await this.fetchAll(userId);
       if (this.isStale(userId)) {
+        this.status.set('idle');
         return;
       }
       // Re-apply local edits that are still unsynced so they are not lost.
       this.items.set(this.applyLocalChanges(remote));
       await this.cache.set(this.key(userId, 'items'), this.items());
       if (this.isStale(userId)) {
+        this.status.set('idle');
         return;
       }
       this.status.set('ready');
     } catch (err) {
       if (err instanceof StaleUserError || this.isStale(userId)) {
+        this.status.set('idle');
         return;
       }
       console.error('[collection]', err);
@@ -242,9 +273,7 @@ export class CollectionService {
     }
     try {
       await this.flush(userId);
-      if (this.status() !== 'loading') {
-        this.status.set('ready');
-      }
+      this.status.set('ready');
     } catch (err) {
       if (err instanceof StaleUserError || this.isStale(userId)) {
         return;
