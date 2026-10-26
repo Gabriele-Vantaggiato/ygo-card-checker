@@ -133,6 +133,7 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   private readonly api = inject(YgoApiService);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly closed = output<void>();
   private readonly video = viewChild<ElementRef<HTMLVideoElement>>('video');
@@ -195,6 +196,9 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Render at <body> level: the profile page animates with a transform, which would otherwise
+    // become the containing block of this `fixed` overlay and clip or hide it.
+    document.body.appendChild(this.host.nativeElement);
     this.previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
   }
