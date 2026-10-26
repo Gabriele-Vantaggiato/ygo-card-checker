@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { CollectionSectionComponent } from '../components/collection-section.component';
 import { FormatStore } from '../../../core/stores/format.store';
 import { Decklist } from '../../../models/decklist.model';
 import { AuthService } from '../../../services/auth.service';
@@ -20,7 +21,7 @@ import { AiProvider, AiProviderPreferencesService } from '../../../services/ai-p
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-profile-page',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, CollectionSectionComponent],
   template: `
     <main class="page-main page-stack max-w-3xl lg:max-w-4xl fade-in-panel">
       @if (!authService.isLoggedIn()) {
@@ -116,6 +117,8 @@ import { AiProvider, AiProviderPreferencesService } from '../../../services/ai-p
             }
           </div>
         </section>
+
+        <app-collection-section />
 
         <section class="space-y-3 rounded-lg border border-base-300/60 p-4">
           <div>
