@@ -30,8 +30,8 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
 
       @if (!reviewOpen()) {
         <section class="flex min-h-0 flex-1 flex-col items-center justify-center bg-neutral p-3">
-          <div class="relative max-h-full max-w-full" [style.aspect-ratio]="aspect()">
-            <video #video class="h-full max-h-[62vh] w-auto rounded-lg bg-black" playsinline muted (loadedmetadata)="onMetadata()"></video>
+          <div class="relative" [style.aspect-ratio]="aspect()" [style.width]="'min(100%, calc(62vh * ' + aspect() + '))'">
+            <video #video class="absolute inset-0 h-full w-full rounded-lg bg-black object-cover" autoplay playsinline muted (loadedmetadata)="onMetadata()"></video>
             <div
               class="pointer-events-none absolute rounded-lg border-2 border-dashed transition-colors duration-150"
               [class.border-white/70]="!flash()"
@@ -146,7 +146,7 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   protected readonly addingId = signal<number | null>(null);
   protected readonly manualOpen = signal(false);
   protected readonly flash = signal(false);
-  protected readonly aspect = signal('3 / 4');
+  protected readonly aspect = signal(3 / 4);
   protected readonly guide = signal(guideRect(720, 1280));
   protected readonly hint = signal('Inquadra una carta dentro il riquadro');
 
@@ -226,7 +226,7 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   protected onMetadata(): void {
     const element = this.video()?.nativeElement;
     if (element?.videoWidth && element.videoHeight) {
-      this.aspect.set(`${element.videoWidth} / ${element.videoHeight}`);
+      this.aspect.set(element.videoWidth / element.videoHeight);
       this.guide.set(guideRect(element.videoWidth, element.videoHeight));
     }
   }
