@@ -69,7 +69,7 @@ export interface EntryPatch {
                   (change)="pickPrinting(entry, selectValue($event))"
                   aria-label="Stampa"
                 >
-                  @for (p of entry.printings; track p.set_code + p.set_rarity) {
+                  @for (p of entry.printings; track $index) {
                     <option [value]="p.set_code + '|' + p.set_rarity" [selected]="p.set_code + '|' + p.set_rarity === entry.setCode + '|' + entry.rarity">{{ p.set_code }} · {{ p.set_rarity }}</option>
                   }
                 </select>

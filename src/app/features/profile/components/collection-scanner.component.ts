@@ -141,6 +141,7 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   protected readonly queueCount = computed(() => this.queue().reduce((sum, entry) => sum + entry.quantity, 0));
   protected readonly reviewOpen = signal(false);
   protected readonly saving = signal(false);
+  private previousOverflow = '';
   protected readonly adding = signal(false);
   protected readonly addingId = signal<number | null>(null);
   protected readonly manualOpen = signal(false);
@@ -194,11 +195,12 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
   }
 
   ngOnDestroy(): void {
-    document.body.style.overflow = '';
+    document.body.style.overflow = this.previousOverflow;
     this.scanner.stop();
   }
 
@@ -296,16 +298,19 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
     } catch {
       // fall back to the search result: printings may be missing, the entry stays "da verificare"
     }
-    const printings = card.card_sets ?? [];
-    this.queue.update((queue) =>
-      mergeDraft(queue, this.toEntry(card, { card, printings, setCode: printings[0]?.set_code ?? 'N/D', language: 'EN', source: 'name', needsReview: true })),
-    );
-    void this.prices.ensure([card.id]);
-    this.results.set([]);
-    this.searched.set(false);
-    this.searchTerm = '';
-    this.adding.set(false);
-    this.addingId.set(null);
+    try {
+      const printings = card.card_sets ?? [];
+      this.queue.update((queue) =>
+        mergeDraft(queue, this.toEntry(card, { card, printings, setCode: printings[0]?.set_code ?? 'N/D', language: 'EN', source: 'name', needsReview: true })),
+      );
+      void this.prices.ensure([card.id]);
+      this.results.set([]);
+      this.searched.set(false);
+      this.searchTerm = '';
+    } finally {
+      this.adding.set(false);
+      this.addingId.set(null);
+    }
   }
 
   protected async confirm(): Promise<void> {
