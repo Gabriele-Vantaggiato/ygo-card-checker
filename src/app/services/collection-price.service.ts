@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { extractCardmarketEur } from '../utils/collection.utils';
 import { YgoCard } from '../models/ygo-card.model';
@@ -20,16 +20,19 @@ export class CollectionPriceService {
   private readonly http = inject(HttpClient);
 
   readonly prices = signal<ReadonlyMap<number, number | null>>(this.hydrate());
+  private readonly inFlight = new Set<number>();
 
   async ensure(passcodes: readonly number[]): Promise<void> {
-    const known = this.prices();
-    const missing = [...new Set(passcodes)].filter((id) => id > 0 && !known.has(id));
+    const missing = [...new Set(passcodes)].filter((id) => id > 0 && !this.known(id) && !this.inFlight.has(id));
     if (missing.length === 0) {
       return;
     }
     let anySucceeded = false;
     for (let i = 0; i < missing.length; i += CHUNK_SIZE) {
       const chunk = missing.slice(i, i + CHUNK_SIZE);
+      for (const id of chunk) {
+        this.inFlight.add(id);
+      }
       try {
         const res = await firstValueFrom(
           this.http.get<{ data?: YgoCard[] }>(`${API_URL}?id=${chunk.join(',')}`),
@@ -56,11 +59,19 @@ export class CollectionPriceService {
           anySucceeded = true;
         }
         // other failures: leave ids unknown so a later ensure() retries
+      } finally {
+        for (const id of chunk) {
+          this.inFlight.delete(id);
+        }
       }
     }
     if (anySucceeded) {
       this.persist(this.prices());
     }
+  }
+
+  private known(id: number): boolean {
+    return untracked(() => this.prices().has(id));
   }
 
   private hydrate(): ReadonlyMap<number, number | null> {

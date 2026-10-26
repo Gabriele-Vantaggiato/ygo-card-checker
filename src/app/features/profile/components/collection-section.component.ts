@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { distinctUntilChanged, map } from 'rxjs';
 import { CARD_CONDITIONS, CARD_LANGUAGES, CardCondition, CardLanguage, CollectionItem } from '../../../models/collection.model';
@@ -40,17 +40,20 @@ const PAGE_SIZE = 60;
         }
       </div>
 
-      @switch (collection.status()) {
-        @case ('loading') {
-          <div class="flex justify-center py-8"><span class="loading loading-spinner" role="status" aria-label="Caricamento"></span></div>
-        }
-        @case ('error') {
-          <div class="flex flex-wrap items-center gap-2 text-sm text-error" role="alert">
-            Impossibile caricare la collezione.
-            <button type="button" class="btn btn-outline btn-sm min-h-11 sm:min-h-8" (click)="reload()">Riprova</button>
-          </div>
-        }
-        @default {
+      @if (collection.status() === 'loading' && collection.items().length === 0) {
+        <div class="flex justify-center py-8"><span class="loading loading-spinner" role="status" aria-label="Caricamento"></span></div>
+      } @else if (collection.status() === 'error' && collection.items().length === 0) {
+        <div class="flex flex-wrap items-center gap-2 text-sm text-error" role="alert">
+          Impossibile caricare la collezione.
+          <button type="button" class="btn btn-outline btn-sm min-h-11 sm:min-h-8" (click)="reload()">Riprova</button>
+        </div>
+      } @else {
+          @if (collection.status() === 'error') {
+            <div class="flex flex-wrap items-center gap-2 text-sm text-error" role="alert">
+              Impossibile aggiornare la collezione.
+              <button type="button" class="btn btn-outline btn-sm min-h-11 sm:min-h-8" (click)="reload()">Riprova</button>
+            </div>
+          }
           @if (collection.status() === 'offline') {
             <p class="text-xs text-base-content/60" role="status">Offline: le modifiche si sincronizzano appena torni online.</p>
           }
@@ -113,6 +116,9 @@ const PAGE_SIZE = 60;
                     <div class="shrink-0 text-right">
                       <p class="text-sm tabular-nums">Ã—{{ item.quantity }}</p>
                       <p class="text-xs text-base-content/60">{{ priceLabel(item) }}</p>
+                      @if (item.quantity > 1 && unitPrice(item) !== null) {
+                        <p class="text-xs text-base-content/45">{{ item.quantity }} × {{ eur.format(unitPrice(item)!) }}</p>
+                      }
                     </div>
                     <button
                       type="button"
@@ -165,7 +171,6 @@ const PAGE_SIZE = 60;
               </button>
             }
           }
-        }
       }
     </section>
 
@@ -229,10 +234,24 @@ export class CollectionSectionComponent {
         void this.collection.load();
       });
 
+    // Drop a set/rarity filter whose value no longer exists among the items.
+    effect(() => {
+      const sets = this.setOptions();
+      const rarities = this.rarityOptions();
+      untracked(() => {
+        if (this.setFilter() && !sets.includes(this.setFilter())) {
+          this.setFilter.set('');
+        }
+        if (this.rarityFilter() && !rarities.includes(this.rarityFilter())) {
+          this.rarityFilter.set('');
+        }
+      });
+    });
+
     // Keep prices in step with the items (scans, edits, reloads).
     effect(() => {
       const passcodes = this.collection.items().map((i) => i.passcode);
-      void this.priceService.ensure(passcodes);
+      untracked(() => void this.priceService.ensure(passcodes));
     });
   }
 
@@ -279,6 +298,10 @@ export class CollectionSectionComponent {
   protected priceLabel(item: CollectionItem): string {
     const price = this.priceService.prices().get(item.passcode);
     return price == null ? 'n/d' : this.eur.format(price * item.quantity);
+  }
+
+  protected unitPrice(item: CollectionItem): number | null {
+    return this.priceService.prices().get(item.passcode) ?? null;
   }
 
   protected setCondition(item: CollectionItem, value: string): void {
