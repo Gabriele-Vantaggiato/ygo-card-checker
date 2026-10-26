@@ -56,3 +56,6 @@ tools/card-knowledge-db/src/assist-browser-probe.mjs
 NUL
 
 /public/assets/data/effect-scripts/study.json
+
+# Card image-embedding index builder cache (images, per-card embeddings, HF model files)
+/tools/card-index/.cache/

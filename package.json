@@ -45,7 +45,9 @@
     "prebuild": "node tools/build/prepare-study-data.mjs",
     "prestart": "node tools/build/prepare-study-data.mjs",
     "db:audit-assistance": "node --import tsx tools/card-knowledge-db/src/audit-assistance.ts",
-    "db:test:assistance": "node --import tsx tools/card-knowledge-db/src/hat-assistance.test.ts"
+    "db:test:assistance": "node --import tsx tools/card-knowledge-db/src/hat-assistance.test.ts",
+    "index:build": "node --import tsx tools/card-index/build-index.mjs",
+    "index:verify": "node --import tsx tools/card-index/verify-index.mjs"
   },
   "prettier": {
     "printWidth": 100,
