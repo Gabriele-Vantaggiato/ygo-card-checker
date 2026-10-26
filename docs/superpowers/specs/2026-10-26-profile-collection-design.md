@@ -27,6 +27,7 @@ Supabase table `collection_items`:
 | id | uuid pk | |
 | user_id | uuid | references auth user |
 | passcode | bigint | YGOPRODeck card id |
+| card_name | text | display name, avoids a card fetch per row |
 | set_code | text | e.g. `LOB-EN001` |
 | rarity | text | e.g. `Ultra Rare` |
 | language | text | derived from set code region, editable |
@@ -72,3 +73,11 @@ Each recognised card enters the **review queue** (thumbnail, name, set, rarity, 
 - `ownedQuantity(passcode)` lets a future cart compute `needed = deck copies - owned` for any decklist.
 - Printings are stored with `set_code` and `rarity`, which is what seller listings need.
 - A future `CartService` can consume decklist + collection and emit per-seller line items; nothing in this feature blocks that.
+
+## Implementation notes (deviations found while building)
+
+- **Price source**: the Cardmarket EUR price (`card_prices[0].cardmarket_price`) is **per card, not per printing**. `set_price` in `card_sets` is a TCGplayer USD value and is not used. Unknown or `0.00` prices show "n/d" and are excluded from the total, with the count of unpriced copies shown.
+- **Recognition level 3 (artwork hash)** is **not implemented**: `images.ygoprodeck.com` sends no CORS headers, so canvas pixel reads of those images are tainted. It needs an image proxy endpoint (follow-up decision). Levels 1 (set-code OCR) and 2 (name OCR) are implemented.
+- **Set-code lookup** uses `cardsetsinfo.php?setcode=` then `cardinfo.php?id=`; candidate codes are tried as printed first, then the English equivalent.
+- **Failure handling**: price and card fetches that fail are never cached as "no price"/"not found"; they are retried on the next request.
+- **Sync**: writes are serialized through a queue in `CollectionService`; the in-memory state is owner-tagged so a user switch never syncs another user's rows.
