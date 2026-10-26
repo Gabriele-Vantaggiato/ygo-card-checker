@@ -1,9 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, from, of } from 'rxjs';
-import { catchError, concatMap, first, map, switchMap } from 'rxjs/operators';
+import { catchError, concatMap, first, last, map, switchMap, takeWhile } from 'rxjs/operators';
 import { CardSet, YgoCard } from '../models/ygo-card.model';
-import { bestNameMatch } from '../utils/name-match.utils';
+import { bestNameMatch, buildNameQueries } from '../utils/name-match.utils';
 import { YgoApiService } from './ygo-api.service';
 
 const SET_INFO_URL = 'https://db.ygoprodeck.com/api/v7/cardsetsinfo.php';
@@ -31,8 +31,21 @@ export class CardsetLookupService {
 
   /** Fuzzy name path: the printing is unknown, so the first printing is a default to review. */
   byName$(ocrName: string): Observable<ScanMatch | null> {
-    return this.api.searchCards$(ocrName, 'it', 20).pipe(
-      map((cards) => bestNameMatch(ocrName, cards)),
+    // fname is a substring match, so noisy full text often finds nothing: also try its longest words.
+    const found = new Map<number, YgoCard>();
+    return from(buildNameQueries(ocrName)).pipe(
+      concatMap((query) =>
+        this.api.searchCards$(query, 'it', 20).pipe(
+          catchError(() => of([] as YgoCard[])),
+          map((cards) => {
+            cards.forEach((card) => found.set(card.id, card));
+            return bestNameMatch(ocrName, cards, 0.6) === null;
+          }),
+        ),
+      ),
+      takeWhile((keepGoing) => keepGoing, true),
+      last(null, true),
+      map(() => bestNameMatch(ocrName, [...found.values()], 0.55)),
       switchMap((hit) => (hit ? this.fetchCard$(hit.id) : of(null))),
       map((card) => {
         if (!card) {

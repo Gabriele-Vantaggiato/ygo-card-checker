@@ -49,6 +49,15 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
               {{ hint() }}
             }
           </p>
+          @if (scanner.state() === 'scanning' && hint() === defaultHint) {
+            <p class="mt-1 min-h-4 max-w-sm text-center text-xs text-neutral-content/60" aria-live="polite">
+              @if (scanner.lastRead(); as read) {
+                Sto leggendo: &ldquo;{{ read }}&rdquo;
+              } @else {
+                Nessun testo leggibile: avvicina la carta o riduci i riflessi.
+              }
+            </p>
+          }
           <p class="mt-1 max-w-sm text-center text-xs text-neutral-content/60">
             Luce diffusa, niente riflessi: inclina un po' la carta. Il codice (es. LOB-EN005) deve stare sotto l'immagine, a destra.
           </p>
@@ -169,7 +178,8 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   protected readonly flash = signal(false);
   protected readonly aspect = signal(3 / 4);
   protected readonly guide = signal(guideRect(720, 1280));
-  protected readonly hint = signal('Inquadra una carta dentro il riquadro');
+  protected readonly defaultHint = 'Inquadra una carta dentro il riquadro';
+  protected readonly hint = signal(this.defaultHint);
 
   protected searchTerm = '';
   protected readonly searching = signal(false);

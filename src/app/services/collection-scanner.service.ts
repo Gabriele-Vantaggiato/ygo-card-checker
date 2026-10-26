@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, Subject, catchError, defaultIfEmpty, firstValueFrom, of, timeout } from 'rxjs';
 import { CardLanguage, ScanDetection } from '../models/collection.model';
-import { cleanOcrName, normalizeName } from '../utils/name-match.utils';
+import { canonicalizeName, cleanOcrName, normalizeName } from '../utils/name-match.utils';
 import { ScanConsensus } from '../utils/scan-consensus.utils';
 import { binarize, meanLuminance, otsuThreshold, stretchContrast, toGrayscale } from '../utils/image-preprocess.utils';
 import { guideRect } from '../utils/scan-geometry.utils';
@@ -13,7 +13,8 @@ const FRAME_WIDTH = 640;
 const FRAME_HEIGHT = Math.round((FRAME_WIDTH * 86) / 59);
 const TICK_MS = 300;
 const OCR_UPSCALE = 2;
-const NAME_KEY_LENGTH = 10;
+const RECENT_NAMES = 6;
+const LAST_READ_MAX = 40;
 const RESOLVE_TIMEOUT_MS = 8000;
 const MAX_SEEDS = 20;
 /** Below this mean luminance the band is dark (foil/dark frame): also try an inverted pass. */
@@ -30,6 +31,7 @@ export interface ScanDebug {
 
 /**
  * Regions of the guide frame, as fractions of the card.
+ * A PC webcam cannot resolve the printed set code, so there the name band is the realistic path.
  * The set code sits under the artwork on the right, but its exact position varies between
  * card eras, so the band spans x 0.30..1.0 and y 0.58..0.80.
  */
@@ -56,6 +58,8 @@ export class CollectionScannerService {
   /** Diagnostics for tuning on real cards; no extra work is done while disabled. */
   readonly debugEnabled = signal(false);
   readonly debug = signal<ScanDebug | null>(null);
+  /** Cleaned text read on the last tick (code, else name), for on-screen feedback; '' when unreadable. */
+  readonly lastRead = signal('');
 
   private readonly detectionSubject = new Subject<ScanDetection>();
   readonly detections$: Observable<ScanDetection> = this.detectionSubject.asObservable();
@@ -67,6 +71,8 @@ export class CollectionScannerService {
   private runId = 0;
   private consensus = this.newConsensus();
   private readonly seeds = new Map<string, Seed>();
+  /** Last normalized names seen, so OCR-noisy variants of one name share a consensus key. */
+  private recentNames: string[] = [];
   private readonly frame = document.createElement('canvas');
   private readonly band = document.createElement('canvas');
 
@@ -106,6 +112,8 @@ export class CollectionScannerService {
     }
     this.consensus = this.newConsensus();
     this.seeds.clear();
+    this.recentNames = [];
+    this.lastRead.set('');
     this.running = true;
     this.state.set('scanning');
     void this.loop(video, id);
@@ -122,6 +130,8 @@ export class CollectionScannerService {
       this.video = null;
     }
     this.seeds.clear();
+    this.recentNames = [];
+    this.lastRead.set('');
     this.state.set('idle');
   }
 
@@ -169,6 +179,7 @@ export class CollectionScannerService {
     let codeText = '';
     let nameText = '';
     let lastCrop: string | null = null;
+    let read = '';
 
     const passes = this.setCodePasses(frame);
     for (const candidate of passes) {
@@ -182,6 +193,7 @@ export class CollectionScannerService {
       const parsed = parseSetCode(codeText);
       if (parsed) {
         pass = candidate.name;
+        read = codeText;
         key = `code:${parsed.candidates[0]}|${parsed.language}`;
         this.remember(key, { kind: 'code', candidates: parsed.candidates, language: parsed.language });
         break;
@@ -199,10 +211,21 @@ export class CollectionScannerService {
       const name = cleanOcrName(nameText);
       if (name) {
         pass = 'name';
-        key = `name:${normalizeName(name).slice(0, NAME_KEY_LENGTH)}`;
-        this.remember(key, { kind: 'name', text: name });
+        read = name;
+        const canonical = canonicalizeName(normalizeName(name), this.recentNames);
+        if (canonical) {
+          this.recentNames.push(canonical);
+          this.recentNames = this.recentNames.slice(-RECENT_NAMES);
+          key = `name:${canonical}`;
+          // keep the longest raw text seen for this key: the cleanest string for the lookup
+          const previous = this.seeds.get(key);
+          const best = previous?.kind === 'name' && previous.text.length > name.length ? previous.text : name;
+          this.remember(key, { kind: 'name', text: best });
+        }
       }
     }
+
+    this.lastRead.set(read.replace(/\s+/g, ' ').trim().slice(0, LAST_READ_MAX));
 
     if (debugOn) {
       const clip = (t: string) => t.trim().slice(0, DEBUG_TEXT_MAX);
@@ -248,6 +271,7 @@ export class CollectionScannerService {
       }
       // The accepted key is settled either way; drop stale seeds.
       this.seeds.clear();
+      this.recentNames = [];
       if (!match) {
         this.lastMiss.set(Date.now());
         return;

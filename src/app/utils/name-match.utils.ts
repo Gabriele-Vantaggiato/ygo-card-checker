@@ -47,6 +47,41 @@ export function similarity(a: string, b: string): number {
   return 1 - levenshtein(x, y) / longest;
 }
 
+/**
+ * Collapses OCR-noisy variants of one name: returns the first entry of `recent` that is
+ * similar enough to `candidate`, otherwise the normalized candidate itself.
+ */
+export function canonicalizeName(candidate: string, recent: readonly string[], threshold = 0.72): string {
+  const normalized = normalizeName(candidate);
+  if (!normalized) {
+    return '';
+  }
+  return recent.find((entry) => similarity(normalized, entry) >= threshold) ?? normalized;
+}
+
+/** Search queries for a noisy name: the full text, then up to 3 longest distinct words (>= 4 letters). */
+export function buildNameQueries(text: string): string[] {
+  const full = text.trim().replace(/[ \t\r\n]+/g, ' ');
+  if (!full) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const words = full
+    .split(' ')
+    .map((word) => word.replace(/[^A-Za-zÀ-ÿ]/g, ''))
+    .filter((word) => {
+      const key = word.toLowerCase();
+      if (word.length < 4 || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 3);
+  return [full, ...words];
+}
+
 export function bestNameMatch<T extends { name: string }>(
   ocrName: string,
   cards: readonly T[],

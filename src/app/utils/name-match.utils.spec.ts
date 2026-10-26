@@ -1,4 +1,4 @@
-import { bestNameMatch, cleanOcrName, normalizeName, similarity } from './name-match.utils';
+import { bestNameMatch, buildNameQueries, canonicalizeName, cleanOcrName, normalizeName, similarity } from './name-match.utils';
 
 describe('name-match utils', () => {
   it('cleanOcrName picks the line with the most letters', () => {
@@ -26,5 +26,32 @@ describe('name-match utils', () => {
 
   it('bestNameMatch returns null below the threshold', () => {
     expect(bestNameMatch('Blue-Eyes', [{ name: 'Dark Magician' }])).toBeNull();
+  });
+
+  it('canonicalizeName collapses noisy variants onto the first-seen spelling', () => {
+    const recent: string[] = [];
+    for (const raw of ['dark magicjan', 'dark maglcian', 'dark magician']) {
+      const canonical = canonicalizeName(normalizeName(raw), recent);
+      recent.push(canonical);
+      expect(canonical).toBe('dark magicjan');
+    }
+  });
+
+  it('canonicalizeName keeps a different name separate', () => {
+    expect(canonicalizeName('blue eyes white dragon', ['dark magicjan'])).toBe('blue eyes white dragon');
+  });
+
+  it('canonicalizeName handles empty input', () => {
+    expect(canonicalizeName('', [])).toBe('');
+    expect(canonicalizeName('  ', ['dark magician'])).toBe('');
+  });
+
+  it('buildNameQueries returns the full text then the longest distinct words', () => {
+    expect(buildNameQueries('Dark Magician of Chaos')).toEqual(['Dark Magician of Chaos', 'Magician', 'Chaos', 'Dark']);
+  });
+
+  it('buildNameQueries dedupes, ignores short words and handles empty', () => {
+    expect(buildNameQueries('Red Red Dragon')).toEqual(['Red Red Dragon', 'Dragon']);
+    expect(buildNameQueries('')).toEqual([]);
   });
 });
