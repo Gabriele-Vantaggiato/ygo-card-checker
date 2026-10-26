@@ -78,6 +78,17 @@ export class CardScreenOcrService {
     );
   }
 
+  /** Raw OCR text of a canvas (used by the collection scanner); '' on any failure. */
+  async recognizeText(source: HTMLCanvasElement): Promise<string> {
+    this.bumpWorkerTtl();
+    try {
+      return (await this.runOcr(source)).text;
+    } catch (err) {
+      console.error('[collection-ocr]', err);
+      return '';
+    }
+  }
+
   async dispose(): Promise<void> {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
