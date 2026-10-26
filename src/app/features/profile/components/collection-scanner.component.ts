@@ -71,10 +71,10 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
                   <img [src]="d.crop" alt="Ritaglio analizzato" class="mb-1 max-h-24 w-full rounded bg-black object-contain" />
                 }
                 <div>passata: {{ d.pass }}</div>
-                <div class="break-all">codice: {{ d.codeText || '—' }}</div>
-                <div class="break-all">nome: {{ d.nameText || '—' }}</div>
+                <div class="break-all">codice: {{ d.codeText || 'â€”' }}</div>
+                <div class="break-all">nome: {{ d.nameText || 'â€”' }}</div>
               } @else {
-                In attesa di una lettura…
+                In attesa di una letturaâ€¦
               }
             </div>
           }
