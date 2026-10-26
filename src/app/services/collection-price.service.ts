@@ -1,9 +1,12 @@
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { extractCardmarketEur } from '../utils/collection.utils';
-import { YgoApiService } from './ygo-api.service';
+import { YgoCard } from '../models/ygo-card.model';
 
 const STORAGE_KEY = 'ygo-collection-prices-v1';
+const API_URL = 'https://db.ygoprodeck.com/api/v7/cardinfo.php';
+const CHUNK_SIZE = 25;
 const TTL_MS = 24 * 60 * 60 * 1000;
 
 interface StoredPrices {
@@ -14,7 +17,7 @@ interface StoredPrices {
 /** Cardmarket EUR price per passcode, cached in localStorage for 24 hours. */
 @Injectable({ providedIn: 'root' })
 export class CollectionPriceService {
-  private readonly api = inject(YgoApiService);
+  private readonly http = inject(HttpClient);
 
   readonly prices = signal<ReadonlyMap<number, number | null>>(this.hydrate());
 
@@ -24,19 +27,39 @@ export class CollectionPriceService {
     if (missing.length === 0) {
       return;
     }
-    try {
-      const cards = await firstValueFrom(this.api.getCardsByIds$(missing, 'en'));
-      const next = new Map(known);
-      for (const id of missing) {
-        next.set(id, null);
+    let anySucceeded = false;
+    for (let i = 0; i < missing.length; i += CHUNK_SIZE) {
+      const chunk = missing.slice(i, i + CHUNK_SIZE);
+      try {
+        const res = await firstValueFrom(
+          this.http.get<{ data?: YgoCard[] }>(`${API_URL}?id=${chunk.join(',')}`),
+        );
+        const cards = res?.data ?? [];
+        // build from the current value (after the await) so concurrent calls don't overwrite each other
+        const next = new Map(this.prices());
+        for (const id of chunk) {
+          next.set(id, null);
+        }
+        for (const card of cards) {
+          next.set(card.id, extractCardmarketEur(card));
+        }
+        this.prices.set(next);
+        anySucceeded = true;
+      } catch (err) {
+        // a 400 means "no card matches" for this API: treat as a successful empty result
+        if (err instanceof HttpErrorResponse && err.status === 400) {
+          const next = new Map(this.prices());
+          for (const id of chunk) {
+            next.set(id, null);
+          }
+          this.prices.set(next);
+          anySucceeded = true;
+        }
+        // other failures: leave ids unknown so a later ensure() retries
       }
-      for (const card of cards) {
-        next.set(card.id, extractCardmarketEur(card));
-      }
-      this.prices.set(next);
-      this.persist(next);
-    } catch {
-      // prices are optional: leave them unknown and retry on the next ensure()
+    }
+    if (anySucceeded) {
+      this.persist(this.prices());
     }
   }
 
