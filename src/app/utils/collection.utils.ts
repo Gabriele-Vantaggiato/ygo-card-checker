@@ -32,7 +32,12 @@ export function applyItemPatch(
   const updated: CollectionItem = { ...current, ...patch, updatedAt: now };
   const twin = items.find((i) => i.id !== id && collectionKey(i) === collectionKey(updated));
   if (!twin) {
-    return { items: items.map((i) => (i.id === id ? updated : i)), touchedId: id, removedId: null };
+    if (collectionKey(updated) === collectionKey(current)) {
+      return { items: items.map((i) => (i.id === id ? updated : i)), touchedId: id, removedId: null };
+    }
+    // The natural key changed: a fresh id avoids a primary-key clash when the upsert inserts the new key.
+    const fresh: CollectionItem = { ...updated, id: crypto.randomUUID() };
+    return { items: items.map((i) => (i.id === id ? fresh : i)), touchedId: fresh.id, removedId: id };
   }
   const merged: CollectionItem = { ...twin, quantity: twin.quantity + updated.quantity, updatedAt: now };
   return {
@@ -76,4 +81,9 @@ export function collectionTotals(
     }
   }
   return { totalCards, uniqueCards: unique.size, valueEur, unpricedCards };
+}
+
+/** Hides the per-card placeholder (`N/D-<passcode>`) used for cards without printings. */
+export function displaySetCode(setCode: string): string {
+  return setCode.startsWith('N/D-') ? 'N/D' : setCode;
 }

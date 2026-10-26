@@ -5,7 +5,7 @@ import { CARD_CONDITIONS, CARD_LANGUAGES, CardCondition, CardLanguage, Collectio
 import { AuthService } from '../../../services/auth.service';
 import { CollectionPriceService } from '../../../services/collection-price.service';
 import { CollectionService } from '../../../services/collection.service';
-import { collectionTotals } from '../../../utils/collection.utils';
+import { collectionTotals, displaySetCode } from '../../../utils/collection.utils';
 import { CollectionScannerComponent } from './collection-scanner.component';
 
 const PAGE_SIZE = 60;
@@ -109,7 +109,7 @@ const PAGE_SIZE = 60;
                     <div class="min-w-0 flex-1">
                       <p class="truncate font-medium">{{ item.cardName }}</p>
                       <p class="truncate text-xs text-base-content/60">
-                        {{ item.setCode }} · {{ item.rarity }}
+                        {{ displaySet(item.setCode) }} · {{ item.rarity }}
                         <span class="text-base-content/45">· {{ item.language }} · {{ item.condition }}{{ item.firstEdition ? ' · 1st' : '' }}</span>
                       </p>
                     </div>
@@ -117,7 +117,7 @@ const PAGE_SIZE = 60;
                       <p class="text-sm tabular-nums">×{{ item.quantity }}</p>
                       <p class="text-xs text-base-content/60">{{ priceLabel(item) }}</p>
                       @if (item.quantity > 1 && unitPrice(item) !== null) {
-                        <p class="text-xs text-base-content/45">{{ item.quantity }} � {{ eur.format(unitPrice(item)!) }}</p>
+                        <p class="text-xs text-base-content/45">{{ item.quantity }} &times; {{ eur.format(unitPrice(item)!) }}</p>
                       }
                     </div>
                     <button
@@ -295,9 +295,14 @@ export class CollectionSectionComponent {
     return Math.max(1, value);
   }
 
+  protected readonly displaySet = displaySetCode;
+
   protected priceLabel(item: CollectionItem): string {
     const price = this.priceService.prices().get(item.passcode);
-    return price == null ? 'n/d' : this.eur.format(price * item.quantity);
+    if (price === undefined) {
+      return 'Prezzo in caricamento…';
+    }
+    return price === null ? 'Prezzo n/d' : this.eur.format(price * item.quantity);
   }
 
   protected unitPrice(item: CollectionItem): number | null {

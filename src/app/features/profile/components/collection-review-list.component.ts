@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { CARD_CONDITIONS, CARD_LANGUAGES, CardCondition, CardLanguage, ScanQueueEntry } from '../../../models/collection.model';
+import { displaySetCode } from '../../../utils/collection.utils';
 
 export interface EntryPatch {
   tempId: string;
@@ -24,7 +25,7 @@ export interface EntryPatch {
             />
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium">{{ entry.cardName }}</p>
-              <p class="truncate text-xs text-base-content/60">{{ entry.setCode }} · {{ entry.rarity }}</p>
+              <p class="truncate text-xs text-base-content/60">{{ displaySet(entry.setCode) }} · {{ entry.rarity }}</p>
               @if (entry.needsReview) {
                 <span class="badge badge-warning badge-sm mt-1">Da verificare</span>
               }
@@ -132,9 +133,14 @@ export class CollectionReviewListComponent {
     return (event.target as HTMLInputElement).checked;
   }
 
+  protected readonly displaySet = displaySetCode;
+
   protected priceLabel(entry: ScanQueueEntry): string {
     const price = this.prices().get(entry.passcode);
-    return price == null ? 'Prezzo n/d' : this.eur.format(price);
+    if (price === undefined) {
+      return 'Prezzo in caricamento…';
+    }
+    return price === null ? 'Prezzo n/d' : this.eur.format(price);
   }
 
   protected changeQuantity(entry: ScanQueueEntry, delta: number): void {

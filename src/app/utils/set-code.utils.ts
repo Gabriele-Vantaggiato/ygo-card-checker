@@ -24,7 +24,7 @@ const SET_CODE_RE = /(?<![A-Z0-9])([A-Z0-9]{2,5})-([A-Z]{1,2})([0-9OIL]{3})(?![0
 export function parseSetCode(text: string): ParsedSetCode | null {
   const normalized = text
     .toUpperCase()
-    .replace(/[‐-―−]/g, '-')
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
     .replace(/\s*-\s*/g, '-')
     .replace(/\b([A-Z]{1,2})\s+([0-9OIL]{3})\b/g, '$1$2');
 

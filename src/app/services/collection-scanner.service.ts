@@ -36,7 +36,6 @@ export class CollectionScannerService {
 
   readonly state = signal<ScannerState>('idle');
   readonly error = signal<'denied' | 'unavailable' | null>(null);
-  readonly busy = signal(false);
   readonly lastMiss = signal(0);
 
   private readonly detectionSubject = new Subject<ScanDetection>();
@@ -100,7 +99,6 @@ export class CollectionScannerService {
       this.video = null;
     }
     this.seeds.clear();
-    this.busy.set(false);
     this.state.set('idle');
   }
 
@@ -175,7 +173,6 @@ export class CollectionScannerService {
     if (!seed) {
       return;
     }
-    this.busy.set(true);
     try {
       const source$: Observable<ScanMatch | null> =
         seed.kind === 'code' ? this.lookup.bySetCodes$(seed.candidates) : this.lookup.byName$(seed.text);
@@ -206,10 +203,6 @@ export class CollectionScannerService {
     } catch {
       if (id === this.runId) {
         this.lastMiss.set(Date.now());
-      }
-    } finally {
-      if (id === this.runId) {
-        this.busy.set(false);
       }
     }
   }

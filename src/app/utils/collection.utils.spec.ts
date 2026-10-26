@@ -41,11 +41,23 @@ describe('collection utils', () => {
     expect(mergeDraft([draft()], draft({ setCode: 'LOB-EN002' })).length).toBe(2);
   });
 
-  it('applyItemPatch updates in place when no twin exists', () => {
+  it('applyItemPatch gives a key-changing patch without twin a fresh id', () => {
     const result = applyItemPatch([item('a')], 'a', { condition: 'LP' }, 'now');
-    expect(result?.removedId).toBeNull();
-    expect(result?.items[0].condition).toBe('LP');
-    expect(result?.items[0].updatedAt).toBe('now');
+    expect(result).not.toBeNull();
+    expect(result!.touchedId).not.toBe('a');
+    expect(result!.removedId).toBe('a');
+    expect(result!.items.length).toBe(1);
+    expect(result!.items[0].id).toBe(result!.touchedId);
+    expect(result!.items[0].condition).toBe('LP');
+    expect(result!.items[0].updatedAt).toBe('now');
+  });
+
+  it('applyItemPatch keeps the id when the natural key does not change', () => {
+    const result = applyItemPatch([item('a')], 'a', { quantity: 5, notes: 'n' }, 'now');
+    expect(result!.touchedId).toBe('a');
+    expect(result!.removedId).toBeNull();
+    expect(result!.items[0].id).toBe('a');
+    expect(result!.items[0].quantity).toBe(5);
   });
 
   it('applyItemPatch merges into a twin and reports the removed id', () => {

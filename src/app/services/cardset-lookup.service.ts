@@ -39,7 +39,7 @@ export class CardsetLookupService {
           return null;
         }
         const printings = card.card_sets ?? [];
-        return { card, printings, setCode: printings[0]?.set_code ?? NO_SET_CODE };
+        return { card, printings, setCode: printings[0]?.set_code ?? `${NO_SET_CODE}-${card.id}` };
       }),
       catchError(() => of(null)),
     );
