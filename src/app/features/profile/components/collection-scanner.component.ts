@@ -49,6 +49,26 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
               {{ hint() }}
             }
           </p>
+          <p class="mt-1 max-w-sm text-center text-xs text-neutral-content/60">
+            Luce diffusa, niente riflessi: inclina un po' la carta. Il codice (es. LOB-EN005) deve stare sotto l'immagine, a destra.
+          </p>
+          <button type="button" class="btn btn-ghost btn-xs mt-1 text-neutral-content/60" [attr.aria-pressed]="scanner.debugEnabled()" (click)="scanner.debugEnabled.set(!scanner.debugEnabled())">
+            Diagnostica
+          </button>
+          @if (scanner.debugEnabled()) {
+            <div class="mt-1 w-full max-w-sm rounded-lg bg-black/40 p-2 font-mono text-[11px] leading-tight text-neutral-content/80">
+              @if (scanner.debug(); as d) {
+                @if (d.crop) {
+                  <img [src]="d.crop" alt="Ritaglio analizzato" class="mb-1 max-h-24 w-full rounded bg-black object-contain" />
+                }
+                <div>passata: {{ d.pass }}</div>
+                <div class="break-all">codice: {{ d.codeText || '—' }}</div>
+                <div class="break-all">nome: {{ d.nameText || '—' }}</div>
+              } @else {
+                In attesa di una lettura…
+              }
+            </div>
+          }
         </section>
       } @else {
         <section class="min-h-0 flex-1 overflow-y-auto px-4">

@@ -3,6 +3,7 @@ import { Observable, Subject, catchError, defaultIfEmpty, firstValueFrom, of, ti
 import { CardLanguage, ScanDetection } from '../models/collection.model';
 import { cleanOcrName, normalizeName } from '../utils/name-match.utils';
 import { ScanConsensus } from '../utils/scan-consensus.utils';
+import { binarize, meanLuminance, otsuThreshold, stretchContrast, toGrayscale } from '../utils/image-preprocess.utils';
 import { guideRect } from '../utils/scan-geometry.utils';
 import { parseSetCode } from '../utils/set-code.utils';
 import { CardScreenOcrService } from './card-screen-ocr.service';
@@ -15,9 +16,24 @@ const OCR_UPSCALE = 2;
 const NAME_KEY_LENGTH = 10;
 const RESOLVE_TIMEOUT_MS = 8000;
 const MAX_SEEDS = 20;
+/** Below this mean luminance the band is dark (foil/dark frame): also try an inverted pass. */
+const DARK_BAND_LUMINANCE = 110;
+const DEBUG_TEXT_MAX = 80;
 
-/** Regions of the guide frame, as fractions of the card. */
-const SET_CODE_BAND = { x: 0.4, y: 0.6, w: 0.6, h: 0.14 };
+export type ScanPass = 'a' | 'b' | 'c' | 'name' | 'none';
+export interface ScanDebug {
+  crop: string | null;
+  codeText: string;
+  nameText: string;
+  pass: string;
+}
+
+/**
+ * Regions of the guide frame, as fractions of the card.
+ * The set code sits under the artwork on the right, but its exact position varies between
+ * card eras, so the band spans x 0.30..1.0 and y 0.58..0.80.
+ */
+const SET_CODE_BAND = { x: 0.3, y: 0.58, w: 0.7, h: 0.22 };
 const NAME_BAND = { x: 0.03, y: 0.02, w: 0.94, h: 0.1 };
 
 type Seed = { kind: 'code'; candidates: string[]; language: CardLanguage } | { kind: 'name'; text: string };
@@ -37,6 +53,9 @@ export class CollectionScannerService {
   readonly state = signal<ScannerState>('idle');
   readonly error = signal<'denied' | 'unavailable' | null>(null);
   readonly lastMiss = signal(0);
+  /** Diagnostics for tuning on real cards; no extra work is done while disabled. */
+  readonly debugEnabled = signal(false);
+  readonly debug = signal<ScanDebug | null>(null);
 
   private readonly detectionSubject = new Subject<ScanDetection>();
   readonly detections$: Observable<ScanDetection> = this.detectionSubject.asObservable();
@@ -60,7 +79,7 @@ export class CollectionScannerService {
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
     } catch (err) {
@@ -76,6 +95,10 @@ export class CollectionScannerService {
       return;
     }
     this.stream = stream;
+    await this.improveCamera(stream);
+    if (id !== this.runId) {
+      return;
+    }
     video.srcObject = stream;
     await video.play().catch(() => undefined);
     if (id !== this.runId) {
@@ -100,6 +123,18 @@ export class CollectionScannerService {
     }
     this.seeds.clear();
     this.state.set('idle');
+  }
+
+  /** Best-effort continuous focus/exposure/white balance; unsupported on most desktops. */
+  private async improveCamera(stream: MediaStream): Promise<void> {
+    try {
+      const track = stream.getVideoTracks()[0];
+      // focusMode & co. are not in the DOM typings yet
+      const advanced = [{ focusMode: 'continuous' }, { exposureMode: 'continuous' }, { whiteBalanceMode: 'continuous' }];
+      await track?.applyConstraints({ advanced } as unknown as MediaTrackConstraints);
+    } catch {
+      // not supported: ignore
+    }
   }
 
   private newConsensus(): ScanConsensus {
@@ -128,25 +163,50 @@ export class CollectionScannerService {
       return;
     }
 
+    const debugOn = this.debugEnabled();
     let key: string | null = null;
-    const codeText = await this.ocr.recognizeText(this.crop(frame, SET_CODE_BAND));
-    if (id !== this.runId) {
-      return;
-    }
-    const parsed = parseSetCode(codeText);
-    if (parsed) {
-      key = `code:${parsed.candidates[0]}|${parsed.language}`;
-      this.remember(key, { kind: 'code', candidates: parsed.candidates, language: parsed.language });
-    } else {
-      const nameText = await this.ocr.recognizeText(this.crop(frame, NAME_BAND));
+    let pass: ScanPass = 'none';
+    let codeText = '';
+    let nameText = '';
+    let lastCrop: string | null = null;
+
+    const passes = this.setCodePasses(frame);
+    for (const candidate of passes) {
+      codeText = await this.ocr.recognizeText(candidate.canvas());
       if (id !== this.runId) {
         return;
       }
+      if (debugOn) {
+        lastCrop = this.band.toDataURL('image/png');
+      }
+      const parsed = parseSetCode(codeText);
+      if (parsed) {
+        pass = candidate.name;
+        key = `code:${parsed.candidates[0]}|${parsed.language}`;
+        this.remember(key, { kind: 'code', candidates: parsed.candidates, language: parsed.language });
+        break;
+      }
+    }
+
+    if (!key) {
+      nameText = await this.ocr.recognizeText(this.cropPrepared(frame, NAME_BAND));
+      if (id !== this.runId) {
+        return;
+      }
+      if (debugOn) {
+        lastCrop = this.band.toDataURL('image/png');
+      }
       const name = cleanOcrName(nameText);
       if (name) {
+        pass = 'name';
         key = `name:${normalizeName(name).slice(0, NAME_KEY_LENGTH)}`;
         this.remember(key, { kind: 'name', text: name });
       }
+    }
+
+    if (debugOn) {
+      const clip = (t: string) => t.trim().slice(0, DEBUG_TEXT_MAX);
+      this.debug.set({ crop: lastCrop, codeText: clip(codeText), nameText: clip(nameText), pass });
     }
 
     const accepted = this.consensus.push(key, performance.now());
@@ -224,7 +284,53 @@ export class CollectionScannerService {
     return this.frame;
   }
 
-  private crop(frame: HTMLCanvasElement, band: { x: number; y: number; w: number; h: number }): HTMLCanvasElement {
+  /**
+   * Lazily-evaluated OCR passes over the set-code band: (a) grayscale + stretch,
+   * (b) + Otsu binarization, (c) inverted binarization when the band is dark.
+   * Each canvas() call renders its pass into the shared band canvas.
+   */
+  private setCodePasses(frame: HTMLCanvasElement): { name: ScanPass; canvas: () => HTMLCanvasElement }[] {
+    const raw = this.cropRaw(frame, SET_CODE_BAND);
+    if (!raw) {
+      return [];
+    }
+    const { ctx, data } = raw;
+    const render = (build: (px: Uint8ClampedArray) => void): HTMLCanvasElement => {
+      const copy = new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
+      build(copy.data);
+      ctx.putImageData(copy, 0, 0);
+      return this.band;
+    };
+    const prepare = (px: Uint8ClampedArray) => stretchContrast(toGrayscale(px));
+    const threshold = (px: Uint8ClampedArray, invert: boolean) => {
+      prepare(px);
+      binarize(px, otsuThreshold(px), invert);
+    };
+    const passes: { name: ScanPass; canvas: () => HTMLCanvasElement }[] = [
+      { name: 'a', canvas: () => render(prepare) },
+      { name: 'b', canvas: () => render((px) => threshold(px, false)) },
+    ];
+    if (meanLuminance(data.data) < DARK_BAND_LUMINANCE) {
+      passes.push({ name: 'c', canvas: () => render((px) => threshold(px, true)) });
+    }
+    return passes;
+  }
+
+  private cropPrepared(frame: HTMLCanvasElement, band: { x: number; y: number; w: number; h: number }): HTMLCanvasElement {
+    const raw = this.cropRaw(frame, band);
+    if (raw) {
+      const img = raw.data;
+      stretchContrast(toGrayscale(img.data));
+      raw.ctx.putImageData(img, 0, 0);
+    }
+    return this.band;
+  }
+
+  /** Draws the band, upscaled, into the shared canvas and returns its untouched pixels. */
+  private cropRaw(
+    frame: HTMLCanvasElement,
+    band: { x: number; y: number; w: number; h: number },
+  ): { ctx: CanvasRenderingContext2D; data: ImageData } | null {
     const sx = band.x * frame.width;
     const sy = band.y * frame.height;
     const sw = band.w * frame.width;
@@ -232,25 +338,11 @@ export class CollectionScannerService {
     this.band.width = Math.round(sw * OCR_UPSCALE);
     this.band.height = Math.round(sh * OCR_UPSCALE);
     const ctx = this.band.getContext('2d', { willReadFrequently: true });
-    if (ctx) {
-      ctx.imageSmoothingQuality = 'high';
-      const hasFilter = (ctx as { filter?: string }).filter !== undefined;
-      if (hasFilter) {
-        ctx.filter = 'grayscale(1) contrast(1.6)';
-      }
-      ctx.drawImage(frame, sx, sy, sw, sh, 0, 0, this.band.width, this.band.height);
-      if (!hasFilter) {
-        // Safari/iOS: ctx.filter unsupported, apply grayscale + contrast manually.
-        const img = ctx.getImageData(0, 0, this.band.width, this.band.height);
-        const d = img.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-          const v = Math.max(0, Math.min(255, (gray - 128) * 1.6 + 128));
-          d[i] = d[i + 1] = d[i + 2] = v;
-        }
-        ctx.putImageData(img, 0, 0);
-      }
+    if (!ctx) {
+      return null;
     }
-    return this.band;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(frame, sx, sy, sw, sh, 0, 0, this.band.width, this.band.height);
+    return { ctx, data: ctx.getImageData(0, 0, this.band.width, this.band.height) };
   }
 }
