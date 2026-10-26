@@ -17,6 +17,22 @@ export interface MiscInfo {
   formats?: string[];
 }
 
+export interface CardSet {
+  set_name: string;
+  set_code: string;
+  set_rarity: string;
+  set_rarity_code?: string;
+  set_price?: string;
+}
+
+export interface CardPrice {
+  cardmarket_price?: string;
+  tcgplayer_price?: string;
+  ebay_price?: string;
+  amazon_price?: string;
+  coolstuffinc_price?: string;
+}
+
 export interface YgoCard {
   id: number;
   name: string;
@@ -31,6 +47,8 @@ export interface YgoCard {
   card_images: CardImage[];
   banlist_info?: BanlistInfo;
   misc_info?: MiscInfo[];
+  card_sets?: CardSet[];
+  card_prices?: CardPrice[];
 }
 
 export interface CardInfoMeta {
