@@ -30,6 +30,7 @@ export class CollectionCacheService {
         tx.objectStore(STORE).put(value, key);
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error ?? new Error('idb put failed'));
+        tx.onabort = () => reject(tx.error ?? new Error('idb put aborted'));
       });
     } catch {
       // cache is best-effort
@@ -43,13 +44,23 @@ export class CollectionCacheService {
     if (!this.dbPromise) {
       this.dbPromise = new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onerror = () => reject(req.error ?? new Error('idb open failed'));
+        req.onerror = () => {
+          this.dbPromise = null;
+          reject(req.error ?? new Error('idb open failed'));
+        };
         req.onupgradeneeded = () => {
           if (!req.result.objectStoreNames.contains(STORE)) {
             req.result.createObjectStore(STORE);
           }
         };
-        req.onsuccess = () => resolve(req.result);
+        req.onsuccess = () => {
+          const db = req.result;
+          db.onversionchange = () => {
+            db.close();
+            this.dbPromise = null;
+          };
+          resolve(db);
+        };
       });
     }
     return this.dbPromise;

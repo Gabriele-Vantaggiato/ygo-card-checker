@@ -6,9 +6,27 @@ import { AuthService } from './auth.service';
 import { CollectionCacheService } from './collection-cache.service';
 
 const TABLE = 'collection_items';
+const PAGE_SIZE = 1000;
 const CONFLICT_COLUMNS = 'user_id,set_code,rarity,language,condition,first_edition';
 
 export type CollectionStatus = 'idle' | 'loading' | 'ready' | 'offline' | 'error';
+
+class StaleUserError extends Error {
+  constructor() {
+    super('User changed during collection operation');
+  }
+}
+
+function isNetworkError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return true;
+  }
+  if (err instanceof TypeError) {
+    return true;
+  }
+  const message = (err as { message?: unknown } | null)?.message;
+  return typeof message === 'string' && /failed to fetch|networkerror|network request failed|load failed/i.test(message);
+}
 
 interface CollectionRow {
   id: string;
@@ -62,6 +80,7 @@ function itemToRow(item: CollectionItem, userId: string): CollectionRow {
  * The player's physical cards. Reads come from the IndexedDB snapshot first, then
  * Supabase; writes are applied locally at once and flushed to Supabase, with ids
  * of unsynced upserts/deletes kept in `pending`/`deleted` so offline edits survive.
+ * load/write/flush operations are serialized through a promise chain.
  */
 @Injectable({ providedIn: 'root' })
 export class CollectionService {
@@ -73,15 +92,76 @@ export class CollectionService {
 
   private pending = new Set<string>();
   private deleted = new Set<string>();
+  private tail: Promise<unknown> = Promise.resolve();
 
   ownedQuantity(passcode: number): number {
     return this.items().reduce((sum, item) => (item.passcode === passcode ? sum + item.quantity : sum), 0);
   }
 
-  async load(): Promise<void> {
+  load(): Promise<void> {
+    return this.enqueue(() => this.doLoad());
+  }
+
+  async addMany(drafts: readonly CollectionDraft[]): Promise<void> {
+    const userId = this.requireUser();
+    await this.enqueue(async () => {
+      this.assertUser(userId);
+      const now = new Date().toISOString();
+      let next = [...this.items()];
+      for (const draft of drafts) {
+        const index = next.findIndex((item) => collectionKey(item) === collectionKey(draft));
+        if (index >= 0) {
+          next[index] = { ...next[index], quantity: next[index].quantity + draft.quantity, updatedAt: now };
+          this.pending.add(next[index].id);
+        } else {
+          const created: CollectionItem = { ...draft, id: crypto.randomUUID(), updatedAt: now };
+          next = [created, ...next];
+          this.pending.add(created.id);
+        }
+      }
+      await this.commit(userId, next);
+    });
+  }
+
+  async update(id: string, patch: CollectionItemPatch): Promise<void> {
+    const userId = this.requireUser();
+    await this.enqueue(async () => {
+      this.assertUser(userId);
+      const result = applyItemPatch(this.items(), id, patch, new Date().toISOString());
+      if (!result) {
+        return;
+      }
+      this.pending.add(result.touchedId);
+      if (result.removedId) {
+        this.pending.delete(result.removedId);
+        this.deleted.add(result.removedId);
+      }
+      await this.commit(userId, result.items);
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    const userId = this.requireUser();
+    await this.enqueue(async () => {
+      this.assertUser(userId);
+      this.pending.delete(id);
+      this.deleted.add(id);
+      await this.commit(userId, this.items().filter((item) => item.id !== id));
+    });
+  }
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.tail.then(task, task);
+    this.tail = run.catch(() => undefined);
+    return run;
+  }
+
+  private async doLoad(): Promise<void> {
     const userId = this.userId();
     if (!userId) {
       this.items.set([]);
+      this.pending = new Set();
+      this.deleted = new Set();
       this.status.set('idle');
       return;
     }
@@ -91,76 +171,91 @@ export class CollectionService {
       this.cache.get<string[]>(this.key(userId, 'pending')),
       this.cache.get<string[]>(this.key(userId, 'deleted')),
     ]);
+    if (this.isStale(userId)) {
+      return;
+    }
     this.items.set(cached ?? []);
     this.pending = new Set(pending ?? []);
     this.deleted = new Set(deleted ?? []);
 
     try {
       await this.flush(userId);
-      const { data, error } = await supabase.from(TABLE).select('*').eq('user_id', userId).order('updated_at', { ascending: false });
-      if (error || !data) {
-        throw new Error(error?.message ?? 'Failed to load collection');
+      const remote = await this.fetchAll(userId);
+      if (this.isStale(userId)) {
+        return;
       }
-      this.items.set((data as CollectionRow[]).map(rowToItem));
+      // Re-apply local edits that are still unsynced so they are not lost.
+      this.items.set(this.applyLocalChanges(remote));
       await this.cache.set(this.key(userId, 'items'), this.items());
+      if (this.isStale(userId)) {
+        return;
+      }
       this.status.set('ready');
-    } catch {
-      this.status.set(cached ? 'offline' : 'error');
+    } catch (err) {
+      if (err instanceof StaleUserError || this.isStale(userId)) {
+        return;
+      }
+      console.error('[collection]', err);
+      // Cached items stay visible in both cases.
+      this.status.set(isNetworkError(err) ? 'offline' : 'error');
     }
   }
 
-  async addMany(drafts: readonly CollectionDraft[]): Promise<void> {
-    const now = new Date().toISOString();
-    let next = [...this.items()];
-    for (const draft of drafts) {
-      const index = next.findIndex((item) => collectionKey(item) === collectionKey(draft));
-      if (index >= 0) {
-        next[index] = { ...next[index], quantity: next[index].quantity + draft.quantity, updatedAt: now };
-        this.pending.add(next[index].id);
-      } else {
-        const created: CollectionItem = { ...draft, id: crypto.randomUUID(), updatedAt: now };
-        next = [created, ...next];
-        this.pending.add(created.id);
+  private async fetchAll(userId: string): Promise<CollectionItem[]> {
+    const rows: CollectionRow[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .order('id')
+        .range(from, from + PAGE_SIZE - 1);
+      if (error || !data) {
+        throw error ?? new Error('Failed to load collection');
+      }
+      this.assertUser(userId);
+      rows.push(...(data as CollectionRow[]));
+      if (data.length < PAGE_SIZE) {
+        return rows.map(rowToItem);
       }
     }
-    await this.commit(next);
   }
 
-  async update(id: string, patch: CollectionItemPatch): Promise<void> {
-    const result = applyItemPatch(this.items(), id, patch, new Date().toISOString());
-    if (!result) {
-      return;
-    }
-    this.pending.add(result.touchedId);
-    if (result.removedId) {
-      this.pending.delete(result.removedId);
-      this.deleted.add(result.removedId);
-    }
-    await this.commit(result.items);
+  private applyLocalChanges(remote: CollectionItem[]): CollectionItem[] {
+    const local = new Map(this.items().map((item) => [item.id, item]));
+    const merged = remote
+      .filter((item) => !this.deleted.has(item.id))
+      .map((item) => (this.pending.has(item.id) ? (local.get(item.id) ?? item) : item));
+    const known = new Set(merged.map((item) => item.id));
+    const added = [...this.pending]
+      .filter((id) => !known.has(id) && !this.deleted.has(id) && local.has(id))
+      .map((id) => local.get(id) as CollectionItem);
+    return [...added, ...merged];
   }
 
-  async remove(id: string): Promise<void> {
-    this.pending.delete(id);
-    this.deleted.add(id);
-    await this.commit(this.items().filter((item) => item.id !== id));
-  }
-
-  private async commit(next: CollectionItem[]): Promise<void> {
+  private async commit(userId: string, next: CollectionItem[]): Promise<void> {
     this.items.set(next);
-    const userId = this.userId();
-    if (!userId) {
+    await this.persistLocal(userId);
+    if (this.isStale(userId)) {
       return;
     }
-    await this.persistLocal(userId);
     try {
       await this.flush(userId);
-      this.status.set('ready');
-    } catch {
-      this.status.set('offline');
+      if (this.status() !== 'loading') {
+        this.status.set('ready');
+      }
+    } catch (err) {
+      if (err instanceof StaleUserError || this.isStale(userId)) {
+        return;
+      }
+      console.error('[collection]', err);
+      this.status.set(isNetworkError(err) ? 'offline' : 'error');
     }
   }
 
   private async persistLocal(userId: string): Promise<void> {
+    // Arguments are evaluated synchronously, so the snapshot belongs to `userId`.
     await Promise.all([
       this.cache.set(this.key(userId, 'items'), this.items()),
       this.cache.set(this.key(userId, 'pending'), [...this.pending]),
@@ -168,26 +263,63 @@ export class CollectionService {
     ]);
   }
 
-  /** Pushes unsynced deletes and upserts; throws if Supabase is unreachable. */
+  /**
+   * Pushes unsynced deletes and upserts; throws if Supabase is unreachable.
+   * Only ids snapshotted before each await are cleared afterwards.
+   * Single-device assumption: upsert conflicts are resolved on the natural key, not on id.
+   */
   private async flush(userId: string): Promise<void> {
-    if (this.deleted.size > 0) {
-      const { error } = await supabase.from(TABLE).delete().eq('user_id', userId).in('id', [...this.deleted]);
+    const deleteIds = [...this.deleted];
+    if (deleteIds.length > 0) {
+      const { error } = await supabase.from(TABLE).delete().eq('user_id', userId).in('id', deleteIds);
       if (error) {
-        throw new Error(error.message);
+        throw error;
       }
-      this.deleted.clear();
+      this.assertUser(userId);
+      deleteIds.forEach((id) => this.deleted.delete(id));
     }
-    if (this.pending.size > 0) {
-      const rows = this.items().filter((item) => this.pending.has(item.id)).map((item) => itemToRow(item, userId));
-      if (rows.length > 0) {
-        const { error } = await supabase.from(TABLE).upsert(rows, { onConflict: CONFLICT_COLUMNS });
-        if (error) {
-          throw new Error(error.message);
+    const snapshot = this.items().filter((item) => this.pending.has(item.id));
+    if (snapshot.length > 0) {
+      const rows = snapshot.map((item) => itemToRow(item, userId));
+      const { error } = await supabase.from(TABLE).upsert(rows, { onConflict: CONFLICT_COLUMNS });
+      if (error) {
+        throw error;
+      }
+      this.assertUser(userId);
+      const current = new Map(this.items().map((item) => [item.id, item]));
+      for (const item of snapshot) {
+        // Items are replaced immutably: a different reference means it was edited meanwhile.
+        if (current.get(item.id) === item) {
+          this.pending.delete(item.id);
         }
       }
-      this.pending.clear();
+    }
+    // Pending ids whose item no longer exists have nothing to push.
+    const existing = new Set(this.items().map((item) => item.id));
+    for (const id of [...this.pending]) {
+      if (!existing.has(id)) {
+        this.pending.delete(id);
+      }
     }
     await this.persistLocal(userId);
+  }
+
+  private requireUser(): string {
+    const userId = this.userId();
+    if (!userId) {
+      throw new Error('Accedi per modificare la collezione');
+    }
+    return userId;
+  }
+
+  private isStale(userId: string): boolean {
+    return this.userId() !== userId;
+  }
+
+  private assertUser(userId: string): void {
+    if (this.isStale(userId)) {
+      throw new StaleUserError();
+    }
   }
 
   private userId(): string | null {
