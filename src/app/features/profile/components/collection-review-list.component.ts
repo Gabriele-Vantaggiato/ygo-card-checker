@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { CARD_CONDITIONS, CARD_LANGUAGES, CardCondition, CardLanguage, ScanQueueEntry } from '../../../models/collection.model';
 
 export interface EntryPatch {
@@ -54,45 +54,42 @@ export interface EntryPatch {
           <div class="flex items-center justify-between gap-2 pl-[3.5rem]">
             <span class="text-sm text-base-content/60">{{ priceLabel(entry) }}</span>
             <div class="flex items-center">
-              <button type="button" class="btn btn-ghost btn-sm min-h-11" [attr.aria-expanded]="openId === entry.tempId" (click)="toggle(entry.tempId)">
-                {{ openId === entry.tempId ? 'Chiudi' : 'Dettagli' }}
+              <button type="button" class="btn btn-ghost btn-sm min-h-11" [attr.aria-expanded]="openId() === entry.tempId" (click)="toggle(entry.tempId)">
+                {{ openId() === entry.tempId ? 'Chiudi' : 'Dettagli' }}
               </button>
               <button type="button" class="btn btn-ghost btn-sm min-h-11 text-error" (click)="remove.emit(entry.tempId)">Rimuovi</button>
             </div>
           </div>
 
-          @if (openId === entry.tempId) {
+          @if (openId() === entry.tempId) {
             <div class="grid grid-cols-2 gap-2 pl-[3.5rem]">
               @if (entry.printings.length > 1) {
                 <select
                   class="select select-bordered col-span-2 min-h-11 w-full"
-                  [value]="entry.setCode + '|' + entry.rarity"
-                  (change)="pickPrinting(entry, $any($event.target).value)"
+                  (change)="pickPrinting(entry, selectValue($event))"
                   aria-label="Stampa"
                 >
                   @for (p of entry.printings; track p.set_code + p.set_rarity) {
-                    <option [value]="p.set_code + '|' + p.set_rarity">{{ p.set_code }} · {{ p.set_rarity }}</option>
+                    <option [value]="p.set_code + '|' + p.set_rarity" [selected]="p.set_code + '|' + p.set_rarity === entry.setCode + '|' + entry.rarity">{{ p.set_code }} · {{ p.set_rarity }}</option>
                   }
                 </select>
               }
               <select
                 class="select select-bordered min-h-11 w-full"
-                [value]="entry.condition"
-                (change)="pickCondition(entry, $any($event.target).value)"
+                (change)="pickCondition(entry, selectValue($event))"
                 aria-label="Condizione"
               >
                 @for (c of conditions; track c) {
-                  <option [value]="c">{{ c }}</option>
+                  <option [value]="c" [selected]="c === entry.condition">{{ c }}</option>
                 }
               </select>
               <select
                 class="select select-bordered min-h-11 w-full"
-                [value]="entry.language"
-                (change)="pickLanguage(entry, $any($event.target).value)"
+                (change)="pickLanguage(entry, selectValue($event))"
                 aria-label="Lingua"
               >
                 @for (l of languages; track l) {
-                  <option [value]="l">{{ l }}</option>
+                  <option [value]="l" [selected]="l === entry.language">{{ l }}</option>
                 }
               </select>
               <label class="col-span-2 flex min-h-11 cursor-pointer items-center gap-3">
@@ -100,7 +97,7 @@ export interface EntryPatch {
                   type="checkbox"
                   class="checkbox"
                   [checked]="entry.firstEdition"
-                  (change)="patch.emit({ tempId: entry.tempId, patch: { firstEdition: $any($event.target).checked } })"
+                  (change)="patch.emit({ tempId: entry.tempId, patch: { firstEdition: checkedValue($event) } })"
                 />
                 <span class="text-sm">1st Edition</span>
               </label>
@@ -119,12 +116,20 @@ export class CollectionReviewListComponent {
 
   protected readonly conditions = CARD_CONDITIONS;
   protected readonly languages = CARD_LANGUAGES;
-  protected openId: string | null = null;
+  protected readonly openId = signal<string | null>(null);
 
   private readonly eur = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
 
   protected toggle(tempId: string): void {
-    this.openId = this.openId === tempId ? null : tempId;
+    this.openId.update((id) => (id === tempId ? null : tempId));
+  }
+
+  protected selectValue(event: Event): string {
+    return (event.target as HTMLSelectElement).value;
+  }
+
+  protected checkedValue(event: Event): boolean {
+    return (event.target as HTMLInputElement).checked;
   }
 
   protected priceLabel(entry: ScanQueueEntry): string {

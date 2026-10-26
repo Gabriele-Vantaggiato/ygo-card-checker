@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnDestroy, computed, effect, inject, output, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnDestroy, OnInit, computed, effect, inject, output, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -70,7 +70,7 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
             <app-collection-review-list [entries]="queue()" [prices]="prices.prices()" (patch)="patchEntry($event)" (remove)="removeEntry($event)" />
           }
 
-          <details class="my-4 rounded-lg border border-base-300/60 p-3" [open]="queue().length === 0 || !!scanner.error()">
+          <details class="my-4 rounded-lg border border-base-300/60 p-3" [open]="manualOpen()" (toggle)="onManualToggle($event)">
             <summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium">Aggiungi a mano</summary>
             <form class="mt-2 flex gap-2" (submit)="$event.preventDefault(); search()">
               <input
@@ -93,7 +93,12 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
             <ul class="mt-2 divide-y divide-base-300/60">
               @for (card of results(); track card.id) {
                 <li>
-                  <button type="button" class="min-h-11 w-full py-2 text-left text-sm hover:text-primary" (click)="addManual(card)">{{ card.name }}</button>
+                  <button type="button" class="min-h-11 w-full py-2 text-left text-sm hover:text-primary" [disabled]="adding()" (click)="addManual(card)">
+                    {{ card.name }}
+                    @if (addingId() === card.id) {
+                      <span class="loading loading-spinner loading-xs ml-2 align-middle"></span>
+                    }
+                  </button>
                 </li>
               }
             </ul>
@@ -101,9 +106,15 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
         </section>
       }
 
-      <footer class="flex items-center justify-between gap-3 border-t border-base-300/60 px-4 py-3">
-        <button type="button" class="btn btn-ghost" (click)="reviewOpen.set(!reviewOpen())">
-          {{ reviewOpen() ? 'Torna alla fotocamera' : 'Rivedi (' + queueCount() + ')' }}
+      <footer class="flex items-center justify-between gap-3 border-t border-base-300/60 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <button type="button" class="btn btn-ghost" (click)="toggleView()">
+          @if (!reviewOpen()) {
+            Rivedi ({{ queueCount() }})
+          } @else if (scanner.error()) {
+            Riprova fotocamera
+          } @else {
+            Torna alla fotocamera
+          }
         </button>
         <button type="button" class="btn btn-primary" [disabled]="queue().length === 0 || saving()" (click)="confirm()">
           @if (saving()) {
@@ -115,7 +126,7 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
     </div>
   `,
 })
-export class CollectionScannerComponent implements OnDestroy {
+export class CollectionScannerComponent implements OnInit, OnDestroy {
   protected readonly scanner = inject(CollectionScannerService);
   protected readonly prices = inject(CollectionPriceService);
   private readonly collection = inject(CollectionService);
@@ -130,6 +141,9 @@ export class CollectionScannerComponent implements OnDestroy {
   protected readonly queueCount = computed(() => this.queue().reduce((sum, entry) => sum + entry.quantity, 0));
   protected readonly reviewOpen = signal(false);
   protected readonly saving = signal(false);
+  protected readonly adding = signal(false);
+  protected readonly addingId = signal<number | null>(null);
+  protected readonly manualOpen = signal(false);
   protected readonly flash = signal(false);
   protected readonly aspect = signal('3 / 4');
   protected readonly guide = signal(guideRect(720, 1280));
@@ -151,7 +165,10 @@ export class CollectionScannerComponent implements OnDestroy {
       untracked(() => {
         if (element) {
           cameraOn = true;
-          void this.scanner.start(element);
+          const state = this.scanner.state();
+          if (state !== 'starting' && state !== 'scanning') {
+            void this.scanner.start(element);
+          }
         } else if (cameraOn) {
           cameraOn = false;
           this.scanner.stop();
@@ -162,7 +179,7 @@ export class CollectionScannerComponent implements OnDestroy {
     // Camera refused/unavailable: fall back to the review view so cards can still be added by hand.
     effect(() => {
       if (this.scanner.state() === 'error') {
-        untracked(() => this.reviewOpen.set(true));
+        untracked(() => this.openReview());
       }
     });
 
@@ -176,8 +193,32 @@ export class CollectionScannerComponent implements OnDestroy {
     });
   }
 
+  ngOnInit(): void {
+    document.body.style.overflow = 'hidden';
+  }
+
   ngOnDestroy(): void {
+    document.body.style.overflow = '';
     this.scanner.stop();
+  }
+
+  private openReview(): void {
+    this.manualOpen.set(this.queue().length === 0 || !!this.scanner.error());
+    this.reviewOpen.set(true);
+  }
+
+  protected toggleView(): void {
+    if (!this.reviewOpen()) {
+      this.openReview();
+    } else {
+      // Leaving review for the camera: <video> re-appears and the effect restarts the stream
+      // (start() clears the previous error itself).
+      this.reviewOpen.set(false);
+    }
+  }
+
+  protected onManualToggle(event: Event): void {
+    this.manualOpen.set((event.target as HTMLDetailsElement).open);
   }
 
   protected onMetadata(): void {
@@ -244,6 +285,11 @@ export class CollectionScannerComponent implements OnDestroy {
   }
 
   protected async addManual(summary: YgoCard): Promise<void> {
+    if (this.adding()) {
+      return;
+    }
+    this.adding.set(true);
+    this.addingId.set(summary.id);
     let card = summary;
     try {
       card = (await firstValueFrom(this.api.getCardById$(summary.id, 'en'))) ?? summary;
@@ -258,6 +304,8 @@ export class CollectionScannerComponent implements OnDestroy {
     this.results.set([]);
     this.searched.set(false);
     this.searchTerm = '';
+    this.adding.set(false);
+    this.addingId.set(null);
   }
 
   protected async confirm(): Promise<void> {
