@@ -182,7 +182,19 @@ export class GeminiCoachService {
     return this.askGemini$(prompt);
   }
 
+  /**
+   * Multimodal variant of ask$ (e.g. text + inlineData image part) with an optional
+   * generationConfig. Same key/relay/model-fallback plumbing; the key stays inside this service.
+   */
+  askParts$(parts: object[], generationConfig?: object): Observable<string> {
+    return this.askBody$({ contents: [{ parts }], ...(generationConfig ? { generationConfig } : {}) });
+  }
+
   private askGemini$(prompt: string): Observable<string> {
+    return this.askBody$({ contents: [{ parts: [{ text: prompt }] }] });
+  }
+
+  private askBody$(body: object): Observable<string> {
     if (!this.sessionKey) {
       return of('');
     }
@@ -191,13 +203,6 @@ export class GeminiCoachService {
     this.lastAttemptedModels.set([]);
 
     const key = this.sessionKey;
-    const body = {
-      contents: [
-        {
-          parts: [{ text: prompt }],
-        },
-      ],
-    };
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
       'X-goog-api-key': key,

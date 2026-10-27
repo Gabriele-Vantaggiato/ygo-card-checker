@@ -5,6 +5,10 @@ import { firstValueFrom } from 'rxjs';
 import { CardCondition, CollectionDraft, ScanCandidate, ScanDetection, ScanQueueEntry } from '../../../models/collection.model';
 import { YgoCard } from '../../../models/ygo-card.model';
 import { CollectionPriceService } from '../../../services/collection-price.service';
+import { AiCardReaderService } from '../../../services/ai-card-reader.service';
+import { CardsetLookupService } from '../../../services/cardset-lookup.service';
+import { GeminiKeyPanelComponent } from '../../../shared/ui/gemini-key-panel/gemini-key-panel.component';
+import { parseSetCode } from '../../../utils/set-code.utils';
 import { CollectionScannerService } from '../../../services/collection-scanner.service';
 import { CardIndexService } from '../../../services/card-index.service';
 import { CollectionService } from '../../../services/collection.service';
@@ -20,13 +24,16 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
 const NOTICE_MS = 4000;
 const MAX_STRIP = 5;
 const THUMB_URL = 'https://images.ygoprodeck.com/images/cards_small/';
+const AI_MAX_SIDE = 1024;
+/** Consent for sending a frame to Gemini is asked once per browser session (page load). */
+let aiConsentGiven = false;
 
 /** Full-screen live scan: camera + guide frame, or the review queue with manual add. */
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-collection-scanner',
   standalone: true,
-  imports: [FormsModule, CollectionReviewListComponent],
+  imports: [FormsModule, CollectionReviewListComponent, GeminiKeyPanelComponent],
   template: `
     <div class="fixed inset-0 z-50 flex flex-col bg-base-100" role="dialog" aria-modal="true" aria-label="Scansiona carte">
       <header class="flex items-center justify-between gap-3 border-b border-base-300/60 px-4 py-2">
@@ -73,6 +80,30 @@ const THUMB_URL = 'https://images.ygoprodeck.com/images/cards_small/';
             </div>
           }
           <p class="mt-3 min-h-5 text-center text-sm text-neutral-content/80" aria-live="polite">{{ statusText() }}</p>
+          @if (aiReader.hasKey()) {
+            <div class="mt-2 flex w-full max-w-sm flex-col items-center gap-2">
+              @if (aiConsentOpen()) {
+                <div class="w-full rounded-lg bg-black/40 p-3 text-center" role="alertdialog" aria-label="Conferma invio a Gemini">
+                  <p class="text-sm text-neutral-content">L'immagine verrà inviata a Google Gemini con la tua chiave. Continuare?</p>
+                  <div class="mt-2 flex justify-center gap-2">
+                    <button type="button" class="btn btn-primary btn-sm" (click)="confirmAiConsent()">Invia</button>
+                    <button type="button" class="btn btn-ghost btn-sm" (click)="aiConsentOpen.set(false)">Annulla</button>
+                  </div>
+                </div>
+              } @else if (aiKeyPanelOpen() && !aiReader.isUnlocked()) {
+                <div class="w-full rounded-lg bg-base-100 p-2">
+                  <p class="mb-2 text-xs text-base-content/70">Sblocca la chiave Gemini con la tua passphrase per usare la lettura AI.</p>
+                  <app-gemini-key-panel />
+                </div>
+              }
+              <button type="button" class="btn btn-outline btn-sm" [disabled]="aiBusy()" (click)="onAiClick()">
+                @if (aiBusy()) {
+                  <span class="loading loading-spinner loading-xs"></span>
+                }
+                Leggi con AI
+              </button>
+            </div>
+          }
           @if (scanner.state() === 'scanning' && scanner.phase() === 'ocr-fallback' && strip().length === 0) {
             <p class="mt-1 min-h-4 max-w-sm text-center text-xs text-neutral-content/60">
               @if (scanner.lastRead(); as read) {
@@ -193,6 +224,11 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  protected readonly aiReader = inject(AiCardReaderService);
+  private readonly lookup = inject(CardsetLookupService);
+  protected readonly aiBusy = signal(false);
+  protected readonly aiConsentOpen = signal(false);
+  protected readonly aiKeyPanelOpen = signal(false);
 
   readonly closed = output<void>();
   private readonly video = viewChild<ElementRef<HTMLVideoElement>>('video');
@@ -336,6 +372,86 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
     this.notice.set(text);
     clearTimeout(this.noticeTimer);
     this.noticeTimer = setTimeout(() => this.notice.set(null), NOTICE_MS);
+  }
+
+  protected onAiClick(): void {
+    if (this.aiBusy()) {
+      return;
+    }
+    if (!this.aiReader.isUnlocked()) {
+      // Key is stored encrypted: route through the existing passphrase unlock panel.
+      this.aiKeyPanelOpen.set(true);
+      return;
+    }
+    if (!aiConsentGiven) {
+      this.aiConsentOpen.set(true);
+      return;
+    }
+    void this.readWithAi();
+  }
+
+  protected confirmAiConsent(): void {
+    aiConsentGiven = true;
+    this.aiConsentOpen.set(false);
+    void this.readWithAi();
+  }
+
+  /** Crops the guide frame (max 1024 px long side) to a JPEG q0.85, base64 without the data: prefix. */
+  private captureGuideJpeg(): string | null {
+    const video = this.video()?.nativeElement;
+    if (!video?.videoWidth || !video.videoHeight) {
+      return null;
+    }
+    const g = guideRect(video.videoWidth, video.videoHeight);
+    const sx = Math.round(g.x * video.videoWidth);
+    const sy = Math.round(g.y * video.videoHeight);
+    const sw = Math.round(g.w * video.videoWidth);
+    const sh = Math.round(g.h * video.videoHeight);
+    const scale = Math.min(1, AI_MAX_SIDE / Math.max(sw, sh));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(sw * scale));
+    canvas.height = Math.max(1, Math.round(sh * scale));
+    canvas.getContext('2d')?.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    const url = canvas.toDataURL('image/jpeg', 0.85);
+    return url.split(',')[1] ?? null;
+  }
+
+  private async readWithAi(): Promise<void> {
+    const jpeg = this.captureGuideJpeg();
+    if (!jpeg) {
+      this.setNotice("Non riconosciuta dall'AI");
+      return;
+    }
+    this.aiBusy.set(true);
+    try {
+      const read = await this.aiReader.read(jpeg);
+      const parsed = read.setCode ? parseSetCode(read.setCode) : null;
+      let match = parsed ? await firstValueFrom(this.lookup.bySetCodes$(parsed.candidates)) : null;
+      if (!match && read.name) {
+        match = await firstValueFrom(this.lookup.byName$(read.name));
+      }
+      if (!match) {
+        this.setNotice("Non riconosciuta dall'AI");
+        return;
+      }
+      const detection: ScanDetection = {
+        card: match.card,
+        printings: match.printings,
+        setCode: match.setCode,
+        language: parsed?.language ?? 'EN',
+        source: parsed ? 'code' : 'name',
+        needsReview: true,
+        alternatives: [],
+      };
+      this.queue.update((queue) => mergeDraft(queue, this.toEntry(match.card, detection)));
+      void this.prices.ensure([match.card.id]);
+      this.setNotice(`Letta dall'AI: ${match.card.name}`);
+      this.feedback();
+    } catch {
+      this.setNotice("Non riconosciuta dall'AI");
+    } finally {
+      this.aiBusy.set(false);
+    }
   }
 
   protected thumbUrl(id: number): string {
