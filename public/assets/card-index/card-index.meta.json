@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "model": "onnx-community/dinov2-small",
+  "dtype": "q8",
+  "dim": 768,
+  "count": 14817,
+  "recipe": "dinov2s-q8|224fill|L2[L2cls,L2meanpatch]|full+art(.11-.89,.18-.72)|mean(clean+3aug mild/medium)->L2|batch1",
+  "cards": 14645,
+  "altRows": 172,
+  "skipped": [],
+  "aug": 3,
+  "limit": null,
+  "bytes": 22936932,
+  "sha256": "8f9e9d2f26b5008f2b5f26e9723b3309e964d11902d197b6f2b44d2da28aa219",
+  "builtAt": "2026-10-27T20:04:42.443Z"
+}
