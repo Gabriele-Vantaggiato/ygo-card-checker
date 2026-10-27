@@ -110,11 +110,14 @@
               "zone.js/testing"
             ],
             "tsConfig": "tsconfig.spec.json",
+            "exclude": ["**/*.integration.spec.ts"],
             "assets": [
               {
                 "glob": "**/*",
                 "input": "public"
               },
+              { "glob": "**/*", "input": "src/test-fixtures", "output": "test-fixtures" },
+              { "glob": "ort-wasm-simd-threaded*", "input": "node_modules/onnxruntime-web/dist", "output": "assets/onnx" },
               {
                 "glob": "**/*",
                 "input": "src/assets",
