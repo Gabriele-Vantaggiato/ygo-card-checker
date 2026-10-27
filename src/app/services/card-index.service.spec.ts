@@ -43,6 +43,35 @@ describe('CardIndexService', () => {
     expect(hits[0].id).toBe(22);
   });
 
+  it('reports streamed progress when the body is not content-encoded', async () => {
+    const bytes = buildIndex();
+    window.fetch = (() => Promise.resolve(new Response(bytes as BlobPart, {
+      headers: { 'content-length': String(bytes.length) },
+    }))) as typeof fetch;
+    const svc = TestBed.inject(CardIndexService);
+    const seen: number[] = [];
+    const set = svc.progress.set.bind(svc.progress);
+    spyOn(svc.progress, 'set').and.callFake((v: number) => { seen.push(v); set(v); });
+    await svc.load();
+    expect(svc.state()).toBe('ready');
+    expect(seen[seen.length - 1]).toBe(1);
+    expect(seen.some(v => v > 0 && v <= 1)).toBeTrue();
+  });
+
+  it('skips streamed progress for a content-encoded body (content-length is the compressed size)', async () => {
+    const bytes = buildIndex();
+    window.fetch = (() => Promise.resolve(new Response(bytes as BlobPart, {
+      headers: { 'content-encoding': 'gzip', 'content-length': '10' },
+    }))) as typeof fetch;
+    const svc = TestBed.inject(CardIndexService);
+    const seen: number[] = [];
+    const set = svc.progress.set.bind(svc.progress);
+    spyOn(svc.progress, 'set').and.callFake((v: number) => { seen.push(v); set(v); });
+    await svc.load();
+    expect(svc.state()).toBe('ready');
+    expect(seen).toEqual([0, 1]);
+  });
+
   it('goes to error on 404 and search throws', async () => {
     spyOn(console, 'error');
     window.fetch = (() => Promise.resolve(new Response('nope', { status: 404 }))) as typeof fetch;

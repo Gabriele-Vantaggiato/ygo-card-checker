@@ -27,8 +27,41 @@ interface Loaded {
   model: any;
   mean: number[];
   std: number[];
+  backend: 'webgpu' | 'wasm';
 }
 let loaded: Promise<Loaded> | undefined;
+
+type ProgressInfo = { status?: string; file?: string; loaded?: number; total?: number };
+
+/**
+ * Aggregates per-file byte progress into one monotonic 0..1 value. Files appear one by one (the
+ * small processor files finish before the large model file shows up), so the raw ratio can drop:
+ * only a new maximum is reported. `reset()` starts over for a new download attempt (wasm retry).
+ */
+function progressTracker() {
+  const files = new Map<string, { loaded: number; total: number }>();
+  let best = 0;
+  return {
+    callback: (p: ProgressInfo) => {
+      if (p.status !== 'progress' || !p.file || !p.total) return;
+      files.set(p.file, { loaded: p.loaded ?? 0, total: p.total });
+      let l = 0;
+      let t = 0;
+      for (const f of files.values()) { l += f.loaded; t += f.total; }
+      const ratio = t ? Math.min(1, l / t) : 0;
+      if (ratio > best) {
+        best = ratio;
+        send({ type: 'progress', progress: ratio });
+      }
+    },
+    reset: () => { files.clear(); best = 0; },
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function loadWasmModel(progress_callback?: (p: ProgressInfo) => void): Promise<any> {
+  return AutoModel.from_pretrained(MODEL_ID, { device: 'wasm', dtype: 'q8', progress_callback });
+}
 
 async function webgpuAvailable(): Promise<boolean> {
   const gpu = (navigator as unknown as { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
@@ -38,17 +71,8 @@ async function webgpuAvailable(): Promise<boolean> {
 
 function load(): Promise<Loaded> {
   return (loaded ??= (async () => {
-    // Aggregate per-file byte progress into one 0..1 value.
-    const files = new Map<string, { loaded: number; total: number }>();
-    const progress_callback = (p: { status?: string; file?: string; loaded?: number; total?: number }) => {
-      if (p.status === 'progress' && p.file && p.total) {
-        files.set(p.file, { loaded: p.loaded ?? 0, total: p.total });
-        let l = 0;
-        let t = 0;
-        for (const f of files.values()) { l += f.loaded; t += f.total; }
-        if (t) send({ type: 'progress', progress: Math.min(1, l / t) });
-      }
-    };
+    const tracker = progressTracker();
+    const progress_callback = tracker.callback;
     const proc = await AutoProcessor.from_pretrained(MODEL_ID, { progress_callback });
     const ip = (proc as unknown as { image_processor?: { image_mean: number[]; image_std: number[] } }).image_processor
       ?? (proc as unknown as { image_mean: number[]; image_std: number[] });
@@ -63,9 +87,13 @@ function load(): Promise<Loaded> {
         console.warn('[card-embedding] webgpu load failed, falling back to wasm q8', e);
       }
     }
-    if (!model) model = await AutoModel.from_pretrained(MODEL_ID, { device: 'wasm', dtype: 'q8', progress_callback });
+    if (!model) {
+      // a failed webgpu fp16 attempt leaves its bytes in the aggregate: start over for the q8 file
+      tracker.reset();
+      model = await loadWasmModel(progress_callback);
+    }
     send({ type: 'ready', backend });
-    return { model, mean: ip.image_mean, std: ip.image_std };
+    return { model, mean: ip.image_mean, std: ip.image_std, backend };
   })().catch(e => { loaded = undefined; throw e; }));
 }
 
@@ -76,6 +104,29 @@ async function embedOne(l: Loaded, img: RgbaImage): Promise<Float32Array> {
   const h = out.last_hidden_state;
   const [, tokens, dim] = h.dims as number[];
   return poolTokens(Float32Array.from(h.data as ArrayLike<number>), tokens, dim);
+}
+
+/** Embeds the request's two images (batch 1 on purpose: q8 dynamic quantization spans the whole batch). */
+async function embedPair(l: Loaded, data: { full: RgbaImage; art: RgbaImage }): Promise<{ full: Float32Array; art: Float32Array }> {
+  const full = await embedOne(l, data.full);
+  const art = await embedOne(l, data.art);
+  return { full, art };
+}
+
+/**
+ * Replaces a webgpu model that failed at inference time with the wasm q8 one (once: the replacement
+ * is wasm, so a further failure is reported). No progress is sent: the service is already 'ready'.
+ */
+function switchToWasm(current: Loaded): Promise<Loaded> {
+  const next = (async () => {
+    const model = await loadWasmModel();
+    try { await current.model.dispose?.(); } catch { /* best effort */ }
+    send({ type: 'ready', backend: 'wasm' });
+    return { ...current, model, backend: 'wasm' as const };
+  })();
+  loaded = next;
+  next.catch(() => { if (loaded === next) loaded = undefined; });
+  return next;
 }
 
 function errMsg(e: unknown): string {
@@ -93,10 +144,15 @@ addEventListener('message', ({ data }: MessageEvent<EmbeddingRequest>) => {
     if (data.type === 'embed') {
       try {
         const l = await load();
-        // Batch 1 on purpose: two sequential calls (q8 dynamic quantization spans the whole batch).
-        const full = await embedOne(l, data.full);
-        const art = await embedOne(l, data.art);
-        send({ type: 'embedded', id: data.id, full, art }, [full.buffer, art.buffer]);
+        let out: { full: Float32Array; art: Float32Array };
+        try {
+          out = await embedPair(l, data);
+        } catch (e) {
+          if (l.backend !== 'webgpu') throw e;
+          console.warn('[card-embedding] webgpu inference failed, switching to wasm q8', e);
+          out = await embedPair(await switchToWasm(l), data);
+        }
+        send({ type: 'embedded', id: data.id, full: out.full, art: out.art }, [out.full.buffer, out.art.buffer]);
       } catch (e) {
         send({ type: 'error', id: data.id, message: errMsg(e) });
       }

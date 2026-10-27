@@ -41,15 +41,20 @@ export class CardEmbeddingService {
     return this.loadPromise;
   }
 
-  /** Calls are serialised: at most one request is in flight in the worker. */
+  /**
+   * Calls are serialised: at most one request is in flight in the worker. The `rgba` buffers are
+   * transferred to the worker (zero-copy) when the request is posted: callers must not reuse them.
+   */
   embed(frame: RgbaImage, art: RgbaImage): Promise<{ full: Float32Array; art: Float32Array }> {
     if (this.state() !== 'ready' || !this.worker) return Promise.reject(new Error('embedding model not ready'));
+    const invalid = invalidImage('frame', frame) ?? invalidImage('art', art);
+    if (invalid) return Promise.reject(new Error(invalid));
     const run = () => new Promise<{ full: Float32Array; art: Float32Array }>((resolve, reject) => {
       const worker = this.worker;
       if (!worker) { reject(new Error('embedding worker disposed')); return; }
       const id = ++this.nextId;
       this.pending.set(id, { resolve, reject });
-      worker.postMessage({ type: 'embed', id, full: frame, art } satisfies EmbeddingRequest);
+      worker.postMessage({ type: 'embed', id, full: frame, art } satisfies EmbeddingRequest, transferList(frame, art));
     });
     const result = this.tail.then(run, run);
     this.tail = result.catch(() => undefined);
@@ -112,6 +117,29 @@ export class CardEmbeddingService {
     this.worker = null;
     this.rejectAll(err);
     this.loadPromise = null;
+    this.backend.set(null);
+    this.progress.set(0);
     this.state.set('error');
   }
+}
+
+/** Error message when `img` is not a well-formed RGBA payload, else null. */
+function invalidImage(name: string, img: RgbaImage): string | null {
+  const { rgba, width, height } = img;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    return `embed: invalid ${name} size ${width}x${height}`;
+  }
+  if (!rgba || rgba.length !== width * height * 4) {
+    return `embed: ${name} has ${rgba?.length ?? 0} bytes, expected ${width * height * 4} (${width}x${height} RGBA)`;
+  }
+  return null;
+}
+
+/** Distinct transferable buffers of the two payloads (a buffer may only be listed once). */
+function transferList(...imgs: RgbaImage[]): Transferable[] {
+  const out = new Set<ArrayBuffer>();
+  for (const img of imgs) {
+    if (img.rgba.buffer instanceof ArrayBuffer) out.add(img.rgba.buffer);
+  }
+  return [...out];
 }

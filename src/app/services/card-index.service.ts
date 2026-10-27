@@ -36,9 +36,15 @@ export class CardIndexService {
     }
   }
 
-  /** Streams the body for progress when content-length is known, else reads it in one go (indeterminate). */
+  /**
+   * Streams the body for progress when content-length is known, else reads it in one go
+   * (indeterminate: 0 then 1). With a content-encoding (gzip/br) content-length is the compressed
+   * size while the stream yields decoded bytes, so that case is indeterminate too.
+   */
   private async readBody(res: Response): Promise<ArrayBuffer> {
-    const total = Number(res.headers.get('content-length')) || 0;
+    const encoding = (res.headers.get('content-encoding') ?? '').trim().toLowerCase();
+    const encoded = encoding !== '' && encoding !== 'identity';
+    const total = encoded ? 0 : Number(res.headers.get('content-length')) || 0;
     if (!res.body || !total) return res.arrayBuffer();
     const reader = res.body.getReader();
     const chunks: Uint8Array[] = [];
