@@ -42,6 +42,10 @@ const DETECTION_RESOLVE_TIMEOUT_MS = 3000;
 const SET_CODE_OCR_BUDGET_MS = 500;
 /** The emitted card is not emitted again until it was observed absent for this long. */
 const PRESENCE_COOLDOWN_MS = 1500;
+/** A frame embedding slower than this is treated as a hung worker: OCR fallback for the run. */
+const EMBED_TIMEOUT_MS = 4000;
+/** Side of the blank canvas used to warm the Tesseract worker. */
+const OCR_WARMUP_SIZE = 16;
 
 export type ScanPass = 'a' | 'b' | 'c' | 'name' | 'none';
 export interface ScanDebug {
@@ -76,6 +80,23 @@ const NAME_BAND = { x: 0.03, y: 0.02, w: 0.94, h: 0.1 };
 type Seed = { kind: 'code'; candidates: string[]; language: CardLanguage } | { kind: 'name'; text: string };
 
 export type ScannerState = 'idle' | 'starting' | 'scanning' | 'error';
+
+class EmbedTimeoutError extends Error {
+  constructor(ms: number) {
+    super(`frame embedding timed out after ${ms} ms`);
+    this.name = 'EmbedTimeoutError';
+  }
+}
+
+/** Rejects with EmbedTimeoutError once `ms` elapsed; a late settlement of `promise` is ignored. */
+function rejectAfter<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new EmbedTimeoutError(ms)), ms);
+  });
+  promise.catch(() => undefined); // a late rejection must not surface as unhandled
+  return Promise.race([promise, expired]).finally(() => clearTimeout(timer));
+}
 
 /** Resolves to the promise's value, or null once `ms` elapsed (the promise keeps running). */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
@@ -141,6 +162,10 @@ export class CollectionScannerService {
   private embedFailed = false;
   /** Shared across runs: a stale run's embed may still be running when a new run starts. */
   private embedInFlight = false;
+  /** Bumped per embed; a result whose token is no longer current (timed out, newer embed) is dropped. */
+  private embedSeq = 0;
+  /** The Tesseract worker was warmed during this run (first tick with the recognizer ready). */
+  private ocrWarmed = false;
 
   private readonly cardCache = new Map<number, YgoCard>();
   private readonly cardRequests = new Map<number, Promise<void>>();
@@ -186,6 +211,7 @@ export class CollectionScannerService {
     this.recentNames = [];
     this.lastRead.set('');
     this.resetRecognition();
+    this.ocrWarmed = false;
     this.phase.set(this.recognizerReady() ? 'ready' : this.loadingPhase());
     this.running = true;
     this.state.set('scanning');
@@ -206,6 +232,7 @@ export class CollectionScannerService {
     this.recentNames = [];
     this.lastRead.set('');
     this.resetRecognition();
+    this.phase.set(this.recognizerReady() ? 'ready' : this.loadingPhase());
     this.state.set('idle');
   }
 
@@ -278,11 +305,32 @@ export class CollectionScannerService {
       return;
     }
     if (this.recognizerReady()) {
+      this.warmOcr();
       await this.imageTick(frame, id);
       return;
     }
     this.phase.set(this.loadingPhase());
     await this.ocrTick(frame, id);
+  }
+
+  /**
+   * One tiny fire-and-forget OCR run when the recognizer first becomes ready in a run, so the
+   * set-code pass of the first detection does not pay the Tesseract worker start-up.
+   */
+  private warmOcr(): void {
+    if (this.ocrWarmed) {
+      return;
+    }
+    this.ocrWarmed = true;
+    const canvas = document.createElement('canvas');
+    canvas.width = OCR_WARMUP_SIZE;
+    canvas.height = OCR_WARMUP_SIZE;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, OCR_WARMUP_SIZE, OCR_WARMUP_SIZE);
+    }
+    void this.ocr.recognizeText(canvas).catch(() => undefined);
   }
 
   // ---------------------------------------------------------------- image recognition
@@ -315,13 +363,23 @@ export class CollectionScannerService {
     const box = cropRect(frame.width, frame.height, ART_BOX);
     const art = ctx.getImageData(box.sx, box.sy, box.sw, box.sh);
     let embedded: { full: Float32Array; art: Float32Array };
+    const seq = ++this.embedSeq;
     this.embedInFlight = true;
     try {
-      embedded = await this.embedding.embed(
-        { rgba: full.data, width: full.width, height: full.height },
-        { rgba: art.data, width: art.width, height: art.height },
+      // full.data / art.data are transferred to the worker (detached here); both ImageData are
+      // fresh per tick and not read again below.
+      embedded = await rejectAfter(
+        this.embedding.embed(
+          { rgba: full.data, width: full.width, height: full.height },
+          { rgba: art.data, width: art.width, height: art.height },
+        ),
+        EMBED_TIMEOUT_MS,
       );
     } catch (err) {
+      if (err instanceof EmbedTimeoutError) {
+        // hung worker: drop it so the next start() loads a fresh one
+        this.embedding.dispose();
+      }
       if (id === this.runId) {
         this.onRecognizerFailure(err);
       }
@@ -329,7 +387,7 @@ export class CollectionScannerService {
     } finally {
       this.embedInFlight = false;
     }
-    if (id !== this.runId) {
+    if (id !== this.runId || seq !== this.embedSeq) {
       return;
     }
 
@@ -345,7 +403,7 @@ export class CollectionScannerService {
     this.lastVote = vote;
     this.presence.push(hits[0]?.id ?? null, now);
     const ranked = vote.candidates.slice(0, MAX_CANDIDATES);
-    void this.requestCards(ranked.map((c) => c.id)).then(() => {
+    void this.requestTopFirst(ranked.map((c) => c.id)).then(() => {
       if (id === this.runId) {
         this.refreshCandidates();
       }
@@ -382,7 +440,7 @@ export class CollectionScannerService {
     const [top, ...others] = vote.candidates.slice(0, MAX_CANDIDATES);
     // Starts synchronously on the current frame, runs while the cards are resolved.
     const setCode = this.readSetCode(frame, id);
-    await this.ensureCards([top.id, ...others.map((c) => c.id)], DETECTION_RESOLVE_TIMEOUT_MS);
+    await this.ensureCards(top.id, others.map((c) => c.id), DETECTION_RESOLVE_TIMEOUT_MS);
     if (id !== this.runId) {
       return;
     }
@@ -485,8 +543,11 @@ export class CollectionScannerService {
   private measureSharpness(frame: HTMLCanvasElement): number {
     const w = SHARPNESS_WIDTH;
     const h = Math.max(1, Math.round((frame.height * w) / frame.width));
-    this.sharpCanvas.width = w;
-    this.sharpCanvas.height = h;
+    if (this.sharpCanvas.width !== w || this.sharpCanvas.height !== h) {
+      // resizing a canvas reallocates and clears it: only when the size actually changes
+      this.sharpCanvas.width = w;
+      this.sharpCanvas.height = h;
+    }
     const ctx = this.sharpCanvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) {
       return 0;
@@ -506,13 +567,28 @@ export class CollectionScannerService {
     });
   }
 
-  /** Waits (bounded) for the given ids to be resolved; forces a lookup even inside the retry window. */
-  private async ensureCards(ids: readonly number[], timeoutMs: number): Promise<void> {
-    void this.requestCards(ids, true);
-    const waits = [...new Set(ids)].map((i) => this.cardRequests.get(i)).filter((p): p is Promise<void> => !!p);
+  /**
+   * Waits (bounded) for the top card and the alternatives to be resolved; forces a lookup even inside
+   * the retry window. The top id is requested in its own batch, so an alternative id the API rejects
+   * (a bad id fails the whole batch) cannot keep the top card from resolving.
+   */
+  private async ensureCards(topId: number, others: readonly number[], timeoutMs: number): Promise<void> {
+    void this.requestCards([topId], true);
+    void this.requestCards(others, true);
+    const waits = [...new Set([topId, ...others])]
+      .map((i) => this.cardRequests.get(i))
+      .filter((p): p is Promise<void> => !!p);
     if (waits.length > 0) {
       await withTimeout(Promise.all(waits), timeoutMs);
     }
+  }
+
+  /** Background resolution of ranked ids: the first id in its own batch, the rest in a second one. */
+  private requestTopFirst(ids: readonly number[]): Promise<void> {
+    if (ids.length === 0) {
+      return Promise.resolve();
+    }
+    return Promise.all([this.requestCards(ids.slice(0, 1)), this.requestCards(ids.slice(1))]).then(() => undefined);
   }
 
   /**
