@@ -2,18 +2,24 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnDestroy, 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { CardCondition, CollectionDraft, ScanDetection, ScanQueueEntry } from '../../../models/collection.model';
+import { CardCondition, CollectionDraft, ScanCandidate, ScanDetection, ScanQueueEntry } from '../../../models/collection.model';
 import { YgoCard } from '../../../models/ygo-card.model';
 import { CollectionPriceService } from '../../../services/collection-price.service';
 import { CollectionScannerService } from '../../../services/collection-scanner.service';
+import { CardIndexService } from '../../../services/card-index.service';
 import { CollectionService } from '../../../services/collection.service';
+import { CardEmbeddingService } from '../../../services/embedding/card-embedding.service';
 import { ToastService } from '../../../services/toast.service';
 import { YgoApiService } from '../../../services/ygo-api.service';
 import { mergeDraft } from '../../../utils/collection.utils';
 import { guideRect } from '../../../utils/scan-geometry.utils';
+import { scanStatusText } from '../../../utils/scan-status.utils';
 import { CollectionReviewListComponent, EntryPatch } from './collection-review-list.component';
 
 const DEFAULT_CONDITION: CardCondition = 'NM';
+const NOTICE_MS = 4000;
+const MAX_STRIP = 5;
+const THUMB_URL = 'https://images.ygoprodeck.com/images/cards_small/';
 
 /** Full-screen live scan: camera + guide frame, or the review queue with manual add. */
 @Component({
@@ -42,15 +48,33 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
               [style.height.%]="guide().h * 100"
             ></div>
           </div>
-          <p class="mt-3 min-h-5 text-center text-sm text-neutral-content/80" aria-live="polite">
-            @if (scanner.state() === 'starting') {
-              Avvio della fotocamera…
-            } @else {
-              {{ hint() }}
-            }
-          </p>
-          @if (scanner.state() === 'scanning' && hint() === defaultHint) {
-            <p class="mt-1 min-h-4 max-w-sm text-center text-xs text-neutral-content/60" aria-live="polite">
+          @if (strip().length > 0) {
+            <div class="mt-3 w-full max-w-md" role="group" aria-label="Carte probabili">
+              <p class="mb-1 text-center text-xs text-neutral-content/70">Tocca la carta giusta per aggiungerla</p>
+              <ul class="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
+                @for (candidate of strip(); track candidate.card.id; let first = $first) {
+                  <li class="w-24 shrink-0 snap-start">
+                    <button
+                      type="button"
+                      class="flex min-h-11 w-full flex-col items-center gap-1 rounded-lg border p-1 text-center transition-colors active:scale-95"
+                      [class.border-primary]="first"
+                      [class.border-white/20]="!first"
+                      [class.ring-2]="first"
+                      [class.ring-primary/40]="first"
+                      [attr.aria-label]="'Aggiungi ' + candidate.card.name"
+                      (click)="pickCandidate(candidate)"
+                    >
+                      <img [src]="thumbUrl(candidate.card.id)" alt="" loading="lazy" class="h-28 w-20 rounded bg-black object-cover" />
+                      <span class="line-clamp-2 min-h-8 w-full text-[11px] leading-tight text-neutral-content">{{ candidate.card.name }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+          <p class="mt-3 min-h-5 text-center text-sm text-neutral-content/80" aria-live="polite">{{ statusText() }}</p>
+          @if (scanner.state() === 'scanning' && scanner.phase() === 'ocr-fallback' && strip().length === 0) {
+            <p class="mt-1 min-h-4 max-w-sm text-center text-xs text-neutral-content/60">
               @if (scanner.lastRead(); as read) {
                 Sto leggendo: &ldquo;{{ read }}&rdquo;
               } @else {
@@ -71,11 +95,15 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
                   <img [src]="d.crop" alt="Ritaglio analizzato" class="mb-1 max-h-24 w-full rounded bg-black object-contain" />
                 }
                 <div>passata: {{ d.pass }}</div>
+                <div>nitidezza: {{ d.sharpness }}</div>
+                <div class="break-all">top5: {{ d.top5 || '—' }}</div>
                 <div class="break-all">codice: {{ d.codeText || '—' }}</div>
                 <div class="break-all">nome: {{ d.nameText || '—' }}</div>
               } @else {
                 In attesa di una lettura…
               }
+              <div>backend: {{ embedding.backend() ?? '—' }}</div>
+              <div class="break-all">indice: {{ cardIndex.version() ?? '—' }}</div>
             </div>
           }
         </section>
@@ -158,6 +186,8 @@ const DEFAULT_CONDITION: CardCondition = 'NM';
 export class CollectionScannerComponent implements OnInit, OnDestroy {
   protected readonly scanner = inject(CollectionScannerService);
   protected readonly prices = inject(CollectionPriceService);
+  protected readonly embedding = inject(CardEmbeddingService);
+  protected readonly cardIndex = inject(CardIndexService);
   private readonly collection = inject(CollectionService);
   private readonly api = inject(YgoApiService);
   private readonly toast = inject(ToastService);
@@ -178,8 +208,26 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   protected readonly flash = signal(false);
   protected readonly aspect = signal(3 / 4);
   protected readonly guide = signal(guideRect(720, 1280));
-  protected readonly defaultHint = 'Inquadra una carta dentro il riquadro';
-  protected readonly hint = signal(this.defaultHint);
+  /** Short-lived message (recognised / not recognised); never outlives NOTICE_MS nor the candidate strip. */
+  private readonly notice = signal<string | null>(null);
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Set once a candidate was tapped: the strip stays hidden until the service clears its candidates. */
+  private readonly stripDismissed = signal(false);
+  protected readonly strip = computed<ScanCandidate[]>(() => (this.stripDismissed() ? [] : this.scanner.lastCandidates().slice(0, MAX_STRIP)));
+  protected readonly statusText = computed(() => {
+    if (this.scanner.state() === 'starting') {
+      return 'Avvio della fotocamera…';
+    }
+    if (this.strip().length > 0) {
+      return 'Non sono sicuro: scegli la carta giusta';
+    }
+    const phase = this.scanner.phase();
+    const notice = this.notice();
+    if (notice && (phase === 'ready' || phase === 'ocr-fallback')) {
+      return notice;
+    }
+    return scanStatusText(phase, this.embedding.progress());
+  });
 
   protected searchTerm = '';
   protected readonly searching = signal(false);
@@ -220,7 +268,14 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
       const miss = this.scanner.lastMiss();
       if (miss !== lastMiss) {
         lastMiss = miss;
-        untracked(() => this.hint.set('Carta non riconosciuta: avvicinati o aggiungila a mano'));
+        untracked(() => this.setNotice('Carta non riconosciuta: avvicinati o aggiungila a mano'));
+      }
+    });
+
+    // A new unconfident round (candidates cleared by the service) re-enables the strip.
+    effect(() => {
+      if (this.scanner.lastCandidates().length === 0) {
+        untracked(() => this.stripDismissed.set(false));
       }
     });
   }
@@ -234,6 +289,7 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    clearTimeout(this.noticeTimer);
     document.body.style.overflow = this.previousOverflow;
     this.scanner.stop();
   }
@@ -272,8 +328,32 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
   private onDetection(detection: ScanDetection): void {
     this.queue.update((queue) => mergeDraft(queue, this.toEntry(detection.card, detection)));
     void this.prices.ensure([detection.card.id]);
-    this.hint.set(`Riconosciuta: ${detection.card.name}`);
+    this.setNotice(`Riconosciuta: ${detection.card.name}`);
     this.feedback();
+  }
+
+  private setNotice(text: string): void {
+    this.notice.set(text);
+    clearTimeout(this.noticeTimer);
+    this.noticeTimer = setTimeout(() => this.notice.set(null), NOTICE_MS);
+  }
+
+  protected thumbUrl(id: number): string {
+    return `${THUMB_URL}${id}.jpg`;
+  }
+
+  /** Adds a suggested card like a manual add: first printing, EN, to be reviewed. */
+  protected pickCandidate({ card }: ScanCandidate): void {
+    this.queue.update((queue) => mergeDraft(queue, this.toEntry(card, this.manualDetection(card))));
+    void this.prices.ensure([card.id]);
+    this.stripDismissed.set(true);
+    this.setNotice(`Aggiunta: ${card.name}`);
+    this.feedback();
+  }
+
+  private manualDetection(card: YgoCard): ScanDetection {
+    const printings = card.card_sets ?? [];
+    return { card, printings, setCode: printings[0]?.set_code ?? `N/D-${card.id}`, language: 'EN', source: 'name', needsReview: true, alternatives: [] };
   }
 
   private toEntry(card: YgoCard, detection: ScanDetection): ScanQueueEntry {
@@ -333,9 +413,8 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
       // fall back to the search result: printings may be missing, the entry stays "da verificare"
     }
     try {
-      const printings = card.card_sets ?? [];
       this.queue.update((queue) =>
-        mergeDraft(queue, this.toEntry(card, { card, printings, setCode: printings[0]?.set_code ?? `N/D-${card.id}`, language: 'EN', source: 'name', needsReview: true, alternatives: [] })),
+        mergeDraft(queue, this.toEntry(card, this.manualDetection(card))),
       );
       void this.prices.ensure([card.id]);
       this.results.set([]);
