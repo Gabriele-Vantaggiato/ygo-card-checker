@@ -335,7 +335,7 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
     try {
       const printings = card.card_sets ?? [];
       this.queue.update((queue) =>
-        mergeDraft(queue, this.toEntry(card, { card, printings, setCode: printings[0]?.set_code ?? `N/D-${card.id}`, language: 'EN', source: 'name', needsReview: true })),
+        mergeDraft(queue, this.toEntry(card, { card, printings, setCode: printings[0]?.set_code ?? `N/D-${card.id}`, language: 'EN', source: 'name', needsReview: true, alternatives: [] })),
       );
       void this.prices.ensure([card.id]);
       this.results.set([]);

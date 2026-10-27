@@ -156,7 +156,11 @@ export class YgoApiService {
 
       const request$ = this.http.get<CardInfoResponse>(API_BASE, { params }).pipe(
         map((response) => response.data ?? []),
-        catchError(() => of([] as YgoCard[])),
+        catchError(() => {
+          // A failed request is not "no such cards": do not cache it for the session.
+          this.batchCache.delete(cacheKey);
+          return of([] as YgoCard[]);
+        }),
         shareReplay({ bufferSize: 1, refCount: false }),
       );
 

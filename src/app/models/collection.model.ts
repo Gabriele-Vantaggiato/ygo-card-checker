@@ -29,11 +29,20 @@ export interface ScanQueueEntry extends CollectionDraft {
   needsReview: boolean;
 }
 
+/** A recognised card proposed to the user, with its (mean, voted) similarity score. */
+export interface ScanCandidate {
+  card: YgoCard;
+  score: number;
+}
+
 export interface ScanDetection {
   card: YgoCard;
   printings: CardSet[];
   setCode: string;
   language: CardLanguage;
-  source: 'code' | 'name';
+  /** `code`/`name`: OCR; `image`: recognised from the card image (embedding index). */
+  source: 'code' | 'name' | 'image';
   needsReview: boolean;
+  /** Other likely cards for an image detection (best first); empty for OCR detections. */
+  alternatives: ScanCandidate[];
 }

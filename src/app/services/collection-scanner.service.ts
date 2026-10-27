@@ -1,13 +1,20 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, Subject, catchError, defaultIfEmpty, firstValueFrom, of, timeout } from 'rxjs';
-import { CardLanguage, ScanDetection } from '../models/collection.model';
+import { CardLanguage, ScanCandidate, ScanDetection } from '../models/collection.model';
+import { CardSet, YgoCard } from '../models/ygo-card.model';
+import { FrameHit, FrameVoter, VoteResult } from '../utils/frame-vote.utils';
 import { canonicalizeName, cleanOcrName, normalizeName } from '../utils/name-match.utils';
 import { ScanConsensus } from '../utils/scan-consensus.utils';
 import { binarize, meanLuminance, otsuThreshold, stretchContrast, toGrayscale } from '../utils/image-preprocess.utils';
-import { guideRect } from '../utils/scan-geometry.utils';
-import { parseSetCode } from '../utils/set-code.utils';
+import { ART_BOX, cropRect, guideRect } from '../utils/scan-geometry.utils';
+import { PresenceCooldown, UnconfidentClock, formatTopHits, shouldOfferCandidates } from '../utils/scan-recognition.utils';
+import { ParsedSetCode, parseSetCode } from '../utils/set-code.utils';
+import { isSharp, laplacianVariance } from '../utils/sharpness.utils';
+import { CardIndexService } from './card-index.service';
 import { CardScreenOcrService } from './card-screen-ocr.service';
 import { CardsetLookupService, ScanMatch } from './cardset-lookup.service';
+import { CardEmbeddingService } from './embedding/card-embedding.service';
+import { YgoApiService } from './ygo-api.service';
 
 const FRAME_WIDTH = 640;
 const FRAME_HEIGHT = Math.round((FRAME_WIDTH * 86) / 59);
@@ -21,13 +28,41 @@ const MAX_SEEDS = 20;
 const DARK_BAND_LUMINANCE = 110;
 const DEBUG_TEXT_MAX = 80;
 
+/** Width of the downscaled copy used for the sharpness gate (SHARPNESS_THRESHOLD is tuned at 224 px). */
+const SHARPNESS_WIDTH = 224;
+const SEARCH_K = 5;
+const MAX_CANDIDATES = 5;
+/** id -> card cache for the candidates (cards are session data, kept across runs). */
+const CARD_CACHE_MAX = 200;
+/** A background lookup that returned nothing is not retried for this long (not cached as "not found"). */
+const CARD_RETRY_MS = 5000;
+/** Max wait for the top card + alternatives before an image detection is emitted. */
+const DETECTION_RESOLVE_TIMEOUT_MS = 3000;
+/** Budget of the optional set-code OCR pass that picks the printing of an image detection. */
+const SET_CODE_OCR_BUDGET_MS = 500;
+/** The emitted card is not emitted again until it was observed absent for this long. */
+const PRESENCE_COOLDOWN_MS = 1500;
+
 export type ScanPass = 'a' | 'b' | 'c' | 'name' | 'none';
 export interface ScanDebug {
   crop: string | null;
   codeText: string;
   nameText: string;
   pass: string;
+  /** Image recognition: `id:score` of the frame's top-5 hits ('' on the OCR path). */
+  top5: string;
+  /** Laplacian variance of the frame (0 on the OCR path). */
+  sharpness: number;
 }
+
+/**
+ * - `loading-model` / `loading-index`: recognizer assets still loading (OCR runs meanwhile);
+ * - `ocr-fallback`: the model or the index failed (or the worker died): OCR only for this run;
+ * - `blurry`: the last frame was too blurry to embed;
+ * - `recognising`: sharp frames, no confident vote yet;
+ * - `ready`: recognizer active and idle (no frame yet, or the card in view was just recognised).
+ */
+export type ScanPhase = 'loading-model' | 'loading-index' | 'blurry' | 'recognising' | 'ready' | 'ocr-fallback';
 
 /**
  * Regions of the guide frame, as fractions of the card.
@@ -42,15 +77,29 @@ type Seed = { kind: 'code'; candidates: string[]; language: CardLanguage } | { k
 
 export type ScannerState = 'idle' | 'starting' | 'scanning' | 'error';
 
+/** Resolves to the promise's value, or null once `ms` elapsed (the promise keeps running). */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([promise, expired]).finally(() => clearTimeout(timer));
+}
+
 /**
- * Camera loop for the collection scan: crops the on-screen guide frame, OCRs the
- * set code (fallback: the card name), debounces reads with ScanConsensus and
- * resolves accepted reads into cards. Emits one detection per accepted card.
+ * Camera loop for the collection scan. Crops the on-screen guide frame and recognises the card
+ * from its image (DINOv2 embedding + card index, sharpness gate, multi-frame vote); the set-code
+ * OCR pass only proposes the printing. Until the model and the index are ready (or when they
+ * fail), the original OCR pipeline runs: set code (fallback: card name), debounced with
+ * ScanConsensus and resolved into cards. Emits one detection per accepted card.
  */
 @Injectable({ providedIn: 'root' })
 export class CollectionScannerService {
   private readonly ocr = inject(CardScreenOcrService);
   private readonly lookup = inject(CardsetLookupService);
+  private readonly cardIndex = inject(CardIndexService);
+  private readonly embedding = inject(CardEmbeddingService);
+  private readonly api = inject(YgoApiService);
 
   readonly state = signal<ScannerState>('idle');
   readonly error = signal<'denied' | 'unavailable' | null>(null);
@@ -58,8 +107,13 @@ export class CollectionScannerService {
   /** Diagnostics for tuning on real cards; no extra work is done while disabled. */
   readonly debugEnabled = signal(false);
   readonly debug = signal<ScanDebug | null>(null);
-  /** Cleaned text read on the last tick (code, else name), for on-screen feedback; '' when unreadable. */
+  /** Cleaned text read on the last tick (code, else name; image path: the top card's name); '' when unknown. */
   readonly lastRead = signal('');
+  readonly phase = signal<ScanPhase>('loading-model');
+  /** Laplacian variance of the last frame on the image path. */
+  readonly sharpness = signal(0);
+  /** Ranked candidates offered to the user after a while without a confident vote; [] otherwise. */
+  readonly lastCandidates = signal<ScanCandidate[]>([]);
 
   private readonly detectionSubject = new Subject<ScanDetection>();
   readonly detections$: Observable<ScanDetection> = this.detectionSubject.asObservable();
@@ -75,6 +129,22 @@ export class CollectionScannerService {
   private recentNames: string[] = [];
   private readonly frame = document.createElement('canvas');
   private readonly band = document.createElement('canvas');
+  private readonly sharpCanvas = document.createElement('canvas');
+
+  // Image recognition, per run
+  private voter = new FrameVoter();
+  private presence = new PresenceCooldown(PRESENCE_COOLDOWN_MS);
+  private clock = new UnconfidentClock();
+  private lastVote: VoteResult | null = null;
+  private offering = false;
+  /** The embedding worker failed during this run: OCR only until the next start(). */
+  private embedFailed = false;
+  /** Shared across runs: a stale run's embed may still be running when a new run starts. */
+  private embedInFlight = false;
+
+  private readonly cardCache = new Map<number, YgoCard>();
+  private readonly cardRequests = new Map<number, Promise<void>>();
+  private readonly cardMissAt = new Map<number, number>();
 
   async start(video: HTMLVideoElement): Promise<void> {
     this.stop();
@@ -82,6 +152,7 @@ export class CollectionScannerService {
     this.video = video;
     this.state.set('starting');
     this.error.set(null);
+    this.startRecognizer();
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -114,6 +185,8 @@ export class CollectionScannerService {
     this.seeds.clear();
     this.recentNames = [];
     this.lastRead.set('');
+    this.resetRecognition();
+    this.phase.set(this.recognizerReady() ? 'ready' : this.loadingPhase());
     this.running = true;
     this.state.set('scanning');
     void this.loop(video, id);
@@ -132,7 +205,39 @@ export class CollectionScannerService {
     this.seeds.clear();
     this.recentNames = [];
     this.lastRead.set('');
+    this.resetRecognition();
     this.state.set('idle');
+  }
+
+  /** Kicks off (or retries after a failure) the model and index downloads; never awaited. */
+  private startRecognizer(): void {
+    this.embedFailed = false;
+    void this.cardIndex.load();
+    void this.embedding.load().catch(() => undefined);
+    this.phase.set(this.recognizerReady() ? 'ready' : this.loadingPhase());
+  }
+
+  private resetRecognition(): void {
+    this.voter = new FrameVoter();
+    this.presence = new PresenceCooldown(PRESENCE_COOLDOWN_MS);
+    this.clock = new UnconfidentClock();
+    this.lastVote = null;
+    this.offering = false;
+    this.sharpness.set(0);
+    this.lastCandidates.set([]);
+  }
+
+  private recognizerReady(): boolean {
+    return !this.embedFailed && this.cardIndex.state() === 'ready' && this.embedding.state() === 'ready';
+  }
+
+  private loadingPhase(): ScanPhase {
+    const model = this.embedding.state();
+    const index = this.cardIndex.state();
+    if (this.embedFailed || model === 'error' || index === 'error') {
+      return 'ocr-fallback';
+    }
+    return model !== 'ready' ? 'loading-model' : 'loading-index';
   }
 
   /** Best-effort continuous focus/exposure/white balance; unsupported on most desktops. */
@@ -172,7 +277,302 @@ export class CollectionScannerService {
     if (!frame) {
       return;
     }
+    if (this.recognizerReady()) {
+      await this.imageTick(frame, id);
+      return;
+    }
+    this.phase.set(this.loadingPhase());
+    await this.ocrTick(frame, id);
+  }
 
+  // ---------------------------------------------------------------- image recognition
+
+  private async imageTick(frame: HTMLCanvasElement, id: number): Promise<void> {
+    if (this.embedInFlight) {
+      // a stale run's embed is still in the worker: skip this frame rather than queueing it
+      return;
+    }
+    const ctx = frame.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      return;
+    }
+    const now = performance.now();
+    const debugOn = this.debugEnabled();
+    const variance = this.measureSharpness(frame);
+    this.sharpness.set(Math.round(variance));
+
+    if (!isSharp(variance)) {
+      this.phase.set('blurry');
+      this.presence.push(null, now);
+      this.clock.push('blurry', now);
+      if (debugOn) {
+        this.setImageDebug('blurry', '', variance);
+      }
+      return;
+    }
+
+    const full = ctx.getImageData(0, 0, frame.width, frame.height);
+    const box = cropRect(frame.width, frame.height, ART_BOX);
+    const art = ctx.getImageData(box.sx, box.sy, box.sw, box.sh);
+    let embedded: { full: Float32Array; art: Float32Array };
+    this.embedInFlight = true;
+    try {
+      embedded = await this.embedding.embed(
+        { rgba: full.data, width: full.width, height: full.height },
+        { rgba: art.data, width: art.width, height: art.height },
+      );
+    } catch (err) {
+      if (id === this.runId) {
+        this.onRecognizerFailure(err);
+      }
+      return;
+    } finally {
+      this.embedInFlight = false;
+    }
+    if (id !== this.runId) {
+      return;
+    }
+
+    let hits: FrameHit[];
+    try {
+      hits = this.cardIndex.search(embedded.full, embedded.art, SEARCH_K);
+    } catch (err) {
+      this.onRecognizerFailure(err);
+      return;
+    }
+
+    const vote = this.voter.push(hits);
+    this.lastVote = vote;
+    this.presence.push(hits[0]?.id ?? null, now);
+    const ranked = vote.candidates.slice(0, MAX_CANDIDATES);
+    void this.requestCards(ranked.map((c) => c.id)).then(() => {
+      if (id === this.runId) {
+        this.refreshCandidates();
+      }
+    });
+    const topCard = ranked[0] ? this.cardCache.get(ranked[0].id) : undefined;
+    this.lastRead.set(topCard ? topCard.name.slice(0, LAST_READ_MAX) : '');
+    if (debugOn) {
+      this.setImageDebug('image', formatTopHits(hits), variance);
+    }
+
+    const top = ranked[0];
+    if (vote.confident && top) {
+      this.clock.push('confident', now);
+      this.offering = false;
+      this.lastCandidates.set([]);
+      if (this.presence.isBlocked(top.id)) {
+        // the card just emitted is still in front of the camera
+        this.phase.set('ready');
+        return;
+      }
+      this.phase.set('recognising');
+      await this.emitImageDetection(frame, vote, id);
+      return;
+    }
+
+    this.phase.set('recognising');
+    if (shouldOfferCandidates(this.clock.push('sharp-unconfident', now))) {
+      this.offering = true;
+      this.refreshCandidates();
+    }
+  }
+
+  private async emitImageDetection(frame: HTMLCanvasElement, vote: VoteResult, id: number): Promise<void> {
+    const [top, ...others] = vote.candidates.slice(0, MAX_CANDIDATES);
+    // Starts synchronously on the current frame, runs while the cards are resolved.
+    const setCode = this.readSetCode(frame, id);
+    await this.ensureCards([top.id, ...others.map((c) => c.id)], DETECTION_RESOLVE_TIMEOUT_MS);
+    if (id !== this.runId) {
+      return;
+    }
+    const card = this.cardCache.get(top.id);
+    if (!card) {
+      // lookup failed (offline?): vote again rather than blocking this card
+      this.voter.reset();
+      this.lastMiss.set(Date.now());
+      return;
+    }
+    const parsed = await setCode;
+    if (id !== this.runId) {
+      return;
+    }
+
+    const allPrintings = card.card_sets ?? [];
+    const matched = parsed ? this.matchPrintings(allPrintings, parsed) : [];
+    const printings = matched.length > 0 ? matched : allPrintings;
+    const alternatives: ScanCandidate[] = others.flatMap((c) => {
+      const alt = this.cardCache.get(c.id);
+      return alt ? [{ card: alt, score: c.score / vote.framesUsed }] : [];
+    });
+
+    this.presence.block(top.id);
+    this.voter.reset();
+    this.clock.reset();
+    this.offering = false;
+    this.lastCandidates.set([]);
+    this.phase.set('ready');
+    this.detectionSubject.next({
+      card,
+      printings,
+      setCode: printings[0]?.set_code ?? `N/D-${card.id}`,
+      language: matched.length > 0 && parsed ? parsed.language : 'EN',
+      source: 'image',
+      needsReview: matched.length !== 1,
+      alternatives,
+    });
+  }
+
+  /** Printings of the card whose code matches the OCR read, in the parser's preference order. */
+  private matchPrintings(printings: readonly CardSet[], parsed: ParsedSetCode): CardSet[] {
+    for (const code of parsed.candidates) {
+      const hits = printings.filter((p) => p.set_code.toUpperCase() === code.toUpperCase());
+      if (hits.length > 0) {
+        return hits;
+      }
+    }
+    return [];
+  }
+
+  /** Optional set-code OCR pass on the frame, bounded by SET_CODE_OCR_BUDGET_MS; null on any failure. */
+  private async readSetCode(frame: HTMLCanvasElement, id: number): Promise<ParsedSetCode | null> {
+    try {
+      const passes = this.setCodePasses(frame);
+      const deadline = performance.now() + SET_CODE_OCR_BUDGET_MS;
+      for (const pass of passes) {
+        const left = deadline - performance.now();
+        if (left <= 0) {
+          return null;
+        }
+        const text = await withTimeout(this.ocr.recognizeText(pass.canvas()), left);
+        if (text === null || id !== this.runId) {
+          return null;
+        }
+        const parsed = parseSetCode(text);
+        if (parsed) {
+          return parsed;
+        }
+      }
+    } catch (err) {
+      console.error('[collection-scanner] set-code pass', err);
+    }
+    return null;
+  }
+
+  private onRecognizerFailure(err: unknown): void {
+    if (!this.embedFailed) {
+      console.error('[collection-scanner] image recognition failed, falling back to OCR', err);
+    }
+    this.embedFailed = true;
+    this.offering = false;
+    this.lastCandidates.set([]);
+    this.phase.set('ocr-fallback');
+  }
+
+  private refreshCandidates(): void {
+    const vote = this.lastVote;
+    if (!this.offering || !vote) {
+      return;
+    }
+    this.lastCandidates.set(
+      vote.candidates.slice(0, MAX_CANDIDATES).flatMap((c) => {
+        const card = this.cardCache.get(c.id);
+        return card ? [{ card, score: c.score / vote.framesUsed }] : [];
+      }),
+    );
+  }
+
+  private measureSharpness(frame: HTMLCanvasElement): number {
+    const w = SHARPNESS_WIDTH;
+    const h = Math.max(1, Math.round((frame.height * w) / frame.width));
+    this.sharpCanvas.width = w;
+    this.sharpCanvas.height = h;
+    const ctx = this.sharpCanvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      return 0;
+    }
+    ctx.drawImage(frame, 0, 0, w, h);
+    return laplacianVariance(ctx.getImageData(0, 0, w, h).data, w, h);
+  }
+
+  private setImageDebug(pass: string, top5: string, variance: number): void {
+    this.debug.set({
+      crop: this.sharpCanvas.toDataURL('image/jpeg', 0.7),
+      codeText: '',
+      nameText: '',
+      pass,
+      top5,
+      sharpness: Math.round(variance),
+    });
+  }
+
+  /** Waits (bounded) for the given ids to be resolved; forces a lookup even inside the retry window. */
+  private async ensureCards(ids: readonly number[], timeoutMs: number): Promise<void> {
+    void this.requestCards(ids, true);
+    const waits = [...new Set(ids)].map((i) => this.cardRequests.get(i)).filter((p): p is Promise<void> => !!p);
+    if (waits.length > 0) {
+      await withTimeout(Promise.all(waits), timeoutMs);
+    }
+  }
+
+  /**
+   * Fire-and-forget id -> card resolution into the bounded cache. Never rejects. Ids the API did not
+   * return are not cached (only skipped for CARD_RETRY_MS unless forced).
+   */
+  private requestCards(ids: readonly number[], force = false): Promise<void> {
+    const now = performance.now();
+    const missing = [...new Set(ids)].filter(
+      (i) =>
+        !this.cardCache.has(i) &&
+        !this.cardRequests.has(i) &&
+        (force || now - (this.cardMissAt.get(i) ?? -Infinity) >= CARD_RETRY_MS),
+    );
+    if (missing.length === 0) {
+      return Promise.resolve();
+    }
+    missing.sort((a, b) => a - b);
+    const request = firstValueFrom(
+      this.api.getCardsByIds$(missing, 'en').pipe(
+        timeout(RESOLVE_TIMEOUT_MS),
+        defaultIfEmpty([] as YgoCard[]),
+        catchError(() => of([] as YgoCard[])),
+      ),
+    )
+      .then((cards) => {
+        cards.forEach((card) => this.cacheCard(card));
+        const at = performance.now();
+        for (const i of missing) {
+          if (this.cardCache.has(i)) {
+            this.cardMissAt.delete(i);
+          } else {
+            this.cardMissAt.set(i, at);
+          }
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => missing.forEach((i) => this.cardRequests.delete(i)));
+    missing.forEach((i) => this.cardRequests.set(i, request));
+    return request;
+  }
+
+  private cacheCard(card: YgoCard): void {
+    this.cardCache.delete(card.id);
+    this.cardCache.set(card.id, card);
+    while (this.cardCache.size > CARD_CACHE_MAX) {
+      const oldest = this.cardCache.keys().next().value;
+      if (oldest === undefined) {
+        break;
+      }
+      this.cardCache.delete(oldest);
+    }
+    if (this.cardMissAt.size > CARD_CACHE_MAX) {
+      this.cardMissAt.clear();
+    }
+  }
+
+  // ---------------------------------------------------------------- OCR pipeline (fallback)
+
+  private async ocrTick(frame: HTMLCanvasElement, id: number): Promise<void> {
     const debugOn = this.debugEnabled();
     let key: string | null = null;
     let pass: ScanPass = 'none';
@@ -229,7 +629,7 @@ export class CollectionScannerService {
 
     if (debugOn) {
       const clip = (t: string) => t.trim().slice(0, DEBUG_TEXT_MAX);
-      this.debug.set({ crop: lastCrop, codeText: clip(codeText), nameText: clip(nameText), pass });
+      this.debug.set({ crop: lastCrop, codeText: clip(codeText), nameText: clip(nameText), pass, top5: '', sharpness: 0 });
     }
 
     const accepted = this.consensus.push(key, performance.now());
@@ -283,6 +683,7 @@ export class CollectionScannerService {
         language: seed.kind === 'code' ? seed.language : 'EN',
         source: seed.kind,
         needsReview: seed.kind === 'name' || match.printings.length !== 1,
+        alternatives: [],
       });
     } catch {
       if (id === this.runId) {
