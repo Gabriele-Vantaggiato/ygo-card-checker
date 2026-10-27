@@ -1,6 +1,14 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist/ygo-card-checker/browser",
+  "headers": [
+    {
+      "source": "/assets/card-index/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=86400" }
+      ]
+    }
+  ],
   "crons": [
     { "path": "/api/cron/update-synergies", "schedule": "0 3 * * 1" }
   ]

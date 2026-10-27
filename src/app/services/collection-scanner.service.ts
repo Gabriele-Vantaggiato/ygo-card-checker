@@ -42,8 +42,10 @@ const DETECTION_RESOLVE_TIMEOUT_MS = 3000;
 const SET_CODE_OCR_BUDGET_MS = 500;
 /** The emitted card is not emitted again until it was observed absent for this long. */
 const PRESENCE_COOLDOWN_MS = 1500;
-/** A frame embedding slower than this is treated as a hung worker: OCR fallback for the run. */
-const EMBED_TIMEOUT_MS = 4000;
+/** A frame embedding slower than this is dropped (the worker is warmed up before it reports ready). */
+const EMBED_TIMEOUT_MS = 10000;
+/** This many consecutive timeouts are treated as a hung worker: OCR fallback for the run. */
+const MAX_CONSECUTIVE_TIMEOUTS = 2;
 /** Side of the blank canvas used to warm the Tesseract worker. */
 const OCR_WARMUP_SIZE = 16;
 
@@ -160,6 +162,8 @@ export class CollectionScannerService {
   private offering = false;
   /** The embedding worker failed during this run: OCR only until the next start(). */
   private embedFailed = false;
+  /** Consecutive frame-embedding timeouts; reset by any success. */
+  private embedTimeouts = 0;
   /** Shared across runs: a stale run's embed may still be running when a new run starts. */
   private embedInFlight = false;
   /** Bumped per embed; a result whose token is no longer current (timed out, newer embed) is dropped. */
@@ -236,9 +240,15 @@ export class CollectionScannerService {
     this.state.set('idle');
   }
 
+  /** Retries the model and index downloads after a failure (phase 'ocr-fallback'). */
+  retryRecognizer(): void {
+    this.startRecognizer();
+  }
+
   /** Kicks off (or retries after a failure) the model and index downloads; never awaited. */
   private startRecognizer(): void {
     this.embedFailed = false;
+    this.embedTimeouts = 0;
     void this.cardIndex.load();
     void this.embedding.load().catch(() => undefined);
     this.phase.set(this.recognizerReady() ? 'ready' : this.loadingPhase());
@@ -376,13 +386,18 @@ export class CollectionScannerService {
         EMBED_TIMEOUT_MS,
       );
     } catch (err) {
+      if (id !== this.runId) {
+        // stale run: its late failure must not touch the worker the new run is using
+        return;
+      }
       if (err instanceof EmbedTimeoutError) {
+        if (++this.embedTimeouts < MAX_CONSECUTIVE_TIMEOUTS) {
+          return; // first timeout: just drop this frame
+        }
         // hung worker: drop it so the next start() loads a fresh one
         this.embedding.dispose();
       }
-      if (id === this.runId) {
-        this.onRecognizerFailure(err);
-      }
+      this.onRecognizerFailure(err);
       return;
     } finally {
       this.embedInFlight = false;
@@ -390,6 +405,7 @@ export class CollectionScannerService {
     if (id !== this.runId || seq !== this.embedSeq) {
       return;
     }
+    this.embedTimeouts = 0;
 
     let hits: FrameHit[];
     try {

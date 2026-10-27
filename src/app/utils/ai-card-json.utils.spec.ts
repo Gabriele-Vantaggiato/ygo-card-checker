@@ -1,4 +1,4 @@
-import { parseAiCardJson } from './ai-card-json.utils';
+import { normalizeLanguage, parseAiCardJson } from './ai-card-json.utils';
 
 describe('parseAiCardJson', () => {
   it('parses valid JSON', () => {
@@ -36,5 +36,18 @@ describe('parseAiCardJson', () => {
   it('trims and limits the name to 120 chars', () => {
     const r = parseAiCardJson(JSON.stringify({ name: `  ${'a'.repeat(200)}  `, setCode: null, language: null }));
     expect(r.name).toBe('a'.repeat(120));
+  });
+});
+
+describe('normalizeLanguage', () => {
+  it('accepts valid languages case-insensitively', () => {
+    expect(normalizeLanguage('it')).toBe('IT');
+    expect(normalizeLanguage(' JP ')).toBe('JP');
+  });
+
+  it('rejects unknown or empty values', () => {
+    expect(normalizeLanguage('XX')).toBeNull();
+    expect(normalizeLanguage(null)).toBeNull();
+    expect(normalizeLanguage('')).toBeNull();
   });
 });

@@ -8,6 +8,7 @@ import { CollectionPriceService } from '../../../services/collection-price.servi
 import { AiCardReaderService } from '../../../services/ai-card-reader.service';
 import { CardsetLookupService } from '../../../services/cardset-lookup.service';
 import { GeminiKeyPanelComponent } from '../../../shared/ui/gemini-key-panel/gemini-key-panel.component';
+import { normalizeLanguage } from '../../../utils/ai-card-json.utils';
 import { parseSetCode } from '../../../utils/set-code.utils';
 import { CollectionScannerService } from '../../../services/collection-scanner.service';
 import { CardIndexService } from '../../../services/card-index.service';
@@ -80,6 +81,9 @@ let aiConsentGiven = false;
             </div>
           }
           <p class="mt-3 min-h-5 text-center text-sm text-neutral-content/80" aria-live="polite">{{ statusText() }}</p>
+          @if (scanner.state() === 'scanning' && scanner.phase() === 'ocr-fallback') {
+            <button type="button" class="btn btn-ghost btn-xs mt-1" (click)="scanner.retryRecognizer()">Riprova</button>
+          }
           @if (aiReader.hasKey()) {
             <div class="mt-2 flex w-full max-w-sm flex-col items-center gap-2">
               @if (aiConsentOpen()) {
@@ -262,6 +266,9 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
     if (notice && (phase === 'ready' || phase === 'ocr-fallback')) {
       return notice;
     }
+    if (phase === 'ocr-fallback') {
+      return 'Riconoscimento per immagine non disponibile: uso la lettura del testo.';
+    }
     return scanStatusText(phase, this.embedding.progress());
   });
 
@@ -427,8 +434,10 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
       const read = await this.aiReader.read(jpeg);
       const parsed = read.setCode ? parseSetCode(read.setCode) : null;
       let match = parsed ? await firstValueFrom(this.lookup.bySetCodes$(parsed.candidates)) : null;
+      let source: 'code' | 'name' = 'code';
       if (!match && read.name) {
         match = await firstValueFrom(this.lookup.byName$(read.name));
+        source = 'name';
       }
       if (!match) {
         this.setNotice("Non riconosciuta dall'AI");
@@ -438,8 +447,8 @@ export class CollectionScannerComponent implements OnInit, OnDestroy {
         card: match.card,
         printings: match.printings,
         setCode: match.setCode,
-        language: parsed?.language ?? 'EN',
-        source: parsed ? 'code' : 'name',
+        language: normalizeLanguage(read.language) ?? parsed?.language ?? 'EN',
+        source,
         needsReview: true,
         alternatives: [],
       };

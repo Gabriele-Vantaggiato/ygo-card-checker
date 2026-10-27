@@ -1,9 +1,16 @@
+import { CARD_LANGUAGES, CardLanguage } from '../models/collection.model';
 import { parseSetCode } from './set-code.utils';
 
 export interface AiCardRead {
   name: string | null;
   setCode: string | null;
   language: string | null;
+}
+
+/** The language as a valid CardLanguage (case-insensitive), else null. */
+export function normalizeLanguage(raw: string | null | undefined): CardLanguage | null {
+  const up = (raw ?? '').trim().toUpperCase();
+  return (CARD_LANGUAGES as readonly string[]).includes(up) ? (up as CardLanguage) : null;
 }
 
 const EMPTY: AiCardRead = { name: null, setCode: null, language: null };

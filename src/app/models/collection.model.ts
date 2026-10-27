@@ -43,6 +43,9 @@ export interface ScanDetection {
   /** `code`/`name`: OCR; `image`: recognised from the card image (embedding index). */
   source: 'code' | 'name' | 'image';
   needsReview: boolean;
-  /** Other likely cards for an image detection (best first); empty for OCR detections. */
+  /**
+   * Other likely cards for an image detection (best first); empty for OCR detections.
+   * Reserved for the review list ("altre candidate"): no consumer yet.
+   */
   alternatives: ScanCandidate[];
 }

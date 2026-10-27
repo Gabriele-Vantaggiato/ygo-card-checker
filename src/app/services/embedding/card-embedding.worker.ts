@@ -69,6 +69,12 @@ async function webgpuAvailable(): Promise<boolean> {
   try { return !!(await gpu.requestAdapter()); } catch { return false; }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function warmUp(model: any): Promise<void> {
+  const S = MODEL_INPUT_SIZE;
+  await model({ pixel_values: new Tensor('float32', new Float32Array(3 * S * S), [1, 3, S, S]) });
+}
+
 function load(): Promise<Loaded> {
   return (loaded ??= (async () => {
     const tracker = progressTracker();
@@ -91,6 +97,19 @@ function load(): Promise<Loaded> {
       // a failed webgpu fp16 attempt leaves its bytes in the aggregate: start over for the q8 file
       tracker.reset();
       model = await loadWasmModel(progress_callback);
+    }
+    // Warm-up on a blank input: the first inference pays shader compile / wasm init, which must not
+    // count against a per-frame timeout. A webgpu failure here falls back to wasm like a load failure.
+    try {
+      await warmUp(model);
+    } catch (e) {
+      if (backend !== 'webgpu') throw e;
+      console.warn('[card-embedding] webgpu warm-up failed, falling back to wasm q8', e);
+      try { await model.dispose?.(); } catch { /* best effort */ }
+      tracker.reset();
+      model = await loadWasmModel(progress_callback);
+      backend = 'wasm';
+      await warmUp(model);
     }
     send({ type: 'ready', backend });
     return { model, mean: ip.image_mean, std: ip.image_std, backend };
