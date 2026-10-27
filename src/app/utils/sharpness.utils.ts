@@ -29,6 +29,7 @@ export function laplacianVariance(rgba: Uint8ClampedArray, width: number, height
  *   blur sigma 1.5 (harsh) min 43  median 83  max 149
  * 300 sits between the harsh blur (<= 149) and the sharp originals (>= 1280); webcam sensor noise
  * only raises the variance, so the gate is conservative.
+ * Caveat: tuned on clean scans (YGOPRODeck images), not on real webcam frames; re-check on device.
  */
 export const SHARPNESS_THRESHOLD = 300;
 

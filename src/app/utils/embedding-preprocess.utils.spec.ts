@@ -32,6 +32,37 @@ describe('rgbaToChw', () => {
     expect(out.length).toBe(3 * 224 * 224);
     expect(out[0]).toBeCloseTo((10 / 255 - mean[0]) / std[0], 4);
   });
+
+  it('keeps a horizontal gradient monotonic when downscaling', () => {
+    const w = 640;
+    const h = 20;
+    const a = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const v = Math.round((x * 255) / (w - 1));
+        const i = (y * w + x) * 4;
+        a[i] = v;
+        a[i + 1] = v;
+        a[i + 2] = v;
+      }
+    }
+    const out = rgbaToChw(a, w, h, mean, std);
+    const S = MODEL_INPUT_SIZE;
+    const row = 100 * S;
+    for (let x = 1; x < S; x++) {
+      expect(out[row + x]).toBeGreaterThanOrEqual(out[row + x - 1] - 1e-5);
+    }
+    expect(out[row + S - 1]).toBeGreaterThan(out[row]);
+  });
+
+  it('gives identical results when the cached taps and scratch buffer are reused', () => {
+    const img = uniform(50, 40, 200, 100, 50);
+    img[(10 * 50 + 10) * 4] = 0;
+    const first = rgbaToChw(img, 50, 40, mean, std);
+    rgbaToChw(uniform(33, 21, 1, 2, 3), 33, 21, mean, std);
+    const again = rgbaToChw(img, 50, 40, mean, std);
+    expect(Array.from(again)).toEqual(Array.from(first));
+  });
 });
 
 describe('poolTokens', () => {

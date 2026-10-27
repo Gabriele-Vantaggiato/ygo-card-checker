@@ -33,10 +33,6 @@ export class UnconfidentClock {
     return this.elapsed;
   }
 
-  get ms(): number {
-    return this.elapsed;
-  }
-
   reset(): void {
     this.elapsed = 0;
     this.lastAt = null;

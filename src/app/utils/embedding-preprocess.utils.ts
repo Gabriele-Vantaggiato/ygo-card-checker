@@ -52,6 +52,31 @@ function buildTaps(srcSize: number, dstSize: number): Taps {
   return { start, count, weights, maxTaps };
 }
 
+/** Tap tables by source size (the destination is always MODEL_INPUT_SIZE); frame sizes rarely change. */
+const TAPS_CACHE_MAX = 8;
+const tapsCache = new Map<number, Taps>();
+
+function cachedTaps(srcSize: number): Taps {
+  let taps = tapsCache.get(srcSize);
+  if (!taps) {
+    taps = buildTaps(srcSize, MODEL_INPUT_SIZE);
+    if (tapsCache.size >= TAPS_CACHE_MAX) {
+      const oldest = tapsCache.keys().next().value;
+      if (oldest !== undefined) tapsCache.delete(oldest);
+    }
+    tapsCache.set(srcSize, taps);
+  }
+  return taps;
+}
+
+/** Horizontal-pass scratch buffer, reused while the source height repeats (single-threaded worker). */
+let tmpBuffer: Float32Array | null = null;
+
+function scratch(length: number): Float32Array {
+  if (!tmpBuffer || tmpBuffer.length !== length) tmpBuffer = new Float32Array(length);
+  return tmpBuffer;
+}
+
 /**
  * Squash-resize (separable Lanczos3, antialiased when shrinking; same filter as the Node recipe's
  * sharp/libvips resize) an RGBA region to 224x224 and return normalised CHW floats. Alpha is ignored.
@@ -66,11 +91,11 @@ export function rgbaToChw(
 ): Float32Array {
   const S = MODEL_INPUT_SIZE;
   const plane = S * S;
-  const tx = buildTaps(width, S);
-  const ty = buildTaps(height, S);
+  const tx = cachedTaps(width);
+  const ty = cachedTaps(height);
 
-  // horizontal pass: height x S x 3
-  const tmp = new Float32Array(height * S * 3);
+  // horizontal pass: height x S x 3 (every element is overwritten, so the reused buffer needs no reset)
+  const tmp = scratch(height * S * 3);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < S; x++) {
       let r = 0;
