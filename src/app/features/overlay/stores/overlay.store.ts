@@ -1,4 +1,4 @@
-import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { ApplicationRef, ComponentRef, computed, createComponent, DestroyRef, effect, EnvironmentInjector, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { combineLatest, concat, from, of, Subject } from 'rxjs';
 import {
@@ -37,6 +37,8 @@ import {
   toProbeSample,
 } from '../../../utils/mdpro-detail-probe';
 import { OverlayPipShell } from '../overlay-pip-shell';
+import { DuelCoachPanelComponent } from '../duel-coach/duel-coach-panel.component';
+import { DuelCoachStore } from '../duel-coach/duel-coach.store';
 
 const EMPTY_RELATED: CardRelatedResult = {
   tags: [],
@@ -67,6 +69,10 @@ type OverlayPhase = 'idle' | 'capturing' | 'ocr' | 'resolving' | 'ready' | 'erro
  */
 @Injectable()
 export class OverlayStore {
+  private readonly coach = inject(DuelCoachStore);
+  private readonly appRef = inject(ApplicationRef);
+  private readonly environment = inject(EnvironmentInjector);
+  private coachPanel: ComponentRef<DuelCoachPanelComponent> | null = null;
   private readonly destroyRef = inject(DestroyRef);
   private readonly formatStore = inject(FormatStore);
   private readonly ygoApi = inject(YgoApiService);
@@ -131,6 +137,11 @@ export class OverlayStore {
   readonly relatedGroups = computed(() => this.relatedResult().groups);
 
   constructor() {
+    effect(() => {
+      const card = this.selectedCard();
+      this.coach.observedCard.set(card ? { id: card.id, name: card.name } : null);
+    });
+    this.destroyRef.onDestroy(() => this.destroyCoachPanel());
     this.bindResolve();
     this.bindLegality();
     this.bindRelated();
@@ -507,7 +518,7 @@ export class OverlayStore {
     if (this.pip.open) {
       return true;
     }
-    return this.pip.openWindow({
+    const opened = await this.pip.openWindow({
       onScan: () => this.scanNow(),
       onCollapse: () => this.collapsePip(),
       onExpand: () => {
@@ -517,6 +528,30 @@ export class OverlayStore {
         }
       },
     });
+    if (opened) this.mountCoachPanel();
+    return opened;
+  }
+
+  async openCoachOverlay(): Promise<void> {
+    if (await this.openLivePip()) { this.expandPip(); this.syncPip(); }
+    else { this.coach.error.set('Overlay flottante non disponibile in questo browser. Usa Chrome o Edge su desktop; il coach resta utilizzabile nella pagina.'); }
+  }
+
+  private mountCoachPanel(): void {
+    const doc = this.pip.document;
+    if (!doc || this.coachPanel) return;
+    for (const style of Array.from(document.querySelectorAll('style,link[rel="stylesheet"]'))) doc.head.appendChild(style.cloneNode(true));
+    doc.documentElement.setAttribute('data-theme',document.documentElement.getAttribute('data-theme') || 'duel');
+    const host = doc.createElement('app-duel-coach-panel');
+    const panel = createComponent(DuelCoachPanelComponent,{ hostElement: host,environmentInjector: this.environment });
+    this.appRef.attachView(panel.hostView); this.coachPanel = panel;
+    this.pip.mountPanel(host); panel.changeDetectorRef.detectChanges();
+    doc.defaultView?.addEventListener('pagehide',() => this.destroyCoachPanel(),{ once: true });
+  }
+
+  private destroyCoachPanel(): void {
+    if (!this.coachPanel) return;
+    this.appRef.detachView(this.coachPanel.hostView); this.coachPanel.destroy(); this.coachPanel = null;
   }
 
   private runOcrOnce(forced: boolean): void {

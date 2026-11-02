@@ -1,0 +1,119 @@
+<section class="card card-border bg-base-200 text-base-content" aria-label="Coach combo">
+  <div class="card-body gap-4 p-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div><p class="text-xs uppercase tracking-widest opacity-60">Duel companion</p><h2 class="card-title">Coach combo</h2></div>
+      <span class="badge badge-outline">{{ coach.autoFollow() ? 'Test Hand · automatico' : coach.recording() ? 'In registrazione · conferma manuale' : 'Allenamento' }}</span>
+    </div>
+    <p class="text-sm opacity-70">{{ coach.autoFollow() ? 'Mano e giocate sono lette da MDPro4. Il coach segue le linee supportate e mostra la prossima azione nel gioco.' : 'Collega il coach automatico oppure carica mazzo e mano per seguire una linea manualmente.' }}</p>
+    <div class="flex flex-wrap gap-2">
+      @if (!coach.autoFollow()) { <button class="btn btn-primary btn-sm" (click)="coach.startAutomatic()">Avvia coach automatico Test Hand</button> }
+      @else { <button class="btn btn-sm" (click)="coach.stopAutomatic()">Sospendi coach automatico</button> }
+    </div>
+    @if (coach.autoFollow()) { <p class="text-xs opacity-70">Il tool locale legge mano e mosse di Test Hand. I suggerimenti sono disegnati sopra MDPro4; non occorre premere Save Combo Sheet. Le carte coperte dell’avversario non vengono usate.</p> }
+    @if (coach.error()) { <p class="alert alert-warning text-sm" role="alert">{{ coach.error() }}</p> }
+    @if (mdpro.error()) { <p class="text-sm text-warning" role="status">{{ mdpro.error() }}</p> }
+    @if (bridge.error()) { <p class="text-sm text-warning" role="status">{{ bridge.error() }}</p> }
+    @if (coach.notice()) { <p class="text-sm opacity-80" role="status">{{ coach.notice() }}</p> }
+    <details [open]="!coach.deck()">
+      <summary class="cursor-pointer font-semibold">1. Mazzo {{ coach.deck() ? '· ' + coach.deck()!.name : '' }}</summary>
+      <div class="mt-3 flex flex-col gap-3">
+        <div class="flex flex-wrap gap-2"><button class="btn btn-sm" (click)="bridge.connect()" [disabled]="bridge.connecting()">{{ bridge.connecting() ? 'Collegamento…' : 'Collega tool locale' }}</button>@if (bridge.connected()) { <button class="btn btn-ghost btn-sm" (click)="bridge.disconnect()">Scollega tool</button> }</div>
+        @if (bridge.snapshot(); as snapshot) { <div class="flex flex-wrap gap-2 items-center"><span class="text-sm">MDPro4: {{ snapshot.activeDeck.name }}</span><button class="btn btn-sm" [disabled]="coach.recording()" (click)="loadBridgeDeck()">Usa mazzo da MDPro4</button></div> }
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-sm" type="button" (click)="mdpro.connect()" [disabled]="coach.recording()">{{ mdpro.connected() ? 'Cambia cartella MDPro4' : 'Collega cartella MDPro4' }}</button>
+          @if (mdpro.connected()) { <button class="btn btn-ghost btn-sm" type="button" (click)="mdpro.disconnect()">Scollega</button> }
+        </div>
+        <p class="text-xs opacity-60">Scegli la cartella con MDPro4.exe. Lettura soltanto. Il mazzo selezionato nell’editor viene rilevato ogni 2 secondi: conferma che sia quello del duello.</p>
+        @if (mdpro.active(); as active) {
+          <div class="flex flex-wrap items-center gap-2"><span class="text-sm">Rilevato: {{ active.name }}</span><button type="button" class="btn btn-sm" [disabled]="coach.recording()" (click)="loadDetected()">Usa questo mazzo</button></div>
+          @if (coach.ydke() && coach.ydke() !== active.ydke) { <p class="text-sm text-warning">La selezione in MDPro4 è cambiata. La registrazione conserva il mazzo con cui è iniziata.</p> }
+        }
+        <label class="flex flex-col gap-1"><span class="text-sm">Oppure scegli dalla biblioteca</span>
+          <select class="select w-full" aria-label="Mazzo del coach" [disabled]="coach.recording()" (change)="loadSaved($any($event.target).value)">
+            <option value="">Scegli un mazzo</option>
+            @for (deck of decks.decklists(); track deck.id) { <option [value]="deck.id">{{ deck.name }}</option> }
+          </select>
+        </label>
+        <label class="flex flex-col gap-1"><span class="text-sm">YDKE del mazzo in uso</span><textarea class="textarea w-full font-mono text-xs" rows="2" [ngModel]="input()" (ngModelChange)="input.set($event)" [disabled]="coach.recording()" placeholder="ydke://…!…!…!"></textarea></label>
+        <button class="btn btn-sm self-start" type="button" [disabled]="coach.recording() || !input().trim()" (click)="loadInput()">Carica YDKE</button>
+      </div>
+    </details>
+    @if (coach.deck(); as deck) {
+      <p class="text-sm"><strong>{{ deck.name }}</strong> · {{ coach.sections()!.main.length }} Main / {{ coach.sections()!.extra.length }} Extra / {{ coach.sections()!.side.length }} Side</p>
+      @if (!coach.sessionId()) {
+        <h3 class="font-semibold">2. Mano iniziale reale · {{ coach.hand().length }}/6</h3>
+        <div class="flex flex-wrap gap-1" aria-label="Mano iniziale">
+          @for (id of coach.hand(); track $index) { <button class="btn btn-xs" type="button" (click)="coach.removeFromHand($index)" [attr.aria-label]="'Rimuovi ' + coach.name(id)">{{ coach.name(id) }} ×</button> }
+        </div>
+        <label class="flex flex-col gap-1"><span class="text-sm">Aggiungi una carta alla mano</span>
+          <select class="select select-sm w-full" aria-label="Aggiungi alla mano" (change)="coach.addToHand(+$any($event.target).value); $any($event.target).value = ''">
+            <option value="">Scegli una carta</option>
+            @for (card of coach.cards(); track card.id) { <option [value]="card.id">{{ coach.name(card.id) }} · {{ card.quantity }} nel Main</option> }
+          </select>
+        </label>
+        <label class="flex flex-col gap-1"><span class="text-sm">Linee compatibili con la mano · {{ coach.candidates().length }}</span>
+          <select class="select select-sm w-full" aria-label="Linea combo" [ngModel]="coach.selectedRouteId()" (ngModelChange)="coach.selectedRouteId.set($event); prerequisites.set(false)">
+            <option value="">Registrazione libera</option>
+            @for (route of coach.candidates(); track route.id) { <option [value]="route.id">{{ route.title }} · {{ route.source }}</option> }
+          </select>
+        </label>
+        @if (coach.loading()) { <p class="text-sm" role="status">Caricamento combo…</p> }
+        @if (!coach.loading() && !coach.routes().length) { <p class="text-sm opacity-70">Nessuna linea compatibile nel catalogo o nella biblioteca. Puoi registrare una nuova sequenza.</p><button class="btn btn-xs self-start" (click)="coach.loadCatalog()">Riprova catalogo</button> }
+        @for (route of coach.candidates(); track route.id) { @if (route.id === coach.selectedRouteId()) { <p class="text-sm opacity-80">{{ route.guide.description }}</p> } }
+        <label class="flex items-start gap-2 text-sm"><input type="checkbox" class="checkbox checkbox-sm" [ngModel]="prerequisites()" (ngModelChange)="prerequisites.set($event)" />Ho controllato le condizioni della linea, il turno e le risorse disponibili.</label>
+        <label class="flex items-start gap-2 text-sm"><input type="checkbox" class="checkbox checkbox-sm" [ngModel]="coach.nativeSync()" (ngModelChange)="coach.nativeSync.set($event)" [disabled]="!bridge.snapshot()" />Segui le nuove catture Test Hand dal tool locale.</label>
+        <p class="text-xs opacity-60">Il tool legge mazzo e catture dal PC. In gioco, Save Combo Sheet invia un nuovo punto di controllo: il coach aggiorna l’ordine delle mosse. La lettura continua di ogni mossa non è disponibile.</p>
+        <button type="button" class="btn btn-primary" [disabled]="coach.hand().length < 5 || !prerequisites() || coach.loading()" (click)="coach.start()">Inizia linea</button>
+      } @else {
+        <h3 class="font-semibold">{{ coach.route()?.title || 'Registrazione libera' }}</h3>
+        <p class="text-xs opacity-60">{{ coach.hand().length }} carte iniziali · {{ coach.moves().length }} mosse registrate. Il confronto riguarda le azioni esplicite della guida; effetti e risoluzioni non sono simulati.</p>
+        @if (coach.next(); as move) {
+          <article class="card card-border bg-base-100"><div class="card-body p-3 gap-2">
+            <p class="text-xs uppercase tracking-widest opacity-60">Prossima · {{ coach.comparison().matched + 1 }}/{{ coach.expected().length }}</p>
+            <h4 class="font-semibold">{{ labels[move.action] }} · {{ coach.name(move.cardId) }}</h4>
+            <p class="text-sm">{{ move.label }}</p><p class="text-xs whitespace-pre-line opacity-75">{{ move.detail }}</p>
+            @if (!coach.autoFollow()) { <button class="btn btn-sm" type="button" (click)="coach.confirmNext()">Conferma azione eseguita</button> }
+          </div></article>
+        }
+        @if (coach.comparison().status === 'deviation' && coach.route()) { <p class="alert alert-warning text-sm">Sequenza diversa dalla guida. Prosegui la registrazione libera oppure annulla l’ultima mossa. Questa differenza non prova un errore di gioco.</p> }
+        @if (coach.comparison().status === 'complete') { <p class="text-sm text-success">Azioni esplicite della linea completate. Verifica il risultato sul campo.</p> }
+        @if (coach.recording()) {
+          <details><summary class="cursor-pointer text-sm font-semibold">Registra una mossa diversa o libera</summary>
+            <div class="mt-2 flex flex-col gap-2">
+              @if (coach.observedCard(); as card) { <p class="text-xs">Dettaglio riconosciuto: {{ card.name }}. Non ancora registrato.</p><button class="btn btn-xs self-start" (click)="cardId.set(card.id)">Seleziona {{ card.name }}</button> }
+              <select class="select select-sm w-full" aria-label="Carta giocata" [ngModel]="cardId()" (ngModelChange)="cardId.set(+$event)"><option [ngValue]="0">Carta giocata</option>@for (card of coach.allCards(); track card.section + ':' + card.id) { <option [ngValue]="card.id">{{ coach.name(card.id) }}</option> }</select>
+              <select class="select select-sm w-full" aria-label="Azione eseguita" [ngModel]="action()" (ngModelChange)="action.set($event)">@for (kind of actions; track kind) { <option [value]="kind">{{ labels[kind] }}</option> }</select>
+              <button class="btn btn-sm" [disabled]="!cardId() || coach.autoFollow()" (click)="record()">Registra azione eseguita</button>
+            </div>
+          </details>
+          <label class="flex items-start gap-2 text-sm"><input type="checkbox" class="checkbox checkbox-sm" [ngModel]="coach.interrupted()" (ngModelChange)="coach.interrupted.set($event)" />La linea ha subito un’interferenza o una negazione.</label>
+          @if (coach.nativeSync() && !coach.autoFollow()) { <p class="text-xs opacity-70">Cattura collegata: usa Save Combo Sheet in MDPro4 per aggiornare la sequenza nel coach.</p> }
+          <div class="flex flex-wrap gap-2"><button class="btn btn-xs" [disabled]="!coach.moves().length" (click)="coach.undo()">Annulla ultima</button><button class="btn btn-xs" [disabled]="!coach.moves().length" (click)="coach.finish('success')">Risultato raggiunto</button><button class="btn btn-xs" [disabled]="!coach.moves().length" (click)="coach.finish('failed')">Linea interrotta</button><button class="btn btn-xs" (click)="coach.finish('unknown')" [disabled]="!coach.moves().length">Esito incerto</button></div>
+          @if (!coach.moves().length) { <button class="btn btn-ghost btn-xs self-start" (click)="coach.newOpening(); prerequisites.set(false)">Annulla avvio</button> }
+        } @else { <button class="btn btn-sm" (click)="coach.newOpening(); prerequisites.set(false)">Nuova mano</button> }
+        <details><summary class="cursor-pointer text-sm">Mosse registrate · {{ coach.moves().length }}</summary><ol class="mt-2 list-decimal pl-5 text-xs space-y-1">@for (move of coach.moves(); track $index) { <li>{{ labels[move.action] }} · {{ coach.name(move.cardId) }} — {{ move.label }}</li> }</ol></details>
+      }
+      <details><summary class="cursor-pointer font-semibold">Confronti e linee osservate · {{ coach.deckHistory().length }}</summary>
+        <div class="mt-3 flex flex-col gap-3">
+          <p class="text-xs opacity-70">I replay .yrp3d verificano il mazzo e le azioni visibili del primo turno proprio. Le vittorie sono esiti della partita, non una certificazione della combo.</p>
+          <label class="btn btn-sm self-start">{{ coach.replayBusy() ? 'Lettura replay…' : 'Importa replay del duello' }}<input type="file" accept=".yrp3d" class="sr-only" (change)="replay($event)" [disabled]="coach.replayBusy()" /></label>
+          <label class="btn btn-sm self-start">Importa cattura Test Hand<input type="file" accept=".json,application/json" class="sr-only" aria-label="Importa cattura Test Hand" (change)="nativeCapture($event)" [disabled]="coach.recording()" /></label>
+          <p class="text-xs opacity-70">In MDPro4: Impostazioni del duello → Save Combo Sheet. Importa il JSON salvato in My combo sheets (cartella locale ComboSheets/drafts). La cattura contiene mano e azioni, ma non identifica l’intero mazzo.</p>
+          @if (bridge.snapshot()?.capture) { <button class="btn btn-sm self-start" [disabled]="coach.recording()" (click)="coach.importLatestCapture()">Importa ultima cattura dal tool</button> }
+          <button class="btn btn-xs self-start" [disabled]="!coach.history().length" (click)="exportRuns()">Esporta registrazioni</button>
+          @for (run of coach.deckHistory(); track run.id) {
+            <article class="card card-border bg-base-100"><div class="card-body p-3 gap-2">
+              <p class="text-xs opacity-60">{{ run.endedAt | date:'short' }} · {{ run.source === 'replay' ? 'Replay' : run.source === 'mdpro' ? 'Cattura MDPro4 · mazzo associato dal giocatore' : 'Conferma del giocatore' }}</p>
+              <h4 class="font-semibold text-sm">{{ run.route?.title || 'Linea libera' }}</h4>
+              <p class="text-xs">{{ comparison(run) }} · {{ run.moves.length }} mosse · {{ sameHandRuns(run) }} registrazioni con stessa mano e sequenza</p>
+              <p class="text-xs">{{ run.outcome === 'success' ? (run.source === 'replay' ? 'Partita vinta' : 'Risultato dichiarato raggiunto') : run.outcome === 'failed' ? 'Risultato non raggiunto / partita persa' : 'Esito sconosciuto' }}{{ run.interrupted ? ' · interferenza registrata' : '' }}</p>
+              <details><summary class="cursor-pointer text-xs">Rivedi mano e mosse</summary><p class="mt-2 text-xs">Mano: @for (id of run.opening; track $index) { {{ coach.name(id) }}; }</p><ol class="mt-2 list-decimal pl-5 text-xs">@for (move of run.moves; track $index) { <li>{{ labels[move.action] }} · {{ coach.name(move.cardId) }}</li> }</ol></details>
+              @if (run.source === 'mdpro' && run.outcome === 'unknown') { <button class="btn btn-xs self-start" (click)="coach.markNativeResult(run.id)">Confermo: risultato raggiunto sul campo</button> }
+              @if (run.outcome === 'success' && run.moves.length >= 2 && !run.interrupted) { <button class="btn btn-xs self-start" (click)="coach.saveAsSheet(run)">Salva come scheda osservata</button> }
+            </div></article>
+          }
+        </div>
+      </details>
+    }
+  </div>
+</section>

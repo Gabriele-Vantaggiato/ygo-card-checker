@@ -80,6 +80,13 @@
               "action": "normal-summon"
             },
             {
+              "card": 25259669,
+              "caption": "Attiva l’effetto di Goblindbergh",
+              "zone": "field",
+              "join": "arrow",
+              "action": "activate"
+            },
+            {
               "card": 63665875,
               "caption": "Dalla mano",
               "zone": "field",
@@ -132,6 +139,13 @@
           ],
           "flow": [
             {
+              "card": 34086406,
+              "caption": "Attiva Chain, stacca Goblin e manda Mezuki",
+              "zone": "field",
+              "join": "none",
+              "action": "activate"
+            },
+            {
               "card": 63665875,
               "caption": "Stacca come costo: nessuna ricerca",
               "zone": "graveyard",
@@ -156,6 +170,13 @@
             63665875
           ],
           "flow": [
+            {
+              "card": 92826944,
+              "caption": "Attiva Mezuki dal Cimitero",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "activate"
+            },
             {
               "card": 92826944,
               "caption": "Bandi come costo",
@@ -257,6 +278,13 @@
               "action": "normal-summon"
             },
             {
+              "card": 17259470,
+              "caption": "Attiva Zombie Master e paga il costo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "activate"
+            },
+            {
               "card": 63665875,
               "caption": "Costo dalla mano",
               "zone": "graveyard",
@@ -316,6 +344,13 @@
           ],
           "flow": [
             {
+              "card": 34086406,
+              "caption": "Attiva Chain, stacca Goblin e manda Mezuki",
+              "zone": "field",
+              "join": "none",
+              "action": "activate"
+            },
+            {
               "card": 63665875,
               "caption": "Stacca come costo: nessuna ricerca",
               "zone": "graveyard",
@@ -340,6 +375,13 @@
             63665875
           ],
           "flow": [
+            {
+              "card": 92826944,
+              "caption": "Attiva Mezuki dal Cimitero",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "activate"
+            },
             {
               "card": 92826944,
               "caption": "Bandi come costo",
@@ -439,6 +481,13 @@
               "action": "normal-summon"
             },
             {
+              "card": 17259470,
+              "caption": "Attiva Zombie Master e paga il costo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "activate"
+            },
+            {
               "card": 33420078,
               "caption": "Costo dalla mano",
               "zone": "graveyard",
@@ -496,10 +545,17 @@
           ],
           "flow": [
             {
-              "card": 0,
-              "caption": "Terza carta in cima al Deck",
-              "zone": "deck",
+              "card": 33420078,
+              "caption": "Attiva dal Cimitero",
+              "zone": "graveyard",
               "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 0,
+              "caption": "Scegli una carta dalla mano da mettere in cima al Deck",
+              "zone": "deck",
+              "join": "arrow",
               "action": "return"
             },
             {
@@ -627,6 +683,13 @@
               "action": "normal-summon"
             },
             {
+              "card": 17259470,
+              "caption": "Attiva Zombie Master e paga il costo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "activate"
+            },
+            {
               "card": 33420078,
               "caption": "Costo dalla mano",
               "zone": "graveyard",
@@ -684,10 +747,17 @@
           ],
           "flow": [
             {
-              "card": 0,
-              "caption": "Terza carta in cima al Deck",
-              "zone": "deck",
+              "card": 33420078,
+              "caption": "Attiva dal Cimitero",
+              "zone": "graveyard",
               "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 0,
+              "caption": "Scegli una carta dalla mano da mettere in cima al Deck",
+              "zone": "deck",
+              "join": "arrow",
               "action": "return"
             },
             {
@@ -862,10 +932,17 @@
           ],
           "flow": [
             {
-              "card": 0,
-              "caption": "Carta aggiuntiva in cima",
-              "zone": "deck",
+              "card": 33420078,
+              "caption": "Attiva dal Cimitero",
+              "zone": "graveyard",
               "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 0,
+              "caption": "Scegli una carta dalla mano da mettere in cima al Deck",
+              "zone": "deck",
+              "join": "arrow",
               "action": "return"
             },
             {
@@ -1065,10 +1142,17 @@
           ],
           "flow": [
             {
-              "card": 0,
-              "caption": "Carta aggiuntiva in cima",
-              "zone": "deck",
+              "card": 33420078,
+              "caption": "Attiva dal Cimitero",
+              "zone": "graveyard",
               "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 0,
+              "caption": "Scegli una carta dalla mano da mettere in cima al Deck",
+              "zone": "deck",
+              "join": "arrow",
               "action": "return"
             },
             {
@@ -1211,6 +1295,13 @@
               "action": "normal-summon"
             },
             {
+              "card": 25259669,
+              "caption": "Attiva l’effetto di Goblindbergh",
+              "zone": "field",
+              "join": "arrow",
+              "action": "activate"
+            },
+            {
               "card": 63665875,
               "caption": "Dalla mano",
               "zone": "field",
@@ -1323,6 +1414,13 @@
               "zone": "field",
               "join": "none",
               "action": "normal-summon"
+            },
+            {
+              "card": 17259470,
+              "caption": "Attiva Zombie Master e paga il costo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "activate"
             },
             {
               "card": 92826944,
@@ -1481,6 +1579,13 @@
               "zone": "field",
               "join": "none",
               "action": "normal-summon"
+            },
+            {
+              "card": 25259669,
+              "caption": "Attiva l’effetto di Goblindbergh",
+              "zone": "field",
+              "join": "arrow",
+              "action": "activate"
             },
             {
               "card": 17259470,
@@ -1726,6 +1831,202 @@
             }
           ],
           "kind": "summon"
+        }
+      ]
+    }
+  },
+  {
+    "key": "foolish-goblin-plague-hades",
+    "main": {
+      "17259470": 1,
+      "33420078": 1,
+      "63665875": 1,
+      "81439173": 1
+    },
+    "extra": {
+      "5309481": 1
+    },
+    "deck": {
+      "17259470": 1,
+      "33420078": 1
+    },
+    "guide": {
+      "id": "foolish-goblin-plague-hades",
+      "title": "Goblin Zombie + Foolish Burial → Ha Des e ricerca",
+      "description": "Normal Summon disponibile. Richiede Goblin Zombie, Foolish Burial e una carta da mettere in cima al Deck. Plaguespreader Zombie e uno Zombie Master devono essere ancora nel Deck. La ricerca non è un mostro aggiuntivo sul campo.",
+      "startingCards": [
+        63665875,
+        81439173,
+        0
+      ],
+      "endCards": [
+        5309481,
+        17259470
+      ],
+      "requiredCards": [
+        17259470,
+        33420078,
+        63665875,
+        81439173,
+        5309481
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 63665875,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 81439173,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        },
+        {
+          "card": 0,
+          "caption": "Una carta aggiuntiva in mano",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 5309481,
+          "caption": "Synchro sul campo",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 17259470,
+          "caption": "Cercato, ancora in mano",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Evoca Goblin Zombie",
+          "text": "Evoca Normalmente Goblin Zombie, Livello 4. Conserva una carta in mano per il costo di Plaguespreader Zombie.",
+          "cards": [
+            63665875
+          ],
+          "flow": [
+            {
+              "card": 63665875,
+              "caption": "Evocazione Normale",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Foolish Burial prepara il Tuner",
+          "text": "Attiva Foolish Burial e manda Plaguespreader Zombie dal Deck al Cimitero. Non mandare Mezuki per questa variante.",
+          "cards": [
+            81439173,
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 81439173,
+              "caption": "Attiva e manda Plaguespreader",
+              "zone": "field",
+              "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 33420078,
+              "caption": "Dal Deck al Cimitero",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Rievoca Plaguespreader",
+          "text": "Attiva Plaguespreader Zombie nel Cimitero: metti una carta dalla mano in cima al Deck come costo. Puoi usare Mind Pollutant o un’altra carta non necessaria alla linea. Alla risoluzione Evoca Specialmente Plaguespreader Zombie. Sarà bandito quando lascia il campo.",
+          "cards": [
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 33420078,
+              "caption": "Attiva dal Cimitero",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 0,
+              "caption": "Scegli una carta dalla mano da mettere in cima al Deck",
+              "zone": "deck",
+              "join": "arrow",
+              "action": "return"
+            },
+            {
+              "card": 33420078,
+              "caption": "Tuner Livello 2",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Synchro di Livello 6",
+          "text": "Usa Plaguespreader Zombie, Tuner Livello 2, e Goblin Zombie, non-Tuner Zombie Livello 4, per Evocare Revived King Ha Des. Plaguespreader viene bandito; Goblin Zombie va al Cimitero.",
+          "cards": [
+            33420078,
+            63665875,
+            5309481
+          ],
+          "flow": [
+            {
+              "card": 5309481,
+              "caption": "Synchro con i due Zombie",
+              "zone": "field",
+              "join": "none",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Ricerca di Goblin Zombie",
+          "text": "Attiva l’effetto di Goblin Zombie mandato dal campo al Cimitero. Aggiungi Zombie Master dal Deck alla mano: ha 0 DEF e rispetta il limite di 1200 DEF. Questa ricerca non fornisce una seconda Normal Summon.",
+          "cards": [
+            63665875,
+            17259470
+          ],
+          "flow": [
+            {
+              "card": 63665875,
+              "caption": "Attiva la ricerca",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 17259470,
+              "caption": "Risorsa per i turni successivi",
+              "zone": "hand",
+              "join": "arrow",
+              "action": "search"
+            }
+          ],
+          "kind": "effect"
         }
       ]
     }

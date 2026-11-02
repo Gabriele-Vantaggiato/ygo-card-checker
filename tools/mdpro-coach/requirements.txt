@@ -1,0 +1,4 @@
+opencv-python-headless==4.14.0.94
+numpy>=2,<3
+Pillow>=12,<13
+frida==17.25.1

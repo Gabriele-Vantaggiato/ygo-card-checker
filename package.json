@@ -6,6 +6,7 @@
     "start": "node tools/start-dev.mjs",
     "start:app": "ng serve --proxy-config proxy.conf.json",
     "start:gemini-proxy": "node tools/gemini-dev-proxy.mjs",
+    "mdpro:coach": "node tools/mdpro-coach/bridge.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",

@@ -10,6 +10,16 @@ const item = (card, caption, zone = 'field', join = 'arrow', action = 'none') =>
 const step = (title, text, cards, flow = [], kind = 'action') => ({ title, text, cards, ...(flow.length ? { flow } : {}), kind });
 const recipes = [];
 function add(key, title, main, extra, startingCards, endCards, description, steps, endFlow, deck = {}) {
+  // MDPro4 records the activation prompt before the selected cost and its resolution.
+  for (const procedure of steps) {
+    if (procedure.title === 'Stacca Goblin e manda Mezuki') procedure.flow.unshift(item(C.chain, 'Attiva Chain, stacca Goblin e manda Mezuki', 'field', 'none', 'activate'));
+    if (procedure.title === 'Mezuki recupera Goblin') procedure.flow.unshift(item(C.mezuki, 'Attiva Mezuki dal Cimitero', 'graveyard', 'none', 'activate'));
+    if (['Rievoca il Tuner','Rievoca Plaguespreader'].includes(procedure.title)) {
+      const resolution = procedure.flow.filter(node => node.action !== 'return' && !(node.action === 'activate' && node.card === C.plague));
+      procedure.flow = [item(C.plague,'Attiva dal Cimitero','graveyard','none','activate'),
+        item(0,'Scegli una carta dalla mano da mettere in cima al Deck','deck','arrow','return'),...resolution];
+    }
+  }
   recipes.push({ key, main, extra, deck, guide: { id: key, title, description,
     startingCards, endCards, requiredCards: [...new Set([...Object.keys(main), ...Object.keys(extra)].map(Number))], playsAround: [],
     startFlow: startingCards.map((card, i) => item(card, card ? 'Carta iniziale' : 'Una carta aggiuntiva in mano', 'hand', i ? 'plus' : 'none')),
@@ -18,10 +28,10 @@ function add(key, title, main, extra, startingCards, endCards, description, step
 }
 const openGoblind = (body) => step('Due mostri con una Normal Summon',
   'Evoca Normalmente Goblindbergh e attiva il suo effetto per Evocare Specialmente dalla mano il secondo mostro di Livello 4. Goblindbergh passa in Difesa. Questa è l’unica Evocazione Normale della linea.',
-  [C.goblind, body], [item(C.goblind, 'Evocazione Normale', 'field', 'none', 'normal-summon'), item(body, 'Dalla mano', 'field', 'arrow', 'special-summon')], 'summon');
+  [C.goblind, body], [item(C.goblind, 'Evocazione Normale', 'field', 'none', 'normal-summon'), item(C.goblind, 'Attiva l’effetto di Goblindbergh', 'field', 'arrow', 'activate'), item(body, 'Dalla mano', 'field', 'arrow', 'special-summon')], 'summon');
 const openMaster = (body) => step('Invia il mostro e rievocalo',
   'Evoca Normalmente Zombie Master. Attiva il suo effetto una volta: manda il mostro Zombie dalla mano al Cimitero come costo, poi scegli quello stesso mostro come bersaglio ed Evocalo Specialmente. Il costo precede la scelta del bersaglio. Zombie Master deve restare scoperto fino alla risoluzione.',
-  [C.master, body], [item(C.master, 'Evocazione Normale', 'field', 'none', 'normal-summon'), item(body, 'Costo dalla mano', 'graveyard', 'arrow', 'send'), item(body, 'Bersaglio dopo il costo', 'field', 'arrow', 'special-summon')], 'effect');
+  [C.master, body], [item(C.master, 'Evocazione Normale', 'field', 'none', 'normal-summon'), item(C.master, 'Attiva Zombie Master e paga il costo', 'field', 'arrow', 'activate'), item(body, 'Costo dalla mano', 'graveyard', 'arrow', 'send'), item(body, 'Bersaglio dopo il costo', 'field', 'arrow', 'special-summon')], 'effect');
 
 for (const [opener, open, title] of [[C.goblind, openGoblind, 'Goblindbergh'], [C.master, openMaster, 'Zombie Master']]) {
   add(`${opener}-goblin-chain-mezuki`, `${title} + Goblin Zombie → Chain e Goblin`,
@@ -89,6 +99,16 @@ add('world-superpoly-dragonecro', 'Situazionale: Zombie World + Super Polymeriza
     step('Scarta e attiva Super Polymerization', 'Scarta la carta aggiuntiva come costo e attiva Super Polymerization. Nessun giocatore può attivare carte o effetti in risposta alla sua attivazione. Controlla comunque restrizioni e immunità applicabili.', [C.poly], [item(0, 'Scarta come costo', 'graveyard', 'none', 'discard'), item(C.poly, 'Attiva Fusione', 'field', 'arrow', 'activate')], 'effect'),
     step('Evoca Dragonecro', 'Usa i due Zombie sul campo come materiali per Evocare tramite Fusione Dragonecro Nethersoul Dragon. Questa scheda non presuppone un attacco né la creazione di un Token.', [C.dragonecro], [item(C.dragonecro, 'Fusione: 2 mostri Zombie', 'field', 'none', 'special-summon')], 'summon'),
   ]);
+
+add('foolish-goblin-plague-hades', 'Goblin Zombie + Foolish Burial → Ha Des e ricerca',
+  { [C.goblin]: 1, [C.foolish]: 1, [C.plague]: 1, [C.master]: 1 }, { [C.hades]: 1 }, [C.goblin,C.foolish,0], [C.hades,C.master],
+  'Normal Summon disponibile. Richiede Goblin Zombie, Foolish Burial e una carta da mettere in cima al Deck. Plaguespreader Zombie e uno Zombie Master devono essere ancora nel Deck. La ricerca non è un mostro aggiuntivo sul campo.', [
+    step('Evoca Goblin Zombie','Evoca Normalmente Goblin Zombie, Livello 4. Conserva una carta in mano per il costo di Plaguespreader Zombie.',[C.goblin],[item(C.goblin,'Evocazione Normale','field','none','normal-summon')],'summon'),
+    step('Foolish Burial prepara il Tuner','Attiva Foolish Burial e manda Plaguespreader Zombie dal Deck al Cimitero. Non mandare Mezuki per questa variante.',[C.foolish,C.plague],[item(C.foolish,'Attiva e manda Plaguespreader','field','none','activate'),item(C.plague,'Dal Deck al Cimitero','graveyard','arrow','send')],'effect'),
+    step('Rievoca Plaguespreader','Attiva Plaguespreader Zombie nel Cimitero: metti una carta dalla mano in cima al Deck come costo. Puoi usare Mind Pollutant o un’altra carta non necessaria alla linea. Alla risoluzione Evoca Specialmente Plaguespreader Zombie. Sarà bandito quando lascia il campo.',[C.plague],[item(C.plague,'Attiva dal Cimitero','graveyard','none','activate'),item(C.plague,'Tuner Livello 2','field','arrow','special-summon')],'effect'),
+    step('Synchro di Livello 6','Usa Plaguespreader Zombie, Tuner Livello 2, e Goblin Zombie, non-Tuner Zombie Livello 4, per Evocare Revived King Ha Des. Plaguespreader viene bandito; Goblin Zombie va al Cimitero.',[C.plague,C.goblin,C.hades],[item(C.hades,'Synchro con i due Zombie','field','none','special-summon')],'summon'),
+    step('Ricerca di Goblin Zombie','Attiva l’effetto di Goblin Zombie mandato dal campo al Cimitero. Aggiungi Zombie Master dal Deck alla mano: ha 0 DEF e rispetta il limite di 1200 DEF. Questa ricerca non fornisce una seconda Normal Summon.',[C.goblin,C.master],[item(C.goblin,'Attiva la ricerca','graveyard','none','activate'),item(C.master,'Risorsa per i turni successivi','hand','arrow','search')],'effect'),
+  ],[item(C.hades,'Synchro sul campo','field','none'),item(C.master,'Cercato, ancora in mano','hand','plus')],{ [C.plague]: 1,[C.master]: 1 });
 
 const destination = new URL('../../src/assets/data/combo-sheets/deck-recipes.json', import.meta.url);
 await mkdir(new URL('.', destination), { recursive: true });

@@ -6,7 +6,7 @@
       <h1 class="text-3xl sm:text-4xl font-bold">{{ t('Schede combo', 'Combo sheets') }}</h1>
       <p class="text-sm text-base-content/65 mt-2 max-w-xl">{{ t('Dallo starter al campo finale. Conserva le tue linee, prepara le alternative e studia un passo alla volta.', 'From starter to endboard. Keep your lines, prepare alternatives and study one step at a time.') }}</p>
     </div>
-    <a routerLink="/flow" class="btn btn-ghost btn-sm">Flow Studio ↗</a>
+    <div class="flex gap-2"><a routerLink="/overlay" class="btn btn-sm">{{ t('Coach in-game', 'In-game coach') }} ↗</a><a routerLink="/flow" class="btn btn-ghost btn-sm">Flow Studio ↗</a></div>
   </header>
   @if (status()) { <p role="status" class="p-3 rounded-lg bg-base-200 text-sm whitespace-pre-wrap">{{ status() }}</p> }
   @if (library.storageFailed()) {

@@ -4,16 +4,19 @@ import { CardDetailTabsComponent } from '../../../components/card-detail-tabs/ca
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { OverlayStore } from '../stores/overlay.store';
+import { DuelCoachPanelComponent } from '../duel-coach/duel-coach-panel.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-overlay-page',
   standalone: true,
-  imports: [FormatSelectorComponent, CardDetailTabsComponent, TranslatePipe, PageHeaderComponent],
+  imports: [FormatSelectorComponent, CardDetailTabsComponent, TranslatePipe, PageHeaderComponent, DuelCoachPanelComponent],
   providers: [OverlayStore],
   template: `
     <main class="page-main page-stack overlay-page">
       <app-page-header titleKey="overlay.pageTitle" subtitleKey="overlay.pageSubtitle" />
+      <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-sm opacity-70">Il coach resta accanto a MDPro4 nella finestra flottante. Le sessioni sono salvate in questo browser.</p><button class="btn btn-sm" type="button" (click)="store.openCoachOverlay()">Apri overlay combo</button></div>
+      <app-duel-coach-panel />
 
       <section class="overlay-guide">
         <div><p class="duel-eyebrow">DUEL COMPANION</p><h2>{{ 'overlay.guideTitle' | translate }}</h2><p>{{ 'overlay.guideHint' | translate }}</p></div>

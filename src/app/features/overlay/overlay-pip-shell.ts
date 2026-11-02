@@ -128,6 +128,7 @@ const PIP_CSS = `
 
 export class OverlayPipShell {
   private win: Window | null = null;
+  private panel: HTMLElement | null = null;
   private handlers: OverlayPipHandlers | null = null;
   private collapsed = false;
 
@@ -137,6 +138,15 @@ export class OverlayPipShell {
 
   get isCollapsed(): boolean {
     return this.collapsed;
+  }
+
+  get document(): Document | null { return this.open ? this.win!.document : null; }
+
+  mountPanel(panel: HTMLElement): void {
+    this.panel = panel;
+    panel.style.cssText = 'display:block;overflow:auto;max-height:60%;min-height:160px;flex-shrink:0';
+    this.win?.document.getElementById('pip-root')?.prepend(panel);
+    try { this.win?.resizeTo(470,800); } catch { /* Browser may restrict resize. */ }
   }
 
   async openWindow(handlers: OverlayPipHandlers): Promise<boolean> {
@@ -229,6 +239,7 @@ export class OverlayPipShell {
     }
 
     this.renderExpanded(root, snap);
+    if (this.panel && !root.contains(this.panel)) root.prepend(this.panel);
   }
 
   private shellHtml(): string {

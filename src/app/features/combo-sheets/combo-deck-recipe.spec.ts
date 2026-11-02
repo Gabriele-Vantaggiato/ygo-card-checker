@@ -21,18 +21,18 @@ describe('Dynamic Zombie combo recipes against the real supplied YDKE', () => {
     }
     expect([sections.main.length, sections.extra.length, sections.side.length]).toEqual([42, 15, 15]);
   });
-  it('validates every recipe and generates ten native-compatible concrete routes', () => {
-    expect(recipes.length).toBe(10);
+  it('validates every recipe and generates eleven native-compatible concrete routes', () => {
+    expect(recipes.length).toBe(11);
     expect(recipes.every(isComboDeckRecipe)).toBeTrue();
     const result = generateComboSheet(deck, { version: 1, generatedAt: '', cardCount: 0, scripts: {} }, [], null, 'HAT', true, recipes);
-    expect(result.templates).toBe(10);
+    expect(result.templates).toBe(11);
     expect(isComboSheet(result.sheet)).toBeTrue();
     expect(result.sheet!.tabs[0].combos.every(g => g.steps.length >= 2 && g.endFlow?.length)).toBeTrue();
   });
   it('removes the Beelze routes when Beelze leaves Extra, without affecting other routes', () => {
     const changed = { ...deck, cards: deck.cards.filter(c => c.id !== 34408491) };
     const routes = matchDeckRecipes(changed, recipes);
-    expect(routes.length).toBe(8);
+    expect(routes.length).toBe(9);
     expect(routes.some(g => g.endCards.includes(34408491))).toBeFalse();
   });
   it('does not count Side Deck materials or missing Pain Painter as a complete Skull recipe', () => {
@@ -52,7 +52,7 @@ describe('Dynamic Zombie combo recipes against the real supplied YDKE', () => {
   });
   it('matches renamed and reordered decks, clones recipes, and rejects malformed requirements', () => {
     const renamed = { ...deck, name: 'Another deck', cards: [...deck.cards].reverse() };
-    expect(matchDeckRecipes(renamed, recipes).length).toBe(10);
+    expect(matchDeckRecipes(renamed, recipes).length).toBe(11);
     const guide = matchDeckRecipes(deck, recipes)[0]; guide.steps[0].text = 'Changed';
     expect(recipes[0].guide.steps[0].text).not.toBe('Changed');
     expect(isComboDeckRecipe({ ...recipes[0], main: { '-1': 1 } })).toBeFalse();

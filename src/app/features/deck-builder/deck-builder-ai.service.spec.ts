@@ -55,7 +55,7 @@ describe('DeckBuilderAiService', () => {
     service.rank$(candidates, 'deck summary', 'en').subscribe(result => {
       expect(result.map(c => c.cardId)).toEqual([2]);
     });
-    expect(rank.calls.mostRecent().args[0]).toBe('Find an extender');
+    expect(rank.calls.mostRecent().args[0]).toBe('Find an extender\nCurrent deck:\ndeck summary');
     expect(rank.calls.mostRecent().args[1].map((c: { cardId: number }) => c.cardId)).toEqual([1, 2]);
     rank.and.returnValue(of([]));
     service.rank$(candidates, 'deck summary', 'en').subscribe(result => expect(result).toEqual([]));

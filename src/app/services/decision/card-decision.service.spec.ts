@@ -1,6 +1,8 @@
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { CardDecisionService, DECISION_WORKER } from './card-decision.service';
 import { DecisionRequest, DecisionResponse, DecisionScore } from './card-decision.model';
+import { signal } from '@angular/core';
+import { AiProviderPreferencesService } from '../ai-provider-preferences.service';
 
 class FakeWorker {
   onmessage: ((event: MessageEvent<DecisionResponse>) => void) | null = null;
@@ -18,14 +20,22 @@ describe('CardDecisionService', () => {
   let worker: FakeWorker;
   let create: jasmine.Spy;
   let service: CardDecisionService;
+  let savedPreferences: string | null;
   const pool = [1, 2, 3, 4].map(cardId => ({ cardId, text: `card ${cardId}` }));
   beforeEach(() => {
+    savedPreferences = localStorage.getItem('ygo-card-decision-preferences');
+    localStorage.removeItem('ygo-card-decision-preferences');
     worker = new FakeWorker();
     create = jasmine.createSpy('createWorker').and.returnValue(worker);
-    TestBed.configureTestingModule({ providers: [{ provide: DECISION_WORKER, useValue: create }] });
+    TestBed.configureTestingModule({ providers: [{ provide: DECISION_WORKER, useValue: create },
+      { provide: AiProviderPreferencesService,useValue: { preferences: signal({ provider: 'gemini' }) } }] });
     service = TestBed.inject(CardDecisionService);
   });
-  afterEach(() => TestBed.resetTestingModule());
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    if (savedPreferences === null) localStorage.removeItem('ygo-card-decision-preferences');
+    else localStorage.setItem('ygo-card-decision-preferences',savedPreferences);
+  });
   it('does not load a model until the user opts in', () => {
     service.rank$('draw cards', pool).subscribe(result => expect(result).toEqual([]));
     expect(create).not.toHaveBeenCalled();
