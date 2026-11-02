@@ -1,0 +1,1733 @@
+[
+  {
+    "key": "25259669-goblin-chain-mezuki",
+    "main": {
+      "25259669": 1,
+      "63665875": 1,
+      "92826944": 1
+    },
+    "extra": {
+      "34086406": 1
+    },
+    "deck": {
+      "92826944": 1
+    },
+    "guide": {
+      "id": "25259669-goblin-chain-mezuki",
+      "title": "Goblindbergh + Goblin Zombie → Chain e Goblin",
+      "description": "Apertura a due carte, Normal Summon disponibile. Mezuki deve essere ancora nel Deck. Lavalval Chain deve essere nell’Extra Deck. La linea si interrompe se i bersagli o gli effetti vengono negati.",
+      "startingCards": [
+        25259669,
+        63665875
+      ],
+      "endCards": [
+        34086406,
+        63665875
+      ],
+      "requiredCards": [
+        25259669,
+        63665875,
+        92826944,
+        34086406
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 25259669,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 63665875,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 34086406,
+          "caption": "1 materiale rimasto",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 63665875,
+          "caption": "Rievocato da Mezuki",
+          "zone": "field",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Due mostri con una Normal Summon",
+          "text": "Evoca Normalmente Goblindbergh e attiva il suo effetto per Evocare Specialmente dalla mano il secondo mostro di Livello 4. Goblindbergh passa in Difesa. Questa è l’unica Evocazione Normale della linea.",
+          "cards": [
+            25259669,
+            63665875
+          ],
+          "flow": [
+            {
+              "card": 25259669,
+              "caption": "Evocazione Normale",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            },
+            {
+              "card": 63665875,
+              "caption": "Dalla mano",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Evoca Lavalval Chain",
+          "text": "Sovrapponi i due mostri di Livello 4 per Evocare Xyz Lavalval Chain. Entrambi diventano materiali.",
+          "cards": [
+            25259669,
+            63665875,
+            34086406
+          ],
+          "flow": [
+            {
+              "card": 25259669,
+              "caption": "Livello 4",
+              "zone": "field",
+              "join": "none",
+              "action": "none"
+            },
+            {
+              "card": 63665875,
+              "caption": "Livello 4",
+              "zone": "field",
+              "join": "plus",
+              "action": "none"
+            },
+            {
+              "card": 34086406,
+              "caption": "Xyz con 2 materiali",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Stacca Goblin e manda Mezuki",
+          "text": "Attiva l’effetto di Lavalval Chain: stacca Goblin Zombie come costo e scegli l’opzione che manda una carta dal Deck al Cimitero. Manda Mezuki. Goblin Zombie NON cerca: staccare un materiale Xyz non equivale a mandarlo dal campo al Cimitero.",
+          "cards": [
+            34086406,
+            63665875,
+            92826944
+          ],
+          "flow": [
+            {
+              "card": 63665875,
+              "caption": "Stacca come costo: nessuna ricerca",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "send"
+            },
+            {
+              "card": 92826944,
+              "caption": "Dal Deck al Cimitero",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Mezuki recupera Goblin",
+          "text": "Bandi Mezuki dal Cimitero come costo, scegli Goblin Zombie nel tuo Cimitero ed Evocalo Specialmente. Termini con Lavalval Chain con un materiale e Goblin Zombie sul campo.",
+          "cards": [
+            92826944,
+            63665875
+          ],
+          "flow": [
+            {
+              "card": 92826944,
+              "caption": "Bandi come costo",
+              "zone": "banished",
+              "join": "none",
+              "action": "banish"
+            },
+            {
+              "card": 63665875,
+              "caption": "Ritorna sul campo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        }
+      ]
+    }
+  },
+  {
+    "key": "17259470-goblin-chain-mezuki",
+    "main": {
+      "17259470": 1,
+      "63665875": 1,
+      "92826944": 1
+    },
+    "extra": {
+      "34086406": 1
+    },
+    "deck": {
+      "92826944": 1
+    },
+    "guide": {
+      "id": "17259470-goblin-chain-mezuki",
+      "title": "Zombie Master + Goblin Zombie → Chain e Goblin",
+      "description": "Apertura a due carte, Normal Summon disponibile. Mezuki deve essere ancora nel Deck. Lavalval Chain deve essere nell’Extra Deck. La linea si interrompe se i bersagli o gli effetti vengono negati.",
+      "startingCards": [
+        17259470,
+        63665875
+      ],
+      "endCards": [
+        34086406,
+        63665875
+      ],
+      "requiredCards": [
+        17259470,
+        63665875,
+        92826944,
+        34086406
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 17259470,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 63665875,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 34086406,
+          "caption": "1 materiale rimasto",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 63665875,
+          "caption": "Rievocato da Mezuki",
+          "zone": "field",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Invia il mostro e rievocalo",
+          "text": "Evoca Normalmente Zombie Master. Attiva il suo effetto una volta: manda il mostro Zombie dalla mano al Cimitero come costo, poi scegli quello stesso mostro come bersaglio ed Evocalo Specialmente. Il costo precede la scelta del bersaglio. Zombie Master deve restare scoperto fino alla risoluzione.",
+          "cards": [
+            17259470,
+            63665875
+          ],
+          "flow": [
+            {
+              "card": 17259470,
+              "caption": "Evocazione Normale",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            },
+            {
+              "card": 63665875,
+              "caption": "Costo dalla mano",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            },
+            {
+              "card": 63665875,
+              "caption": "Bersaglio dopo il costo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Evoca Lavalval Chain",
+          "text": "Sovrapponi i due mostri di Livello 4 per Evocare Xyz Lavalval Chain. Entrambi diventano materiali.",
+          "cards": [
+            17259470,
+            63665875,
+            34086406
+          ],
+          "flow": [
+            {
+              "card": 17259470,
+              "caption": "Livello 4",
+              "zone": "field",
+              "join": "none",
+              "action": "none"
+            },
+            {
+              "card": 63665875,
+              "caption": "Livello 4",
+              "zone": "field",
+              "join": "plus",
+              "action": "none"
+            },
+            {
+              "card": 34086406,
+              "caption": "Xyz con 2 materiali",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Stacca Goblin e manda Mezuki",
+          "text": "Attiva l’effetto di Lavalval Chain: stacca Goblin Zombie come costo e scegli l’opzione che manda una carta dal Deck al Cimitero. Manda Mezuki. Goblin Zombie NON cerca: staccare un materiale Xyz non equivale a mandarlo dal campo al Cimitero.",
+          "cards": [
+            34086406,
+            63665875,
+            92826944
+          ],
+          "flow": [
+            {
+              "card": 63665875,
+              "caption": "Stacca come costo: nessuna ricerca",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "send"
+            },
+            {
+              "card": 92826944,
+              "caption": "Dal Deck al Cimitero",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Mezuki recupera Goblin",
+          "text": "Bandi Mezuki dal Cimitero come costo, scegli Goblin Zombie nel tuo Cimitero ed Evocalo Specialmente. Termini con Lavalval Chain con un materiale e Goblin Zombie sul campo.",
+          "cards": [
+            92826944,
+            63665875
+          ],
+          "flow": [
+            {
+              "card": 92826944,
+              "caption": "Bandi come costo",
+              "zone": "banished",
+              "join": "none",
+              "action": "banish"
+            },
+            {
+              "card": 63665875,
+              "caption": "Ritorna sul campo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        }
+      ]
+    }
+  },
+  {
+    "key": "master-plague-5309481-beelze",
+    "main": {
+      "17259470": 1,
+      "33420078": 1
+    },
+    "extra": {
+      "5309481": 1,
+      "34408491": 1
+    },
+    "deck": {},
+    "guide": {
+      "id": "master-plague-5309481-beelze",
+      "title": "Zombie Master → Ha Des → Beelze",
+      "description": "Tre carte in mano: Zombie Master, Plaguespreader Zombie e una carta da mettere in cima al Deck. Normal Summon disponibile. Non richiede mostri nel Cimitero iniziale. Non usare due volte l’effetto dello stesso Zombie Master.",
+      "startingCards": [
+        17259470,
+        33420078,
+        0
+      ],
+      "endCards": [
+        34408491
+      ],
+      "requiredCards": [
+        17259470,
+        33420078,
+        5309481,
+        34408491
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 17259470,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 33420078,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        },
+        {
+          "card": 0,
+          "caption": "Una carta aggiuntiva in mano",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 34408491,
+          "caption": "Campo finale della linea",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Invia il mostro e rievocalo",
+          "text": "Evoca Normalmente Zombie Master. Attiva il suo effetto una volta: manda il mostro Zombie dalla mano al Cimitero come costo, poi scegli quello stesso mostro come bersaglio ed Evocalo Specialmente. Il costo precede la scelta del bersaglio. Zombie Master deve restare scoperto fino alla risoluzione.",
+          "cards": [
+            17259470,
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 17259470,
+              "caption": "Evocazione Normale",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            },
+            {
+              "card": 33420078,
+              "caption": "Costo dalla mano",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            },
+            {
+              "card": 33420078,
+              "caption": "Bersaglio dopo il costo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Prima Synchro: Ha Des",
+          "text": "Usa Plaguespreader Zombie di Livello 2 e Zombie Master di Livello 4 per la Synchro di Livello 6. Il Tuner ha il nome richiesto e il non-Tuner è Zombie. Plaguespreader è stato rievocato da Zombie Master, quindi per ora va al Cimitero normalmente.",
+          "cards": [
+            33420078,
+            17259470,
+            5309481
+          ],
+          "flow": [
+            {
+              "card": 33420078,
+              "caption": "Tuner Livello 2",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "send"
+            },
+            {
+              "card": 17259470,
+              "caption": "Zombie Livello 4",
+              "zone": "graveyard",
+              "join": "plus",
+              "action": "send"
+            },
+            {
+              "card": 5309481,
+              "caption": "Synchro Livello 6",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Rievoca Plaguespreader",
+          "text": "Attiva l’effetto di Plaguespreader dal Cimitero. Metti la terza carta della mano in cima al Deck come costo ed Evocalo Specialmente. Da ora sarà bandito quando lascia il campo. L’eventuale effetto di Doomkaiser sul Cimitero avversario non è necessario per questa linea.",
+          "cards": [
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 0,
+              "caption": "Terza carta in cima al Deck",
+              "zone": "deck",
+              "join": "none",
+              "action": "return"
+            },
+            {
+              "card": 33420078,
+              "caption": "Rievocato dal proprio effetto",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Seconda Synchro: Beelze",
+          "text": "Usa Plaguespreader di Livello 2 e la Synchro di Livello 6 per Evocare Beelze. Plaguespreader è un Tuner OSCURITÀ, quindi soddisfa i materiali. Viene bandito; la prima Synchro va al Cimitero. Beelze è il campo finale di questa variante.",
+          "cards": [
+            33420078,
+            5309481,
+            34408491
+          ],
+          "flow": [
+            {
+              "card": 33420078,
+              "caption": "Tuner OSCURITÀ: viene bandito",
+              "zone": "banished",
+              "join": "none",
+              "action": "banish"
+            },
+            {
+              "card": 5309481,
+              "caption": "Non-Tuner Livello 6",
+              "zone": "graveyard",
+              "join": "plus",
+              "action": "send"
+            },
+            {
+              "card": 34408491,
+              "caption": "Synchro Livello 8",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        }
+      ]
+    }
+  },
+  {
+    "key": "master-plague-6021033-beelze",
+    "main": {
+      "17259470": 1,
+      "33420078": 1
+    },
+    "extra": {
+      "6021033": 1,
+      "34408491": 1
+    },
+    "deck": {},
+    "guide": {
+      "id": "master-plague-6021033-beelze",
+      "title": "Zombie Master → Doomkaiser → Beelze",
+      "description": "Tre carte in mano: Zombie Master, Plaguespreader Zombie e una carta da mettere in cima al Deck. Normal Summon disponibile. Non richiede mostri nel Cimitero iniziale. Non usare due volte l’effetto dello stesso Zombie Master.",
+      "startingCards": [
+        17259470,
+        33420078,
+        0
+      ],
+      "endCards": [
+        34408491
+      ],
+      "requiredCards": [
+        17259470,
+        33420078,
+        6021033,
+        34408491
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 17259470,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 33420078,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        },
+        {
+          "card": 0,
+          "caption": "Una carta aggiuntiva in mano",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 34408491,
+          "caption": "Campo finale della linea",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Invia il mostro e rievocalo",
+          "text": "Evoca Normalmente Zombie Master. Attiva il suo effetto una volta: manda il mostro Zombie dalla mano al Cimitero come costo, poi scegli quello stesso mostro come bersaglio ed Evocalo Specialmente. Il costo precede la scelta del bersaglio. Zombie Master deve restare scoperto fino alla risoluzione.",
+          "cards": [
+            17259470,
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 17259470,
+              "caption": "Evocazione Normale",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            },
+            {
+              "card": 33420078,
+              "caption": "Costo dalla mano",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            },
+            {
+              "card": 33420078,
+              "caption": "Bersaglio dopo il costo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Prima Synchro: Doomkaiser",
+          "text": "Usa Plaguespreader Zombie di Livello 2 e Zombie Master di Livello 4 per la Synchro di Livello 6. Il Tuner ha il nome richiesto e il non-Tuner è Zombie. Plaguespreader è stato rievocato da Zombie Master, quindi per ora va al Cimitero normalmente.",
+          "cards": [
+            33420078,
+            17259470,
+            6021033
+          ],
+          "flow": [
+            {
+              "card": 33420078,
+              "caption": "Tuner Livello 2",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "send"
+            },
+            {
+              "card": 17259470,
+              "caption": "Zombie Livello 4",
+              "zone": "graveyard",
+              "join": "plus",
+              "action": "send"
+            },
+            {
+              "card": 6021033,
+              "caption": "Synchro Livello 6",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Rievoca Plaguespreader",
+          "text": "Attiva l’effetto di Plaguespreader dal Cimitero. Metti la terza carta della mano in cima al Deck come costo ed Evocalo Specialmente. Da ora sarà bandito quando lascia il campo. L’eventuale effetto di Doomkaiser sul Cimitero avversario non è necessario per questa linea.",
+          "cards": [
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 0,
+              "caption": "Terza carta in cima al Deck",
+              "zone": "deck",
+              "join": "none",
+              "action": "return"
+            },
+            {
+              "card": 33420078,
+              "caption": "Rievocato dal proprio effetto",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Seconda Synchro: Beelze",
+          "text": "Usa Plaguespreader di Livello 2 e la Synchro di Livello 6 per Evocare Beelze. Plaguespreader è un Tuner OSCURITÀ, quindi soddisfa i materiali. Viene bandito; la prima Synchro va al Cimitero. Beelze è il campo finale di questa variante.",
+          "cards": [
+            33420078,
+            6021033,
+            34408491
+          ],
+          "flow": [
+            {
+              "card": 33420078,
+              "caption": "Tuner OSCURITÀ: viene bandito",
+              "zone": "banished",
+              "join": "none",
+              "action": "banish"
+            },
+            {
+              "card": 6021033,
+              "caption": "Non-Tuner Livello 6",
+              "zone": "graveyard",
+              "join": "plus",
+              "action": "send"
+            },
+            {
+              "card": 34408491,
+              "caption": "Synchro Livello 8",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        }
+      ]
+    }
+  },
+  {
+    "key": "foolish-goblin-5309481",
+    "main": {
+      "33420078": 1,
+      "63665875": 1,
+      "81439173": 1,
+      "92826944": 1
+    },
+    "extra": {
+      "5309481": 1
+    },
+    "deck": {
+      "33420078": 1,
+      "92826944": 1
+    },
+    "guide": {
+      "id": "foolish-goblin-5309481",
+      "title": "Foolish + Goblin Zombie → Ha Des e ricerca",
+      "description": "Servono Foolish Burial, Goblin Zombie e una carta aggiuntiva in mano. Plaguespreader e almeno un Mezuki devono essere nel Deck. Normal Summon disponibile. Mezuki nel riepilogo finale è in mano, non sul campo.",
+      "startingCards": [
+        81439173,
+        63665875,
+        0
+      ],
+      "endCards": [
+        5309481,
+        92826944
+      ],
+      "requiredCards": [
+        33420078,
+        63665875,
+        81439173,
+        92826944,
+        5309481
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 81439173,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 63665875,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        },
+        {
+          "card": 0,
+          "caption": "Una carta aggiuntiva in mano",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 5309481,
+          "caption": "Synchro sul campo",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 92826944,
+          "caption": "Risorsa per il seguito",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Prepara il Tuner",
+          "text": "Attiva Foolish Burial e manda Plaguespreader Zombie dal Deck al Cimitero.",
+          "cards": [
+            81439173,
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 81439173,
+              "caption": "Attiva",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 33420078,
+              "caption": "Dal Deck al Cimitero",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Evoca Goblin Zombie",
+          "text": "Evoca Normalmente Goblin Zombie. Non hai ancora usato il suo effetto di ricerca: richiede di essere mandato dal campo al Cimitero.",
+          "cards": [
+            63665875
+          ],
+          "flow": [
+            {
+              "card": 63665875,
+              "caption": "Normal Summon",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Rievoca il Tuner",
+          "text": "Metti la carta aggiuntiva della mano in cima al Deck come costo per l’effetto di Plaguespreader. Evocalo Specialmente; sarà bandito quando lascia il campo.",
+          "cards": [
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 0,
+              "caption": "Carta aggiuntiva in cima",
+              "zone": "deck",
+              "join": "none",
+              "action": "return"
+            },
+            {
+              "card": 33420078,
+              "caption": "Rievocazione",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Synchro e innesco di Goblin",
+          "text": "Usa il Tuner di Livello 2 e Goblin Zombie di Livello 4 per la Synchro Zombie di Livello 6. Plaguespreader viene bandito. Goblin Zombie va dal campo al Cimitero: il suo effetto di ricerca può quindi innescarsi.",
+          "cards": [
+            33420078,
+            63665875,
+            5309481
+          ],
+          "flow": [
+            {
+              "card": 33420078,
+              "caption": "Bandito dopo la rievocazione",
+              "zone": "banished",
+              "join": "none",
+              "action": "banish"
+            },
+            {
+              "card": 63665875,
+              "caption": "Dal campo al Cimitero",
+              "zone": "graveyard",
+              "join": "plus",
+              "action": "send"
+            },
+            {
+              "card": 5309481,
+              "caption": "Synchro",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Cerca il seguito",
+          "text": "Risolvi Goblin Zombie aggiungendo Mezuki dal Deck alla mano: è uno Zombie con DEF non superiore a 1200. Hai preparato una risorsa per il turno seguente, non una rievocazione immediata. Un’eventuale rievocazione di Doomkaiser dal Cimitero avversario dipende da un bersaglio valido e non è inclusa nel campo garantito dalla linea.",
+          "cards": [
+            63665875,
+            92826944
+          ],
+          "flow": [
+            {
+              "card": 63665875,
+              "caption": "Effetto dal Cimitero",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 92826944,
+              "caption": "Aggiunto alla mano",
+              "zone": "hand",
+              "join": "arrow",
+              "action": "search"
+            }
+          ],
+          "kind": "effect"
+        }
+      ]
+    }
+  },
+  {
+    "key": "foolish-goblin-6021033",
+    "main": {
+      "33420078": 1,
+      "63665875": 1,
+      "81439173": 1,
+      "92826944": 1
+    },
+    "extra": {
+      "6021033": 1
+    },
+    "deck": {
+      "33420078": 1,
+      "92826944": 1
+    },
+    "guide": {
+      "id": "foolish-goblin-6021033",
+      "title": "Foolish + Goblin Zombie → Doomkaiser e ricerca",
+      "description": "Servono Foolish Burial, Goblin Zombie e una carta aggiuntiva in mano. Plaguespreader e almeno un Mezuki devono essere nel Deck. Normal Summon disponibile. Mezuki nel riepilogo finale è in mano, non sul campo.",
+      "startingCards": [
+        81439173,
+        63665875,
+        0
+      ],
+      "endCards": [
+        6021033,
+        92826944
+      ],
+      "requiredCards": [
+        33420078,
+        63665875,
+        81439173,
+        92826944,
+        6021033
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 81439173,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 63665875,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        },
+        {
+          "card": 0,
+          "caption": "Una carta aggiuntiva in mano",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 6021033,
+          "caption": "Synchro sul campo",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 92826944,
+          "caption": "Risorsa per il seguito",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Prepara il Tuner",
+          "text": "Attiva Foolish Burial e manda Plaguespreader Zombie dal Deck al Cimitero.",
+          "cards": [
+            81439173,
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 81439173,
+              "caption": "Attiva",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 33420078,
+              "caption": "Dal Deck al Cimitero",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Evoca Goblin Zombie",
+          "text": "Evoca Normalmente Goblin Zombie. Non hai ancora usato il suo effetto di ricerca: richiede di essere mandato dal campo al Cimitero.",
+          "cards": [
+            63665875
+          ],
+          "flow": [
+            {
+              "card": 63665875,
+              "caption": "Normal Summon",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Rievoca il Tuner",
+          "text": "Metti la carta aggiuntiva della mano in cima al Deck come costo per l’effetto di Plaguespreader. Evocalo Specialmente; sarà bandito quando lascia il campo.",
+          "cards": [
+            33420078
+          ],
+          "flow": [
+            {
+              "card": 0,
+              "caption": "Carta aggiuntiva in cima",
+              "zone": "deck",
+              "join": "none",
+              "action": "return"
+            },
+            {
+              "card": 33420078,
+              "caption": "Rievocazione",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Synchro e innesco di Goblin",
+          "text": "Usa il Tuner di Livello 2 e Goblin Zombie di Livello 4 per la Synchro Zombie di Livello 6. Plaguespreader viene bandito. Goblin Zombie va dal campo al Cimitero: il suo effetto di ricerca può quindi innescarsi.",
+          "cards": [
+            33420078,
+            63665875,
+            6021033
+          ],
+          "flow": [
+            {
+              "card": 33420078,
+              "caption": "Bandito dopo la rievocazione",
+              "zone": "banished",
+              "join": "none",
+              "action": "banish"
+            },
+            {
+              "card": 63665875,
+              "caption": "Dal campo al Cimitero",
+              "zone": "graveyard",
+              "join": "plus",
+              "action": "send"
+            },
+            {
+              "card": 6021033,
+              "caption": "Synchro",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Cerca il seguito",
+          "text": "Risolvi Goblin Zombie aggiungendo Mezuki dal Deck alla mano: è uno Zombie con DEF non superiore a 1200. Hai preparato una risorsa per il turno seguente, non una rievocazione immediata. Un’eventuale rievocazione di Doomkaiser dal Cimitero avversario dipende da un bersaglio valido e non è inclusa nel campo garantito dalla linea.",
+          "cards": [
+            63665875,
+            92826944
+          ],
+          "flow": [
+            {
+              "card": 63665875,
+              "caption": "Effetto dal Cimitero",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 92826944,
+              "caption": "Aggiunto alla mano",
+              "zone": "hand",
+              "join": "arrow",
+              "action": "search"
+            }
+          ],
+          "kind": "effect"
+        }
+      ]
+    }
+  },
+  {
+    "key": "goblind-goblin-dweller",
+    "main": {
+      "25259669": 1,
+      "63665875": 1
+    },
+    "extra": {
+      "21044178": 1
+    },
+    "deck": {},
+    "guide": {
+      "id": "goblind-goblin-dweller",
+      "title": "Goblindbergh + Goblin Zombie → Abyss Dweller",
+      "description": "Due carte, Normal Summon disponibile. Non richiede il Cimitero né Zombie World. Goblin Zombie non cerca quando viene sovrapposto o staccato da un Xyz.",
+      "startingCards": [
+        25259669,
+        63665875
+      ],
+      "endCards": [
+        21044178
+      ],
+      "requiredCards": [
+        25259669,
+        63665875,
+        21044178
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 25259669,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 63665875,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 21044178,
+          "caption": "Campo finale della linea",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Due mostri con una Normal Summon",
+          "text": "Evoca Normalmente Goblindbergh e attiva il suo effetto per Evocare Specialmente dalla mano il secondo mostro di Livello 4. Goblindbergh passa in Difesa. Questa è l’unica Evocazione Normale della linea.",
+          "cards": [
+            25259669,
+            63665875
+          ],
+          "flow": [
+            {
+              "card": 25259669,
+              "caption": "Evocazione Normale",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            },
+            {
+              "card": 63665875,
+              "caption": "Dalla mano",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Prepara la risposta al Cimitero",
+          "text": "Sovrapponi i due Livello 4 per Evocare Abyss Dweller con due materiali. Puoi staccare un materiale per impedire all’avversario di attivare effetti nel Cimitero per il resto di quel turno, rispettando il timing. Non ottieni il bonus ATK legato a un materiale ACQUA da questi materiali.",
+          "cards": [
+            25259669,
+            63665875,
+            21044178
+          ],
+          "flow": [
+            {
+              "card": 25259669,
+              "caption": "Livello 4",
+              "zone": "field",
+              "join": "none",
+              "action": "none"
+            },
+            {
+              "card": 63665875,
+              "caption": "Livello 4",
+              "zone": "field",
+              "join": "plus",
+              "action": "none"
+            },
+            {
+              "card": 21044178,
+              "caption": "Xyz con 2 materiali",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        }
+      ]
+    }
+  },
+  {
+    "key": "master-mezuki-ark",
+    "main": {
+      "17259470": 1,
+      "92826944": 1
+    },
+    "extra": {
+      "48739166": 1
+    },
+    "deck": {},
+    "guide": {
+      "id": "master-mezuki-ark",
+      "title": "Zombie Master + Mezuki → Number 101",
+      "description": "Due carte, Normal Summon disponibile. Number 101 richiede due mostri di Livello 4: Zombie Master e Mezuki soddisfano i materiali. Il suo effetto di rimozione richiede un bersaglio avversario valido e non è un risultato automatico.",
+      "startingCards": [
+        17259470,
+        92826944
+      ],
+      "endCards": [
+        48739166
+      ],
+      "requiredCards": [
+        17259470,
+        92826944,
+        48739166
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 17259470,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 92826944,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 48739166,
+          "caption": "Campo finale della linea",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Invia il mostro e rievocalo",
+          "text": "Evoca Normalmente Zombie Master. Attiva il suo effetto una volta: manda il mostro Zombie dalla mano al Cimitero come costo, poi scegli quello stesso mostro come bersaglio ed Evocalo Specialmente. Il costo precede la scelta del bersaglio. Zombie Master deve restare scoperto fino alla risoluzione.",
+          "cards": [
+            17259470,
+            92826944
+          ],
+          "flow": [
+            {
+              "card": 17259470,
+              "caption": "Evocazione Normale",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            },
+            {
+              "card": 92826944,
+              "caption": "Costo dalla mano",
+              "zone": "graveyard",
+              "join": "arrow",
+              "action": "send"
+            },
+            {
+              "card": 92826944,
+              "caption": "Bersaglio dopo il costo",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Evoca Number 101",
+          "text": "Sovrapponi Zombie Master e Mezuki per l’Evocazione Xyz di Number 101: Silent Honor ARK. Mezuki è sotto l’Xyz come materiale: non è ancora nel Cimitero e non puoi attivarne l’effetto dal Cimitero.",
+          "cards": [
+            17259470,
+            92826944,
+            48739166
+          ],
+          "flow": [
+            {
+              "card": 17259470,
+              "caption": "Mostro con Effetto Livello 4",
+              "zone": "field",
+              "join": "none",
+              "action": "none"
+            },
+            {
+              "card": 92826944,
+              "caption": "Mostro con Effetto Livello 4",
+              "zone": "field",
+              "join": "plus",
+              "action": "none"
+            },
+            {
+              "card": 48739166,
+              "caption": "Xyz con 2 materiali",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        }
+      ]
+    }
+  },
+  {
+    "key": "world-goblind-master-painter-skull",
+    "main": {
+      "4064256": 1,
+      "17259470": 1,
+      "21620076": 1,
+      "25259669": 1
+    },
+    "extra": {
+      "59969392": 1
+    },
+    "deck": {},
+    "guide": {
+      "id": "world-goblind-master-painter-skull",
+      "title": "Zombie World + Pain Painter → Archfiend Zombie-Skull",
+      "description": "Linea a quattro carte. Zombie World deve restare attiva. Archfiend Zombie-Skull richiede Plaguespreader Zombie e almeno due non-Tuner Zombie: un singolo non-Tuner non basta. Normal Summon disponibile.",
+      "startingCards": [
+        4064256,
+        25259669,
+        17259470,
+        21620076
+      ],
+      "endCards": [
+        59969392
+      ],
+      "requiredCards": [
+        4064256,
+        17259470,
+        21620076,
+        25259669,
+        59969392
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 4064256,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 25259669,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        },
+        {
+          "card": 17259470,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        },
+        {
+          "card": 21620076,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 59969392,
+          "caption": "Campo finale della linea",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Attiva Zombie World",
+          "text": "Attiva Zombie World prima di usare gli effetti successivi: i mostri sul campo e nei Cimiteri diventano Zombie. Goblindbergh deve essere Zombie per il passaggio di Pain Painter.",
+          "cards": [
+            4064256
+          ],
+          "flow": [
+            {
+              "card": 4064256,
+              "caption": "Deve restare attiva",
+              "zone": "field",
+              "join": "none",
+              "action": "activate"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Due mostri con una Normal Summon",
+          "text": "Evoca Normalmente Goblindbergh e attiva il suo effetto per Evocare Specialmente dalla mano il secondo mostro di Livello 4. Goblindbergh passa in Difesa. Questa è l’unica Evocazione Normale della linea.",
+          "cards": [
+            25259669,
+            17259470
+          ],
+          "flow": [
+            {
+              "card": 25259669,
+              "caption": "Evocazione Normale",
+              "zone": "field",
+              "join": "none",
+              "action": "normal-summon"
+            },
+            {
+              "card": 17259470,
+              "caption": "Dalla mano",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        },
+        {
+          "title": "Zombie Master rievoca Pain Painter",
+          "text": "Con Zombie Master manda Pain Painter dalla mano al Cimitero come costo, poi scegli lo stesso Pain Painter come bersaglio e rievocalo. È uno Zombie di Livello 2. Zombie Master deve restare scoperto.",
+          "cards": [
+            17259470,
+            21620076
+          ],
+          "flow": [
+            {
+              "card": 21620076,
+              "caption": "Costo dalla mano",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "send"
+            },
+            {
+              "card": 21620076,
+              "caption": "Rievocato",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Porta i due non-Tuner a Livello 2",
+          "text": "Pain Painter sul campo assume il nome Plaguespreader Zombie. Usa il suo effetto su Goblindbergh e Zombie Master, entrambi Zombie grazie a Zombie World: diventano di Livello 2. Possono essere usati come materiali Synchro soltanto per un mostro Zombie.",
+          "cards": [
+            21620076,
+            25259669,
+            17259470
+          ],
+          "flow": [
+            {
+              "card": 21620076,
+              "caption": "Nome: Plaguespreader Zombie",
+              "zone": "field",
+              "join": "none",
+              "action": "activate"
+            },
+            {
+              "card": 25259669,
+              "caption": "Zombie Livello 2",
+              "zone": "field",
+              "join": "plus",
+              "action": "none"
+            },
+            {
+              "card": 17259470,
+              "caption": "Zombie Livello 2",
+              "zone": "field",
+              "join": "plus",
+              "action": "none"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Synchro con tre materiali",
+          "text": "Usa Pain Painter (Tuner Livello 2 con il nome richiesto) e i due non-Tuner Zombie di Livello 2 per Evocare Archfiend Zombie-Skull, Livello 6. Il suo Tipo originale è Zombie, quindi rispetta anche la restrizione di Pain Painter.",
+          "cards": [
+            21620076,
+            25259669,
+            17259470,
+            59969392
+          ],
+          "flow": [
+            {
+              "card": 21620076,
+              "caption": "Tuner Livello 2",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "send"
+            },
+            {
+              "card": 25259669,
+              "caption": "Non-Tuner Zombie Livello 2",
+              "zone": "graveyard",
+              "join": "plus",
+              "action": "send"
+            },
+            {
+              "card": 17259470,
+              "caption": "Non-Tuner Zombie Livello 2",
+              "zone": "graveyard",
+              "join": "plus",
+              "action": "send"
+            },
+            {
+              "card": 59969392,
+              "caption": "Synchro Zombie Livello 6",
+              "zone": "field",
+              "join": "arrow",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        }
+      ]
+    }
+  },
+  {
+    "key": "world-superpoly-dragonecro",
+    "main": {
+      "4064256": 1,
+      "48130397": 1
+    },
+    "extra": {
+      "8198620": 1
+    },
+    "deck": {},
+    "guide": {
+      "id": "world-superpoly-dragonecro",
+      "title": "Situazionale: Zombie World + Super Polymerization",
+      "description": "LINEA CONDIZIONALE: richiede già due mostri scoperti sul campo utilizzabili come Materiali da Fusione, propri o avversari. La sola mano iniziale non li fornisce. Serve inoltre una carta da scartare. Non presumere che un mostro immune agli effetti diventi Zombie.",
+      "startingCards": [
+        4064256,
+        48130397,
+        0
+      ],
+      "endCards": [
+        8198620
+      ],
+      "requiredCards": [
+        4064256,
+        48130397,
+        8198620
+      ],
+      "playsAround": [],
+      "startFlow": [
+        {
+          "card": 4064256,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "none",
+          "action": "none"
+        },
+        {
+          "card": 48130397,
+          "caption": "Carta iniziale",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        },
+        {
+          "card": 0,
+          "caption": "Una carta aggiuntiva in mano",
+          "zone": "hand",
+          "join": "plus",
+          "action": "none"
+        }
+      ],
+      "endFlow": [
+        {
+          "card": 8198620,
+          "caption": "Campo finale della linea",
+          "zone": "field",
+          "join": "none",
+          "action": "none"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Verifica i materiali sul campo",
+          "text": "Con Zombie World attiva, verifica che i due mostri sul campo siano effettivamente Zombie e utilizzabili per la Fusione. Super Polymerization non bersaglia. Non usare materiali non idonei e non presumere la presenza di mostri avversari.",
+          "cards": [
+            4064256
+          ],
+          "flow": [
+            {
+              "card": 4064256,
+              "caption": "Effetto attivo",
+              "zone": "field",
+              "join": "none",
+              "action": "none"
+            },
+            {
+              "card": 0,
+              "caption": "Materiale Zombie già sul campo",
+              "zone": "field",
+              "join": "plus",
+              "action": "none"
+            },
+            {
+              "card": 0,
+              "caption": "Secondo materiale Zombie",
+              "zone": "field",
+              "join": "plus",
+              "action": "none"
+            }
+          ],
+          "kind": "note"
+        },
+        {
+          "title": "Scarta e attiva Super Polymerization",
+          "text": "Scarta la carta aggiuntiva come costo e attiva Super Polymerization. Nessun giocatore può attivare carte o effetti in risposta alla sua attivazione. Controlla comunque restrizioni e immunità applicabili.",
+          "cards": [
+            48130397
+          ],
+          "flow": [
+            {
+              "card": 0,
+              "caption": "Scarta come costo",
+              "zone": "graveyard",
+              "join": "none",
+              "action": "discard"
+            },
+            {
+              "card": 48130397,
+              "caption": "Attiva Fusione",
+              "zone": "field",
+              "join": "arrow",
+              "action": "activate"
+            }
+          ],
+          "kind": "effect"
+        },
+        {
+          "title": "Evoca Dragonecro",
+          "text": "Usa i due Zombie sul campo come materiali per Evocare tramite Fusione Dragonecro Nethersoul Dragon. Questa scheda non presuppone un attacco né la creazione di un Token.",
+          "cards": [
+            8198620
+          ],
+          "flow": [
+            {
+              "card": 8198620,
+              "caption": "Fusione: 2 mostri Zombie",
+              "zone": "field",
+              "join": "none",
+              "action": "special-summon"
+            }
+          ],
+          "kind": "summon"
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,404 @@
+{
+  "schemaVersion": 1,
+  "id": "864d7e71-b205-4d82-96a9-109ac84db661",
+  "title": "Chimera — starter routes",
+  "description": "All ten source combos across Mirror, Apprentice and Gazelle, expanded into explicit variants for alternative openings, draw-effect responses and the Azamina/S:P branch. Instructions are independently written from the procedural sequences and checked against installed card text. Notes correct resource-count and GY/banished-zone ambiguities. These teaching routes are not executable replays or guaranteed boards through every interruption.",
+  "author": "MDPro4 examples · source: Drident",
+  "accent": "cyan",
+  "tags": [
+    "Chimera",
+    "Hecahands",
+    "Fusion"
+  ],
+  "tabs": [
+    {
+      "id": "mirror",
+      "title": "Mirror",
+      "combos": [
+        {
+          "id": "mirror-heca",
+          "title": "Mirror + a discard: Hecahands finish",
+          "description": "Start with Mirror Swordknight and one expendable card. This route uses your Normal Summon. Keep the Hecahands package in the Deck/Extra Deck. Big-Winged Berfomet restricts later Extra Deck summons to Fusion Monsters. Chimera's hand reduction resolves in the End Phase.",
+          "startingCards": [
+            28954097
+          ],
+          "endCards": [
+            1769875,
+            28954097,
+            67021206,
+            63136489,
+            29792472
+          ],
+          "requiredCards": [
+            55461744,
+            23076639,
+            63136489,
+            1769875,
+            58143852,
+            18321034,
+            67021206,
+            29792472
+          ],
+          "playsAround": [
+            92248362
+          ],
+          "cardNotes": {
+            "start:28954097": "Plus one expendable card. Coatl can search Mirror before this line; keep the separate discard available.",
+            "end:1769875": "Field; hand reduction during your End Phase.",
+            "end:28954097": "Field; can banish itself from field or GY to negate an on-field monster effect while the required Chimera name is present.",
+            "end:63136489": "Set; Main Phase Fusion option.",
+            "end:29792472": "Set; requires the appropriate Hecahands board.",
+            "around:92248362": "The early effects use field/GY locations. This is a route consideration, not immunity to every timing."
+          },
+          "steps": [
+            {
+              "title": "Open the Chimera engine",
+              "text": "Normal Summon Mirror. Tribute it to Special Summon Big-Winged Berfomet from the Deck.",
+              "kind": "summon",
+              "cards": [
+                28954097,
+                55461744
+              ],
+              "flow": [
+                {
+                  "card": 28954097,
+                  "join": "none",
+                  "action": "normal-summon",
+                  "zone": "field",
+                  "caption": "Normal Summon"
+                },
+                {
+                  "card": 28954097,
+                  "join": "arrow",
+                  "action": "tribute",
+                  "zone": "graveyard",
+                  "caption": "Tribute for effect"
+                },
+                {
+                  "card": 55461744,
+                  "join": "arrow",
+                  "action": "special-summon",
+                  "zone": "field",
+                  "caption": "From Deck"
+                }
+              ]
+            },
+            {
+              "title": "Collect the Fusion pieces",
+              "text": "Use Big-Winged Berfomet to add Gazelle and Chimera Fusion.",
+              "kind": "effect",
+              "cards": [
+                55461744,
+                23076639,
+                63136489
+              ],
+              "flow": [
+                {
+                  "card": 55461744,
+                  "join": "none",
+                  "action": "activate",
+                  "zone": "field",
+                  "caption": "Summon trigger"
+                },
+                {
+                  "card": 23076639,
+                  "join": "arrow",
+                  "action": "search",
+                  "zone": "hand",
+                  "caption": "Add to hand"
+                },
+                {
+                  "card": 63136489,
+                  "join": "plus",
+                  "action": "search",
+                  "zone": "hand",
+                  "caption": "Add to hand"
+                }
+              ]
+            },
+            {
+              "title": "Make the first Fusion",
+              "text": "Activate Chimera Fusion using Big-Winged Berfomet and Gazelle to Fusion Summon Chimera the King of Phantom Beasts.",
+              "kind": "summon",
+              "cards": [
+                63136489,
+                55461744,
+                23076639,
+                1769875
+              ],
+              "flow": [
+                {
+                  "card": 63136489,
+                  "join": "none",
+                  "action": "activate",
+                  "zone": "field",
+                  "caption": "Activate Fusion Spell"
+                },
+                {
+                  "card": 55461744,
+                  "join": "arrow",
+                  "action": "none",
+                  "zone": "field",
+                  "caption": "Material"
+                },
+                {
+                  "card": 23076639,
+                  "join": "plus",
+                  "action": "none",
+                  "zone": "hand",
+                  "caption": "Material"
+                },
+                {
+                  "card": 1769875,
+                  "join": "arrow",
+                  "action": "special-summon",
+                  "zone": "field",
+                  "caption": "Fusion Summon"
+                }
+              ]
+            },
+            {
+              "title": "Resolve the material triggers",
+              "text": "A possible order is Gazelle CL1, Big-Winged Berfomet CL2 targeting Mirror, and Chimera CL3. Revive Mirror; add Nightmare Apprentice with Gazelle. Chimera schedules its End Phase hand reduction.",
+              "kind": "chain",
+              "cards": [
+                23076639,
+                55461744,
+                1769875,
+                28954097,
+                58143852
+              ],
+              "flow": [
+                {
+                  "card": 23076639,
+                  "join": "none",
+                  "action": "activate",
+                  "zone": "graveyard",
+                  "caption": "CL1 search"
+                },
+                {
+                  "card": 55461744,
+                  "join": "plus",
+                  "action": "activate",
+                  "zone": "graveyard",
+                  "caption": "CL2 target Mirror"
+                },
+                {
+                  "card": 1769875,
+                  "join": "plus",
+                  "action": "activate",
+                  "zone": "field",
+                  "caption": "CL3 schedule hand loss"
+                },
+                {
+                  "card": 28954097,
+                  "join": "arrow",
+                  "action": "special-summon",
+                  "zone": "field",
+                  "caption": "Revive Mirror"
+                },
+                {
+                  "card": 58143852,
+                  "join": "plus",
+                  "action": "search",
+                  "zone": "hand",
+                  "caption": "Add Apprentice"
+                }
+              ]
+            },
+            {
+              "title": "Recover the Quick-Play Spell",
+              "text": "Return Chimera Fusion from the GY to your hand while the required Chimera name is present.",
+              "kind": "effect",
+              "cards": [
+                63136489
+              ],
+              "flow": [
+                {
+                  "card": 63136489,
+                  "join": "none",
+                  "action": "activate",
+                  "zone": "graveyard",
+                  "caption": "GY recovery effect"
+                },
+                {
+                  "card": 63136489,
+                  "join": "arrow",
+                  "action": "return",
+                  "zone": "hand",
+                  "caption": "Return to hand"
+                }
+              ]
+            },
+            {
+              "title": "Bridge to Hecahands",
+              "text": "Discard the spare card to Special Summon Nightmare Apprentice. Its search adds Hecahands Mankibuel.",
+              "kind": "effect",
+              "cards": [
+                58143852,
+                18321034
+              ],
+              "flow": [
+                {
+                  "card": 0,
+                  "join": "none",
+                  "action": "discard",
+                  "zone": "graveyard",
+                  "caption": "Discard spare card"
+                },
+                {
+                  "card": 58143852,
+                  "join": "arrow",
+                  "action": "special-summon",
+                  "zone": "field",
+                  "caption": "Special Summon"
+                },
+                {
+                  "card": 18321034,
+                  "join": "arrow",
+                  "action": "search",
+                  "zone": "hand",
+                  "caption": "Search Mankibuel"
+                }
+              ]
+            },
+            {
+              "title": "Summon Jauzah",
+              "text": "Reveal Mankibuel in hand and use it with Apprentice on the field to Fusion Summon Hecahands Jauzah.",
+              "kind": "summon",
+              "cards": [
+                18321034,
+                58143852,
+                67021206
+              ],
+              "flow": [
+                {
+                  "card": 18321034,
+                  "join": "none",
+                  "action": "activate",
+                  "zone": "hand",
+                  "caption": "Reveal; Fusion effect"
+                },
+                {
+                  "card": 58143852,
+                  "join": "plus",
+                  "action": "none",
+                  "zone": "field",
+                  "caption": "Field material"
+                },
+                {
+                  "card": 67021206,
+                  "join": "arrow",
+                  "action": "special-summon",
+                  "zone": "field",
+                  "caption": "Fusion Summon"
+                }
+              ]
+            },
+            {
+              "title": "Prepare the response",
+              "text": "Use Jauzah to add Yad'al-Hecahands. Set it and Chimera Fusion. Keep Mirror available for the opponent's turn.",
+              "kind": "action",
+              "cards": [
+                67021206,
+                29792472,
+                63136489,
+                28954097
+              ],
+              "flow": [
+                {
+                  "card": 67021206,
+                  "join": "none",
+                  "action": "activate",
+                  "zone": "field",
+                  "caption": "Search effect"
+                },
+                {
+                  "card": 29792472,
+                  "join": "arrow",
+                  "action": "search",
+                  "zone": "hand",
+                  "caption": "Search Counter Trap"
+                },
+                {
+                  "card": 29792472,
+                  "join": "arrow",
+                  "action": "set",
+                  "zone": "field",
+                  "caption": "Set"
+                },
+                {
+                  "card": 63136489,
+                  "join": "plus",
+                  "action": "set",
+                  "zone": "field",
+                  "caption": "Set recovered copy"
+                }
+              ]
+            }
+          ],
+          "startFlow": [
+            {
+              "card": 28954097,
+              "join": "none",
+              "action": "none",
+              "zone": "hand",
+              "caption": "Opening starter",
+              "group": "Opening requirements"
+            },
+            {
+              "card": 0,
+              "join": "plus",
+              "action": "none",
+              "zone": "hand",
+              "caption": "Separate expendable card",
+              "group": "Opening requirements"
+            }
+          ],
+          "endFlow": [
+            {
+              "card": 1769875,
+              "join": "none",
+              "action": "none",
+              "zone": "field",
+              "caption": "End Phase hand reduction scheduled",
+              "group": "Field after the End Phase"
+            },
+            {
+              "card": 28954097,
+              "join": "plus",
+              "action": "none",
+              "zone": "field",
+              "caption": "Conditional monster-effect response",
+              "group": "Field after the End Phase"
+            },
+            {
+              "card": 67021206,
+              "join": "plus",
+              "action": "none",
+              "zone": "field",
+              "caption": "Hecahands Fusion; supports Counter Trap",
+              "group": "Field after the End Phase"
+            },
+            {
+              "card": 63136489,
+              "join": "plus",
+              "action": "set",
+              "zone": "field",
+              "caption": "Set; later Fusion still needs materials",
+              "group": "Field after the End Phase"
+            },
+            {
+              "card": 29792472,
+              "join": "plus",
+              "action": "set",
+              "zone": "field",
+              "caption": "Set; keep Hecahands Fusion present",
+              "group": "Field after the End Phase"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

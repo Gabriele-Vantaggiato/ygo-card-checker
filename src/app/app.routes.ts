@@ -25,8 +25,13 @@ export const routes: Routes = [
           import('./features/checker/pages/checker.page').then((m) => m.CheckerPage),
       },
       {
+        path: 'combo-sheets',
+        redirectTo: 'combo',
+        pathMatch: 'full',
+      },
+      {
         path: 'combo',
-        loadComponent: () => import('./features/combo/pages/combo.page').then((m) => m.ComboPage),
+        loadComponent: () => import('./features/combo-sheets/combo-sheets.page').then(m => m.ComboSheetsPage),
       },
       {
         path: 'decklist',

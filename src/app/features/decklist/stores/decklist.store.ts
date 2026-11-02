@@ -522,6 +522,7 @@ export class DecklistStore {
     deckId: string,
     replace: boolean,
     format: YgoFormat,
+    options: { preserveSource?: boolean } = {},
   ): Observable<{ ok: boolean; total: number; unique: number; errorKey?: string }> {
     let sections: YdkeSections;
     try {
@@ -553,12 +554,15 @@ export class DecklistStore {
     return this.ygoApi.getCardsByIds$(uniqueIds, 'en').pipe(
       switchMap((cards) => {
         const cardById = new Map(cards.map((card) => [card.id, card]));
+        if (options.preserveSource && uniqueIds.some(id => !cardById.has(id))) {
+          return of({ ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.ydkeResolveFailed' });
+        }
         if (cards.length === 0) {
           return of({ ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.ydkeResolveFailed' });
         }
         return this.cardLegality.evaluateMany$(cards, format).pipe(
           map((legality) => {
-            const imported = this.buildImportedCards(sectionEntries, cardById, legality);
+            const imported = this.buildImportedCards(sectionEntries, cardById, legality, options.preserveSource);
             if (imported.length === 0) {
               return { ok: false, total: 0, unique: 0, errorKey: 'decklist.feedback.ydkeResolveFailed' };
             }
@@ -697,8 +701,9 @@ export class DecklistStore {
     sectionEntries: Array<{ section: DeckSection; quantities: Map<number, number> }>,
     cardById: Map<number, YgoCard>,
     legality: Map<number, LegalityResult>,
+    preserveSource = false,
   ): DecklistCard[] {
-    const merged = new Map<number, DecklistCard>();
+    const merged = new Map<string | number, DecklistCard>();
 
     for (const { section, quantities } of sectionEntries) {
       for (const [passcode, quantity] of quantities) {
@@ -708,14 +713,15 @@ export class DecklistStore {
         }
         const verdict = legality.get(card.id);
         const banlistStatus = verdict?.banlistStatus ?? card.banlist_info?.ban_tcg ?? null;
-        const max = maxCopiesForStatus(banlistStatus);
+        const max = preserveSource ? Number.POSITIVE_INFINITY : maxCopiesForStatus(banlistStatus);
         if (max === 0) {
           continue;
         }
 
-        const existing = merged.get(card.id);
+        const entryKey = preserveSource ? `${section}:${card.id}` : card.id;
+        const existing = merged.get(entryKey);
         const nextQty = Math.min((existing?.quantity ?? 0) + quantity, max);
-        merged.set(card.id, {
+        merged.set(entryKey, {
           id: card.id,
           name: card.name,
           type: card.type,

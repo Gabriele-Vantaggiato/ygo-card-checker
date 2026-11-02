@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "ygocc-rescue-rabbit-example",
+  "title": "Dino Rabbit · una carta, due scelte",
+  "description": "Scheda introduttiva di YGOCardChecker. Parti da Rescue Rabbit e scegli il Rank 4 in base alla risposta che vuoi preparare. Esempio didattico da verificare con il formato e la banlist scelti.",
+  "author": "YGOCardChecker",
+  "accent": "cyan",
+  "tags": ["Dinosaur", "1-card starter", "Xyz", "Esempio"],
+  "tabs": [{
+    "id": "rabbit", "title": "Rescue Rabbit", "combos": [{
+      "id": "laggia", "title": "Rabbit → Evolzar Laggia",
+      "description": "Richiede la Normal Summon disponibile, due Sabersaurus ancora nel Deck e Laggia nell’Extra Deck. Rabbit deve poter attivare il suo effetto e risolverlo. Non sommare questo campo finale a quello della variante Dolkka: scegli un solo Xyz.",
+      "startingCards": [85138716], "endCards": [74294676], "requiredCards": [37265642, 37265642, 74294676], "playsAround": [],
+      "cardNotes": { "end:74294676": "Laggia arriva con due materiali. La sua negazione richiede di staccarli entrambi: non è una negazione di qualsiasi effetto mostro." },
+      "startFlow": [{"card":85138716,"join":"none","action":"none","zone":"hand","caption":"Starter in mano"}],
+      "endFlow": [{"card":74294676,"join":"none","action":"none","zone":"field","caption":"Laggia con 2 materiali"}],
+      "steps": [
+        {"title":"Impegna la Normal Summon","text":"Evoca Normalmente Rescue Rabbit. Non procedere se una restrizione attiva impedisce le Evocazioni Speciali successive.","kind":"summon","cards":[85138716],"flow":[{"card":85138716,"join":"none","action":"normal-summon","zone":"field","caption":"Evocazione Normale"}]},
+        {"title":"Trasforma Rabbit in due Dinosauri","text":"Attiva l’effetto di Rabbit, bandendolo come costo. Alla risoluzione Evoca Specialmente dal Deck due Sabersaurus, Mostri Normali di Livello 4 con lo stesso nome. Se il Deck non contiene entrambe le copie, questa linea non è disponibile.","kind":"effect","cards":[85138716,37265642,37265642],"flow":[{"card":85138716,"join":"none","action":"banish","zone":"banished","caption":"Bandi come costo"},{"card":37265642,"join":"arrow","action":"special-summon","zone":"field","caption":"Sabersaurus dal Deck"},{"card":37265642,"join":"plus","action":"special-summon","zone":"field","caption":"Seconda copia dal Deck"}]},
+        {"title":"Sovrapponi i due Livello 4","text":"Usa entrambi i Sabersaurus come materiali per l’Evocazione Xyz di Evolzar Laggia. Restano sotto l’Xyz come due materiali, non vengono mandati al Cimitero da questa Evocazione.","kind":"summon","cards":[37265642,37265642,74294676],"flow":[{"card":37265642,"join":"none","action":"none","zone":"field","caption":"Materiale Xyz"},{"card":37265642,"join":"plus","action":"none","zone":"field","caption":"Materiale Xyz"},{"card":74294676,"join":"arrow","action":"special-summon","zone":"field","caption":"Evocazione Xyz"}]},
+        {"title":"Conserva l’interazione giusta","text":"Staccando due materiali, Laggia può negare un’Evocazione Normale o Speciale che non avviene durante la risoluzione di un effetto, oppure l’attivazione di una Carta Magia/Trappola, e distruggere la carta. Scegli il momento in base allo stato del duello.","kind":"note","cards":[74294676]}
+      ]
+    }, {
+      "id":"dolkka", "title":"Alternativa → Evolzar Dolkka",
+      "description":"Stessa apertura con Rabbit e due Sabersaurus nel Deck. Scegli questa variante al posto di Laggia quando vuoi preparare risposte agli effetti mostro. Occorre Dolkka nell’Extra Deck.",
+      "startingCards":[85138716], "endCards":[42752141], "requiredCards":[37265642,37265642,42752141], "playsAround":[],
+      "endFlow":[{"card":42752141,"join":"none","action":"none","zone":"field","caption":"Dolkka con 2 materiali"}],
+      "steps":[
+        {"title":"Apri con Rabbit","text":"Evoca Normalmente Rescue Rabbit. Attiva il suo effetto bandendolo come costo ed Evoca Specialmente due Sabersaurus dal Deck.","kind":"effect","cards":[85138716,37265642,37265642]},
+        {"title":"Scegli Dolkka","text":"Sovrapponi i due Dinosauri di Livello 4 per Evocare Xyz Evolzar Dolkka con due materiali.","kind":"summon","cards":[37265642,37265642,42752141],"flow":[{"card":37265642,"join":"none","action":"none","zone":"field","caption":"Livello 4"},{"card":37265642,"join":"plus","action":"none","zone":"field","caption":"Livello 4"},{"card":42752141,"join":"arrow","action":"special-summon","zone":"field","caption":"Dolkka"}]},
+        {"title":"Prepara le negazioni mostro","text":"Quando viene attivato un effetto mostro, Dolkka può staccare un materiale per negare l’attivazione e distruggere quel mostro. I due materiali consentono due usi se le condizioni e il timing lo permettono; questa linea non fornisce anche Laggia.","kind":"note","cards":[42752141]}
+      ]
+    }]
+  }]
+}

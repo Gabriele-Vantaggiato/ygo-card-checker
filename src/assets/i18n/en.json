@@ -436,7 +436,7 @@
   "knowledge.effect.tribute_special_summon": "Tribute {tribute} → SS {summon}",
   "knowledge.effect.synchro_summon": "Synchro",
   "knowledge.effect.xyz_summon": "Xyz",
-  "combo.openPage": "Combo lines",
+  "combo.openPage": "Combo sheets",
   "combo.title": "Combo lines",
   "combo.subtitle": "Rule-based enablers and targets (free, no cloud AI)",
   "combo.backToSearch": "Back to search",

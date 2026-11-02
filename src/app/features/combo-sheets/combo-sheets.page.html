@@ -1,0 +1,178 @@
+<main class="page-main page-stack max-w-7xl py-6">
+  <input #importer type="file" accept=".json,application/json" hidden (change)="importFile($event)" />
+  <header class="flex flex-wrap items-end justify-between gap-5 border-b border-base-300 pb-6">
+    <div>
+      <p class="text-xs tracking-[0.22em] uppercase text-base-content/55 mb-2">YGOCardChecker / PLAYBOOK</p>
+      <h1 class="text-3xl sm:text-4xl font-bold">{{ t('Schede combo', 'Combo sheets') }}</h1>
+      <p class="text-sm text-base-content/65 mt-2 max-w-xl">{{ t('Dallo starter al campo finale. Conserva le tue linee, prepara le alternative e studia un passo alla volta.', 'From starter to endboard. Keep your lines, prepare alternatives and study one step at a time.') }}</p>
+    </div>
+    <a routerLink="/flow" class="btn btn-ghost btn-sm">Flow Studio ↗</a>
+  </header>
+  @if (status()) { <p role="status" class="p-3 rounded-lg bg-base-200 text-sm whitespace-pre-wrap">{{ status() }}</p> }
+  @if (library.storageFailed()) {
+    <p role="alert" class="text-sm text-warning">{{ t('Archivio locale non disponibile. Mantieni una copia con Esporta JSON.', 'Local archive unavailable. Keep a copy using Export JSON.') }}</p>
+  }
+  @if (draft(); as sheet) {
+    <div class="flex flex-wrap items-center gap-2">
+      <button class="btn btn-sm btn-ghost" (click)="back()">← {{ t('Libreria', 'Library') }}</button>
+      <span class="badge badge-outline">{{ dirty() ? t('Modifiche da salvare', 'Unsaved changes') : t('Salvata sul dispositivo', 'Saved on device') }}</span>
+      <div class="flex-1"></div>
+      <button class="btn btn-sm" (click)="duplicate()">{{ t('Duplica', 'Duplicate') }}</button>
+      <button class="btn btn-sm" (click)="exportSheet(true)">{{ t('Esporta per MDPro4', 'Export for MDPro4') }}</button>
+      <button class="btn btn-sm btn-ghost" (click)="exportSheet()">JSON</button>
+      <button class="btn btn-sm" [attr.aria-pressed]="editing()" (click)="editing.set(!editing())">{{ editing() ? t('Leggi', 'Read') : t('Modifica', 'Edit') }}</button>
+      <button class="btn btn-sm btn-primary" (click)="save()">{{ t('Salva scheda', 'Save sheet') }}</button>
+    </div>
+    <section class="card card-border bg-base-200/50">
+      <div class="card-body">
+        @if (editing()) {
+          <label class="text-xs font-semibold">{{ t('Titolo scheda', 'Sheet title') }}<input class="input w-full mt-1" maxlength="200" [ngModel]="sheet.title" (ngModelChange)="setTitle($event)" /></label>
+          <label class="text-xs font-semibold">{{ t('Descrizione', 'Description') }}<textarea class="textarea w-full mt-1" maxlength="20000" [ngModel]="sheet.description" (ngModelChange)="setDescription($event)"></textarea></label>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <label class="text-xs font-semibold">{{ t('Autore', 'Author') }}<input class="input w-full mt-1" maxlength="200" [ngModel]="sheet.author" (ngModelChange)="setAuthor($event)" /></label>
+            <label class="text-xs font-semibold">{{ t('Tag (separati da virgole)', 'Tags (comma separated)') }}<input class="input w-full mt-1" [ngModel]="sheet.tags.join(', ')" (ngModelChange)="setTags($event)" /></label>
+          </div>
+        } @else {
+          <h2 class="text-2xl font-bold">{{ sheet.title }}</h2>
+          <p class="text-sm text-base-content/70 whitespace-pre-wrap">{{ sheet.description }}</p>
+          <div class="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
+            @if (sheet.author) { <span>{{ sheet.author }} ·</span> }
+            <span>{{ count(sheet) }} {{ t('linee', 'lines') }}</span>
+            @for (tag of sheet.tags; track $index) { <span class="badge badge-sm badge-outline">{{ tag }}</span> }
+          </div>
+        }
+      </div>
+    </section>
+    <div class="flex flex-wrap items-center gap-2 border-b border-base-300 pb-3">
+      @for (tab of sheet.tabs; track tab.id; let i = $index) {
+        <button class="btn btn-sm" [class.btn-active]="tabIndex() === i" [attr.aria-pressed]="tabIndex() === i" (click)="selectTab(i)">{{ tab.title }} <span class="text-base-content/50">{{ tab.combos.length }}</span></button>
+      }
+      @if (editing()) { <button class="btn btn-sm btn-ghost" [disabled]="sheet.tabs.length >= 30" (click)="addTab()">+ {{ t('Sezione', 'Section') }}</button> }
+    </div>
+    <div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-6 items-start">
+      <aside class="space-y-2 lg:sticky lg:top-6">
+        @if (editing()) { <label class="block text-xs">{{ t('Nome sezione', 'Section name') }}<input class="input input-sm w-full mt-1" maxlength="200" [ngModel]="tab()?.title" (ngModelChange)="setTabTitle($event)" /></label> }
+        <p class="text-xs uppercase tracking-widest text-base-content/50 py-2">{{ t('Scegli la tua linea', 'Choose your line') }}</p>
+        @for (g of tab()?.combos; track g.id; let i = $index) {
+          <button class="w-full text-left p-3 rounded-lg border transition-colors hover:bg-base-200" [class.border-base-content]="guideIndex() === i" [class.border-base-300]="guideIndex() !== i" [attr.aria-pressed]="guideIndex() === i" (click)="guideIndex.set(i)">
+            <span class="text-xs text-base-content/45">{{ (i + 1).toString().padStart(2, '0') }} / {{ g.steps.length }} {{ t('passaggi', 'steps') }}</span>
+            <span class="block text-sm font-semibold mt-1">{{ g.title }}</span>
+          </button>
+        }
+        @if (editing()) { <button class="btn btn-sm w-full" [disabled]="(tab()?.combos?.length || 0) >= 100" (click)="addGuide()">+ {{ t('Variante', 'Variant') }}</button> }
+      </aside>
+      <article class="min-w-0 space-y-5">
+        @if (guide(); as g) {
+          @if (editing()) {
+            <label class="block text-xs font-semibold">{{ t('Titolo linea', 'Line title') }}<input class="input w-full mt-1" maxlength="200" [ngModel]="g.title" (ngModelChange)="setGuideTitle($event)" /></label>
+            <label class="block text-xs font-semibold">{{ t('Condizioni, costi e restrizioni', 'Conditions, costs and restrictions') }}<textarea class="textarea w-full mt-1" maxlength="20000" [ngModel]="g.description" (ngModelChange)="setGuideDescription($event)"></textarea></label>
+          } @else { <h2 class="text-xl font-bold">{{ g.title }}</h2><p class="text-sm text-base-content/70 whitespace-pre-wrap">{{ g.description }}</p> }
+          <div class="grid sm:grid-cols-2 gap-4">
+            <section class="card card-border bg-base-200/30"><div class="card-body p-4">
+              <h3 class="text-xs uppercase tracking-wider font-semibold">01 / {{ t('Mano iniziale', 'Starting hand') }}</h3>
+              @if (editing()) { <label class="text-xs">{{ t('Passcode separati da virgole', 'Comma separated passcodes') }}<input class="input input-sm w-full mt-1" [ngModel]="g.startingCards.join(', ')" (change)="setCardList('startingCards', $any($event.target).value)" /></label> }
+              <app-combo-diagram [items]="g.startFlow || diagram(g.startingCards)" [names]="names()" />
+              @if (editing()) { <app-combo-card-picker [label]="t('Aggiungi alla mano iniziale', 'Add to starting hand')" (picked)="appendCard('startingCards', $event)" /> }
+            </div></section>
+            <section class="card card-border bg-base-200/30"><div class="card-body p-4">
+              <h3 class="text-xs uppercase tracking-wider font-semibold">02 / {{ t('Campo finale e seguito', 'Endboard and follow-up') }}</h3>
+              @if (editing()) { <label class="text-xs">{{ t('Passcode separati da virgole', 'Comma separated passcodes') }}<input class="input input-sm w-full mt-1" [ngModel]="g.endCards.join(', ')" (change)="setCardList('endCards', $any($event.target).value)" /></label> }
+              <app-combo-diagram [items]="g.endFlow || diagram(g.endCards)" [names]="names()" />
+              @if (editing()) { <app-combo-card-picker [label]="t('Aggiungi al campo finale', 'Add to endboard')" (picked)="appendCard('endCards', $event)" /> }
+            </div></section>
+          </div>
+          <details class="rounded-lg border border-base-300 p-4" [open]="editing()">
+            <summary class="cursor-pointer text-sm font-semibold">{{ t('Requisiti, interruzioni e note', 'Requirements, interruptions and notes') }}</summary>
+            <h3 class="text-xs font-semibold mt-4">{{ t('Carte richieste nel mazzo / Extra Deck', 'Required Deck / Extra Deck cards') }}</h3>
+            @if (editing()) { <input class="input input-sm w-full mt-1" aria-label="Required card passcodes" [ngModel]="g.requiredCards.join(', ')" (change)="setCardList('requiredCards', $any($event.target).value)" /> }
+            <app-combo-diagram [items]="diagram(g.requiredCards)" [names]="names()" />
+            @if (editing()) { <app-combo-card-picker [label]="t('Aggiungi un requisito', 'Add a requirement')" (picked)="appendCard('requiredCards', $event)" /> }
+            <h3 class="text-xs font-semibold">{{ t('Interruzioni considerate', 'Interruptions considered') }}</h3>
+            @if (editing()) { <input class="input input-sm w-full mt-1" aria-label="Interruption card passcodes" [ngModel]="g.playsAround.join(', ')" (change)="setCardList('playsAround', $any($event.target).value)" /> }
+            <app-combo-diagram [items]="diagram(g.playsAround)" [names]="names()" />
+            @if (editing()) { <app-combo-card-picker [label]="t('Aggiungi un’interruzione', 'Add an interruption')" (picked)="appendCard('playsAround', $event)" /> }
+            @for (note of notes(g); track note[0]) { <p class="text-xs mt-2 whitespace-pre-wrap"><b>{{ note[0] }}</b> · {{ note[1] }}</p> }
+          </details>
+          <div class="flex items-center justify-between"><h3 class="text-sm uppercase tracking-wider font-semibold">03 / {{ t('La sequenza', 'The sequence') }}</h3><span class="text-xs text-base-content/50">{{ g.steps.length }} {{ t('passaggi', 'steps') }}</span></div>
+          @for (step of g.steps; track $index; let i = $index) {
+            <section class="card card-border"><div class="card-body p-4 sm:p-5">
+              <div class="flex gap-3 items-start"><span class="text-2xl font-mono text-base-content/30">{{ (i + 1).toString().padStart(2, '0') }}</span><div class="flex-1 min-w-0">
+                @if (editing()) {
+                  <label class="text-xs">{{ t('Titolo passaggio', 'Step title') }}<input class="input input-sm w-full" maxlength="200" [ngModel]="step.title" (ngModelChange)="setStep(i, 'title', $event)" /></label>
+                  <label class="block text-xs mt-2">{{ t('Istruzioni', 'Instructions') }}<textarea class="textarea w-full" maxlength="20000" [ngModel]="step.text" (ngModelChange)="setStep(i, 'text', $event)"></textarea></label>
+                  <div class="flex flex-wrap gap-2 mt-2"><select class="select select-sm" aria-label="Step kind" [ngModel]="step.kind" (ngModelChange)="setStep(i, 'kind', $event)">@for (kind of ['action', 'summon', 'effect', 'chain', 'note']; track kind) { <option [value]="kind">{{ kind }}</option> }</select><button class="btn btn-sm" [disabled]="i === 0" (click)="moveStep(i, -1)" aria-label="Move step up">↑</button><button class="btn btn-sm" [disabled]="i === g.steps.length - 1" (click)="moveStep(i, 1)" aria-label="Move step down">↓</button><button class="btn btn-sm btn-ghost" (click)="removeStep(i)">{{ t('Rimuovi passo', 'Remove step') }}</button></div>
+                  <label class="block text-xs mt-3">{{ t('Passcode delle carte, in ordine', 'Card passcodes, in order') }}<input class="input input-sm w-full" [ngModel]="step.cards.join(', ')" (change)="setStepCards(i, $any($event.target).value)" /></label>
+                  <app-combo-card-picker [label]="t('Aggiungi carta al passaggio', 'Add a card to this step')" (picked)="appendStepCard(i, $event)" />
+                } @else { <span class="text-[10px] uppercase tracking-widest text-base-content/50">{{ step.kind }}</span><h4 class="font-semibold">{{ step.title }}</h4><p class="text-sm text-base-content/75 mt-2 whitespace-pre-wrap">{{ step.text }}</p> }
+              </div></div>
+              <app-combo-diagram [items]="step.flow || diagram(step.cards)" [names]="names()" />
+              @if (editing()) {
+                <button class="btn btn-xs self-start" (click)="addDiagramCard(i)">+ {{ t('Carta nel diagramma', 'Diagram card') }}</button>
+                @for (occurrence of step.flow; track $index; let j = $index) {
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-base-300 pt-2">
+                    <label class="text-xs">Passcode<input type="number" min="0" max="999999999" class="input input-sm w-full" [ngModel]="occurrence.card" (ngModelChange)="setOccurrence(i,j,'card',$event)" /></label>
+                    <label class="text-xs">{{ t('Collegamento', 'Connector') }}<select class="select select-sm w-full" [ngModel]="occurrence.join" (ngModelChange)="setOccurrence(i,j,'join',$event)">@for (join of ['none','arrow','plus','or']; track join) { <option [value]="join">{{ join }}</option> }</select></label>
+                    <label class="text-xs">{{ t('Zona', 'Zone') }}<select class="select select-sm w-full" [ngModel]="occurrence.zone" (ngModelChange)="setOccurrence(i,j,'zone',$event)">@for (zone of ['none','hand','field','graveyard','banished','deck','extra']; track zone) { <option [value]="zone">{{ zone }}</option> }</select></label>
+                    <label class="text-xs">{{ t('Azione', 'Action') }}<input class="input input-sm w-full" [ngModel]="occurrence.action" (ngModelChange)="setOccurrence(i,j,'action',$event)" /></label>
+                    <label class="text-xs">{{ t('Didascalia', 'Caption') }}<input class="input input-sm w-full" [ngModel]="occurrence.caption" (ngModelChange)="setOccurrence(i,j,'caption',$event)" /></label>
+                    <button class="btn btn-sm self-end" (click)="removeOccurrence(i,j)">{{ t('Rimuovi carta', 'Remove card') }}</button>
+                  </div>
+                }
+              }
+            </div></section>
+          } @empty { <p class="text-sm text-base-content/55">{{ t('Aggiungi il primo passaggio della tua combo.', 'Add the first step of your combo.') }}</p> }
+          @if (editing()) { <div class="flex flex-wrap gap-2"><button class="btn" [disabled]="g.steps.length >= 300" (click)="addStep()">+ {{ t('Passaggio', 'Step') }}</button><button class="btn btn-ghost" (click)="removeGuide()">{{ t('Rimuovi variante', 'Remove variant') }}</button></div> }
+          <p class="text-xs text-base-content/50 border-t border-base-300 pt-4">{{ t('Scheda di studio: verifica requisiti, restrizioni e timing nel formato scelto. I diagrammi descrivono le giocate; non eseguono un duello.', 'Study sheet: verify requirements, restrictions and timing in your format. Diagrams describe plays; they do not execute a duel.') }}</p>
+        } @else { <button class="btn" (click)="addGuide()">+ {{ t('Aggiungi una linea', 'Add a line') }}</button> }
+      </article>
+    </div>
+  } @else {
+    <section class="card card-border"><div class="card-body">
+      <h2 class="card-title">{{ t('Incolla il mazzo. Ottieni le schede.', 'Paste your deck. Get your sheets.') }}</h2>
+      <p class="text-sm text-base-content/65">{{ t('Importa il codice YDKE da MDPro4 o da una decklist. Conservo tutte le carte e le quantità originali, genero le linee supportate e salvo la scheda sul dispositivo.', 'Import a YDKE code from MDPro4 or a decklist. Keep all original cards and quantities, generate supported routes and save the sheet on this device.') }}</p>
+      <label class="text-xs font-semibold">{{ t('Nome del mazzo', 'Deck name') }}<input class="input w-full mt-1" maxlength="120" [ngModel]="importedDeckName()" (ngModelChange)="importedDeckName.set($event)" [disabled]="importingDeck()" /></label>
+      <label class="text-xs font-semibold">{{ t('Codice YDKE', 'YDKE code') }}<textarea class="textarea w-full mt-1 font-mono text-xs" rows="3" placeholder="ydke://…!…!…!" [ngModel]="ydkeText()" (ngModelChange)="ydkeText.set($event)" [disabled]="importingDeck()"></textarea></label>
+      <div class="card-actions items-center"><button class="btn btn-primary" (click)="importAndGenerate()" [disabled]="importingDeck() || generating() || !ydkeText().trim()">{{ importingDeck() ? t('Importazione e generazione…', 'Importing and generating…') : t('Importa e genera le combo', 'Import and generate combos') }}</button><span class="text-xs text-base-content/50">{{ t('La legalità viene annotata senza modificare il mazzo.', 'Legality is annotated without changing the deck.') }}</span></div>
+    </div></section>
+    <section class="card card-border bg-base-200/40"><div class="card-body">
+      <h2 class="card-title">{{ t('Parti dal tuo mazzo', 'Start from your deck') }}</h2>
+      <p class="text-sm text-base-content/65">{{ t('Scegli una decklist, anche importata dalle API. Raccolgo le linee da modello compatibili, le sequenze dei tuoi replay e gli starter da sviluppare. Le bozze richiedono verifica.', 'Choose a decklist, including one imported from APIs. Collect compatible template routes, your replay sequences and starters to develop. Drafts require review.') }}</p>
+      <div class="flex flex-wrap gap-3 items-end mt-2">
+        <label class="flex-1 min-w-48 text-xs font-semibold">{{ t('Mazzo da analizzare', 'Deck to analyze') }}
+          <select class="select w-full mt-1" [ngModel]="selectedDeckId()" (ngModelChange)="selectedDeckId.set($event)" [disabled]="generating()">
+            <option value="" disabled>{{ t('Scegli un mazzo', 'Choose a deck') }}</option>
+            @for (deck of decks.decklists(); track deck.id) { <option [value]="deck.id">{{ deck.name }}</option> }
+          </select>
+        </label>
+        <button class="btn" [disabled]="generating() || !selectedDeckId()" (click)="generateFromDeck()">{{ generating() ? t('Analisi in corso…', 'Analyzing…') : t('Genera dal mazzo', 'Generate from deck') }}</button>
+        <a routerLink="/decklist" class="btn btn-ghost">{{ t('Gestisci mazzi', 'Manage decks') }} ↗</a>
+      </div>
+    </div></section>
+    @if (sourceCard(); as id) { <p class="text-sm">{{ t('Schede che includono la carta', 'Sheets including card') }} #{{ id }} <button class="btn btn-xs btn-ghost" (click)="sourceCard.set(null)">{{ t('Mostra tutte', 'Show all') }}</button></p> }
+    <div class="flex flex-wrap gap-2 items-center">
+      <button class="btn" [disabled]="importingDeck() || generating()" (click)="create()">+ {{ t('Crea scheda', 'Create sheet') }}</button>
+      <button class="btn" (click)="importer.click()">{{ t('Importa JSON', 'Import JSON') }}</button>
+      <button class="btn btn-ghost" [disabled]="loadingExample()" (click)="example()">{{ loadingExample() ? t('Caricamento…', 'Loading…') : t('Apri esempio guidato', 'Open guided example') }}</button>
+      <div class="flex-1"></div>
+      <input class="input w-full sm:w-64" type="search" [attr.aria-label]="t('Cerca schede', 'Search sheets')" [placeholder]="t('Cerca titolo o tag…', 'Search title or tag…')" [ngModel]="query()" (ngModelChange)="query.set($event)" />
+    </div>
+    <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      @for (sheet of sheets(); track sheet.id) {
+        <article class="card card-border bg-base-200/40"><div class="card-body">
+          <span class="text-xs uppercase tracking-widest text-base-content/45">{{ sheet.tabs.length }} {{ t('sezioni', 'sections') }} / {{ count(sheet) }} {{ t('linee', 'lines') }}</span>
+          <h2 class="card-title">{{ sheet.title }}</h2><p class="text-sm text-base-content/60 line-clamp-3">{{ sheet.description }}</p>
+          <div class="flex flex-wrap gap-1 my-2">@for (tag of sheet.tags; track $index) { <span class="badge badge-sm badge-outline">{{ tag }}</span> }</div>
+          <div class="card-actions"><button class="btn btn-sm" (click)="open(sheet)">{{ t('Apri scheda', 'Open sheet') }} ↗</button><button class="btn btn-sm btn-ghost" (click)="pendingDelete.set(sheet.id)">{{ t('Elimina', 'Delete') }}</button></div>
+          @if (pendingDelete() === sheet.id) { <div class="border-t border-base-300 pt-3 text-sm"><p>{{ t('Eliminare questa scheda dal dispositivo?', 'Delete this sheet from the device?') }}</p><button class="btn btn-sm mt-2" (click)="deleteSheet(sheet.id)">{{ t('Elimina scheda', 'Delete sheet') }}</button><button class="btn btn-sm btn-ghost" (click)="pendingDelete.set(null)">{{ t('Annulla', 'Cancel') }}</button></div> }
+        </div></article>
+      } @empty {
+        <div class="sm:col-span-2 xl:col-span-3 border border-dashed border-base-content/25 rounded-2xl p-8 sm:p-14 text-center">
+          <p class="text-xs uppercase tracking-[0.2em] text-base-content/45">{{ t('IL TUO REPERTORIO INIZIA QUI', 'YOUR PLAYBOOK STARTS HERE') }}</p>
+          <h2 class="text-2xl font-semibold mt-3">{{ t('Una combo da ricordare.', 'A combo to remember.') }}</h2>
+          <p class="text-sm text-base-content/60 max-w-md mx-auto mt-3">{{ t('Crea una scheda o prova l’esempio. Puoi importare anche i JSON delle schede MDPro4 1.0.6.', 'Create a sheet or try the example. You can also import MDPro4 1.0.6 combo sheet JSON files.') }}</p>
+        </div>
+      }
+    </div>
+    <p class="text-xs text-base-content/50">{{ t('Salvataggio su questo browser · Nessun account richiesto · Esporta un JSON per il backup o il trasferimento', 'Saved in this browser · No account required · Export JSON to back up or transfer') }}</p>
+  }
+</main>
