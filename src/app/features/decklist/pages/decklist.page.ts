@@ -16,6 +16,5 @@ import { DecklistPanelComponent } from '../../../components/decklist-panel/deckl
   `,
 })
 export class DecklistPage {
-  readonly showIntentLab = isDevMode() && ['127.0.0.1', 'localhost'].includes(window.location.hostname)
-    && window.location.port === '4200';
+  readonly showIntentLab = isDevMode() && ['127.0.0.1', 'localhost'].includes(window.location.hostname);
 }

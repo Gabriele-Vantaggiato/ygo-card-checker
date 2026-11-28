@@ -72,6 +72,8 @@ I suggerimenti usano l’indice di co-occorrenza di YGOCC e omettono le carte gi
 
 ### Decklist dell’account YGOCC
 
-Avvia Intent Runtime con `PORT=4189` e l’app Angular in sviluppo sulla porta `4200`. Apri `/intent-runtime` dal menu della pagina Decklist di YGOCC in locale. Accedi con il normale accesso di YGOCC e apri **Decklist di partenza**.
+Avvia YGOCC dal repository con `npm ci` la prima volta e `npm start` per lo sviluppo. Lo stesso comando avvia anche Intent Runtime in modalità watch e Angular inoltra le richieste del playground. Apri [Intent Runtime](http://127.0.0.1:4200/intent-runtime) dal link nella pagina Decklist. Accedi con il normale accesso di YGOCC e apri **Decklist di partenza**.
 
-Il selettore usa `DeckSyncService.load()` e mostra le decklist dell’utente corrente con almeno una carta. La selezione invia soltanto il nome e la lista di testo al laboratorio sulla porta locale. Scegliendo un mazzo dell’account, imposta le sue carte chiave prima di calcolare le metriche. La vista dell’account è conservata nella sessione della pagina e viene scartata quando si esce o si cambia mazzo.
+Il selettore usa `DeckSyncService.load()` e mostra le decklist dell’utente corrente con almeno una carta. Seleziona le carte chiave direttamente dalla griglia del Main Deck e usa **Ricalcola**. La vista dell’account viene scartata quando si esce o si cambia mazzo.
+
+Per usare un LLM, accedi a Codex CLI con ChatGPT e seleziona **Codex con ChatGPT** nel playground. Il server richiede quella modalità di login e invia solo il prompt. Il modello sceglie fra le tre viste supportate e il runtime valida la scelta prima di eseguire i calcoli. Se il binario non è nel PATH, imposta `INTENT_CODEX_BIN` con il percorso dell’eseguibile locale. Questa modalità usa i limiti del piano ChatGPT applicabile. La modalità deterministica resta predefinita e funziona senza credenziali.

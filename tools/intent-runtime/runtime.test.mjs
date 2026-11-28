@@ -4,7 +4,21 @@ import {sample,parseDeck,checkDeck,probability,optimize,combo,demoPlan,validateP
 import {createServer,planWithAI} from './server.mjs';
 import {composeDeckWorkspace, dashboardPrompt, editPrompt, examplePrompt} from './deck-workspace.mjs';
 import {cardImage} from './card-image.mjs';
+import {interpretWorkspace} from './workspace-model.mjs';
 import { Readable } from 'node:stream';
+
+test('workspace model accepts only ChatGPT login and a supported view', async () => {
+  const run = async (args, prompt) => {
+    if (args[0] === 'login') return 'Logged in using ChatGPT';
+    assert.ok(args.includes('read-only'));
+    assert.match(prompt, /mostrami le illustrazioni/);
+    return '{"view":"dashboard"}';
+  };
+  assert.equal(await interpretWorkspace('mostrami le illustrazioni', run), dashboardPrompt);
+  await assert.rejects(interpretWorkspace('test', async () => 'Logged in using an API key'), /richiesto/);
+  await assert.rejects(interpretWorkspace('test', async args =>
+    args[0] === 'login' ? 'Logged in using ChatGPT' : '{"view":"other"}'), /non corrisponde/);
+});
 
 test('dashboard builds image, probability and co-occurrence blocks from the deck', async () => {
   const grants = new Set(['deck.read','hand.analyze','deck.suggest']);
@@ -58,6 +72,7 @@ test('deck workspace serves the UI and enforces the API contract', async () => {
   assert.equal(JSON.parse(dashboard.body).layout.variant, 'dashboard');
   const image = await request('GET', '/card-images/89631139.jpg');
   assert.equal(image.status, 200);
+  assert.equal((await request('GET', '/intent-api/api/status')).status, 200);
   assert.equal((await request('POST', '/api/workspace', input, 'https://example.com')).status, 403);
   assert.equal((await request('POST', '/api/workspace', {...input, deck: '1 Fake Card'})).status, 400);
 });

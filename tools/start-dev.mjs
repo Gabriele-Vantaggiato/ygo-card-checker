@@ -50,4 +50,5 @@ process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
 kids.push(run(process.execPath, ['tools/gemini-dev-proxy.mjs'], 'gemini-proxy'));
-kids.push(run(process.execPath, [path.join(root, 'node_modules/@angular/cli/bin/ng.js'), 'serve', '--proxy-config', 'proxy.conf.json'], 'ng-serve'));
+kids.push(run(process.execPath, ['--watch', 'tools/intent-runtime/server.mjs', '4190'], 'intent-runtime'));
+kids.push(run(process.execPath, [path.join(root, 'node_modules/@angular/cli/bin/ng.js'), 'serve', '--host', '127.0.0.1', '--proxy-config', 'proxy.conf.json'], 'ng-serve'));

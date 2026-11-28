@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { demoPlan, execute, sample, source, validatePlan } from './kernel.mjs';
 import { composeDeckWorkspace, dashboardPrompt, editPrompt, examplePrompt } from './deck-workspace.mjs';
 import { cardImage } from './card-image.mjs';
+import { interpretWorkspace } from './workspace-model.mjs';
 
 export async function planWithAI(intent, fetcher=fetch) {
   if (!process.env.AI_GATEWAY_API_KEY || !process.env.INTENT_MODEL) throw Error('AI non configurata: imposta AI_GATEWAY_API_KEY e INTENT_MODEL sul server.');
@@ -17,6 +18,7 @@ export function createServer() {
     const send=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
     try {
       if (!/^(?:127\.0\.0\.1|localhost)(?::\d+)?$/.test(req.headers.host ?? '')) return send(403,{error:'Host non consentito.'});
+      if (req.url.startsWith('/intent-api/')) req.url = req.url.replace('/intent-api/', '/');
       if (req.method==='GET' && req.url==='/api/status') return send(200,{aiAvailable:Boolean(process.env.AI_GATEWAY_API_KEY && process.env.INTENT_MODEL),sample,source,examplePrompt,editPrompt,dashboardPrompt,sampleStarters:'Geargiarmor, Geargiarsenal'});
       const image = req.method==='GET' && /^\/card-images\/(\d{1,8})\.jpg$/.exec(req.url);
       if (image) {
@@ -34,7 +36,9 @@ export function createServer() {
         if (req.url==='/api/workspace') {
           if (!input || typeof input.intent!=='string' || input.intent.length>2000) return send(400,{error:'Richiesta non valida.'});
           // The local lab grants read-only access to the submitted list.
-          return send(200,composeDeckWorkspace(input.intent,input.deck,new Set(['deck.read','hand.analyze','deck.suggest']),{
+          if (input.mode !== undefined && !['deterministic','codex'].includes(input.mode)) return send(400,{error:'Modalità non valida.'});
+          const intent = input.mode === 'codex' ? await interpretWorkspace(input.intent) : input.intent;
+          return send(200,composeDeckWorkspace(intent,input.deck,new Set(['deck.read','hand.analyze','deck.suggest']),{
             starters: input.starters, hand: input.hand
           }));
         }
@@ -45,12 +49,14 @@ export function createServer() {
       const files={'/':'index.html','/decklist':'decklist.html','/app.js':'app.js','/workspace.js':'workspace.js','/style.css':'style.css','/workspace.css':'workspace.css'};
       if (req.method==='GET' && Object.hasOwn(files,req.url)) {
         const file=files[req.url];
-        const ancestors = file === 'decklist.html' ? 'http://127.0.0.1:4200 http://localhost:4200' : "'none'";
-        res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html','Content-Security-Policy':`default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors ${ancestors}; base-uri 'none'`,'X-Content-Type-Options':'nosniff'});
+        res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",'X-Content-Type-Options':'nosniff'});
         return res.end(await readFile(new URL(`./web/${file}`,import.meta.url)));
       }
       send(404,{error:'Non trovato.'});
     } catch(error) {send(400,{error:error instanceof SyntaxError?'JSON non valido.':error.message});}
   });
 }
-if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) createServer().listen(Number(process.env.PORT || 4173),'127.0.0.1',()=>console.log('Intent Runtime: http://127.0.0.1:'+(process.env.PORT || 4173)));
+if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
+  const port = Number(process.argv[2] || process.env.PORT || 4173);
+  createServer().listen(port,'127.0.0.1',()=>console.log('Intent Runtime: http://127.0.0.1:'+port));
+}

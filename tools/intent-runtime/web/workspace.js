@@ -5,36 +5,6 @@ const deck = get('source-deck');
 const submit = get('compose');
 const starters = get('starters');
 const hand = get('hand-size');
-const parentOrigins = new Set(['http://127.0.0.1:4200', 'http://localhost:4200']);
-let sourceDeck = null;
-let sourceChanged = 0;
-let defaults;
-let sourceReceived = false;
-
-function applySource() {
-  if (!defaults) return;
-  deck.value = sourceDeck?.text ?? defaults.sample;
-  deck.readOnly = Boolean(sourceDeck);
-  starters.value = sourceDeck ? '' : defaults.sampleStarters;
-  get('deck-source-status').textContent = sourceDeck ? `Dall’account YGOCC · ${sourceDeck.name}` : '';
-  get('view-title').textContent = 'Anteprima';
-  get('blocks').replaceChildren(element('p', 'Invia un prompt per vedere il risultato qui.'));
-  get('save-status').textContent = '';
-  get('error').textContent = '';
-}
-
-window.addEventListener('message', event => {
-  if (window.parent === window || event.source !== window.parent || !parentOrigins.has(event.origin)) return;
-  if (event.data?.type !== 'ygocc:deck-source') return;
-  const incoming = event.data.deck;
-  if (incoming !== null && (typeof incoming?.text !== 'string' || typeof incoming?.name !== 'string')) return;
-  const firstSource = !sourceReceived;
-  sourceReceived = true;
-  if (!firstSource && incoming?.text === sourceDeck?.text && incoming?.name === sourceDeck?.name) return;
-  sourceDeck = incoming;
-  sourceChanged++;
-  applySource();
-});
 
 function element(tag, value) {
   const node = document.createElement(tag);
@@ -98,7 +68,7 @@ function render(view) {
     return section;
   });
   document.documentElement.dataset.theme = view.layout.theme;
-  get('view-title').textContent = sourceDeck?.name ?? view.title;
+  get('view-title').textContent = view.title;
   get('blocks').dataset.columns = view.layout.columns;
   get('blocks').dataset.variant = view.layout.variant ?? '';
   get('blocks').replaceChildren(...blocks);
@@ -120,15 +90,9 @@ get('workspace-form').addEventListener('submit', async event => {
   submit.disabled = true;
   get('error').textContent = '';
   const input = { intent: request.value, deck: deck.value, starters: starters.value, hand: Number(hand.value) };
-  const revision = sourceChanged;
   try {
     const view = await json('/api/workspace', input);
-    if (revision !== sourceChanged) return;
     render(view);
-    if (sourceDeck) {
-      get('save-status').textContent = 'Vista composta dalla decklist dell’account.';
-      return;
-    }
     try {
       localStorage.setItem(storageKey, JSON.stringify({ input, view }));
       get('save-status').textContent = 'Pagina salvata in questo browser.';
@@ -136,7 +100,7 @@ get('workspace-form').addEventListener('submit', async event => {
       get('save-status').textContent = 'Il browser non ha consentito il salvataggio.';
     }
   } catch (error) {
-    if (revision === sourceChanged) get('error').textContent = error.message;
+    get('error').textContent = error.message;
   } finally {
     submit.disabled = false;
   }
@@ -144,7 +108,6 @@ get('workspace-form').addEventListener('submit', async event => {
 
 try {
   const status = await json('/api/status');
-  defaults = status;
   deck.value = status.sample;
   starters.value = status.sampleStarters;
   deck.addEventListener('input', () => {
@@ -163,7 +126,7 @@ try {
   submit.disabled = false;
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
-    if (!sourceReceived && saved?.view?.version === 1) {
+    if (saved?.view?.version === 1) {
       render(saved.view);
       deck.value = saved.input.deck;
       request.value = saved.input.intent;
@@ -174,7 +137,6 @@ try {
   } catch {
     get('save-status').textContent = 'Impossibile recuperare la pagina salvata.';
   }
-  if (sourceReceived) applySource();
 } catch {
   get('error').textContent = 'Impossibile raggiungere Intent Runtime.';
 }
