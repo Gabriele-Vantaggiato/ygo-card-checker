@@ -1,8 +1,9 @@
 /** Run with Node 22+: npm run intent:test (no Angular install needed) */
 import test from 'node:test';
+import { interpretIntentAction } from '../../src/app/features/intent-runtime/intent-actions.ts';
 import assert from 'node:assert/strict';
 import { mainDeckSnapshot, simulateOpeningHands, deckFingerprint } from '../../src/app/features/intent-runtime/intent-simulator.ts';
-import { defaultPanels, interpretWorkspaceRequest, validWorkspace } from '../../src/app/features/intent-runtime/intent-contract.ts';
+import { defaultPanels, interpretWorkspaceRequest, readIntentStarters, validWorkspace } from '../../src/app/features/intent-runtime/intent-contract.ts';
 
 const cards = [
   { id: 1, name: 'Starter', quantity: 1, imageUrlSmall: null },
@@ -45,4 +46,29 @@ test('text request changes only blueprint presentation and draw count', () => {
 });
 test('unknown component types are not valid workspace configurations', () => {
   assert.equal(validWorkspace({ schemaVersion: 1, id: 'a', deckId: 'b', name: 'x', panels: [{ kind: 'unsafe-html', id: 'x', visible: true }], cards: [], simulation: {}, columns: 2, theme: 'duel', scale: 'normal' }), false);
+});
+
+test('command routes a filtered card search and rejects invalid filter values', () => {
+  assert.deepEqual(interpretIntentAction('Cerca carte tipo:magia archetipo:"Sky Striker" livello:4-6'), {
+    kind: 'search', query: '', filters: { type: 'Spell Card', archetype: 'Sky Striker', levelMin: 4, levelMax: 6 },
+  });
+  assert.throws(() => interpretIntentAction('Cerca carte livello:alta'), /intervallo/);
+  assert.throws(() => interpretIntentAction('Cerca carte filtro:segreto'), /sconosciuto/);
+});
+test('decklist actions never modify a deck and route to existing tools', () => {
+  assert.deepEqual(interpretIntentAction('Crea un mazzo'), { kind: 'decks', action: 'create' });
+  assert.deepEqual(interpretIntentAction('Importa decklist'), { kind: 'deck', action: 'import' });
+  assert.deepEqual(interpretIntentAction('Esporta decklist'), { kind: 'deck', action: 'export' });
+  assert.deepEqual(interpretIntentAction('Analizza il mazzo'), { kind: 'deck-analysis' });
+  assert.deepEqual(interpretIntentAction('Verifica legalità del mazzo'), { kind: 'decks', action: 'check' });
+  assert.deepEqual(interpretIntentAction('Apri schede combo del mazzo'), { kind: 'combo', view: 'sheets' });
+  assert.deepEqual(interpretIntentAction('Simula 50 mani da 6 carte e mostra le combinazioni'), { kind: 'workspace' });
+  const plan = interpretWorkspaceRequest('Simula 50 mani da 6 carte');
+  assert.equal(plan.handSize, 6);
+  assert.equal(plan.samples, 50);
+  assert.equal(interpretWorkspaceRequest('Simula 50 mani seed:42').seed, 42);
+  assert.deepEqual(readIntentStarters('starter:"starter"', cards, []), [1]);
+  assert.throws(() => readIntentStarters('starter:"Carta assente"', cards, []), /assente/);
+  assert.throws(() => interpretIntentAction('Fai una cosa sconosciuta'), /non riconosciuta/);
+  assert.deepEqual(interpretIntentAction('Esporta YDKE'), { kind: 'deck', action: 'export-ydke' });
 });

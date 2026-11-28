@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
@@ -77,6 +77,8 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
         <app-decklist-editor
           [deck]="deck"
           [focusCardId]="focusCardId()"
+          [entryAction]="editorAction()"
+          (entryActionOpened)="resetTool()"
           (back)="closeEditor()"
         />
       }
@@ -96,6 +98,8 @@ export class DecklistPanelComponent {
   readonly view = signal<DecklistView>('grid');
   readonly createOpen = signal(false);
   readonly newDeckName = signal('');
+  private readonly gridAction = signal<{ kind: 'create' | 'check'; deckId: string | null } | null>(null);
+  readonly editorAction = signal<'import' | 'export' | 'import-ydke' | 'export-ydke' | 'analysis' | null>(null);
   readonly focusCardId = signal<number | null>(null);
 
   openAiGenerate(): void {
@@ -103,8 +107,8 @@ export class DecklistPanelComponent {
     this.aiDialog()?.show();
   }
 
-  openDeckCheck(): void {
-    this.checkDialog()?.show();
+  openDeckCheck(deckId?: string): void {
+    this.checkDialog()?.show(deckId);
   }
 
   openRoulette(): void {
@@ -123,10 +127,13 @@ export class DecklistPanelComponent {
           deckId: params.get('deckId'),
           cardId: params.get('cardId'),
           editor: params.get('editor'),
+          tool: params.get('tool'),
         })),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(({ deckId, cardId, editor }) => {
+      .subscribe(({ deckId, cardId, editor, tool }) => {
+        this.editorAction.set(tool === 'import' || tool === 'export' || tool === 'import-ydke' || tool === 'export-ydke' || tool === 'analysis' ? tool : null);
+        this.gridAction.set(tool === 'create' || tool === 'check' ? { kind: tool, deckId } : null);
         if (!deckId || editor !== '1' || !this.decklistStore.getDeckById(deckId)) {
           this.view.set('grid');
           this.focusCardId.set(null);
@@ -136,6 +143,20 @@ export class DecklistPanelComponent {
         this.view.set('editor');
         this.focusCardId.set(cardId && /^\d+$/.test(cardId) ? Number(cardId) : null);
       });
+
+    effect(() => {
+      const action = this.gridAction();
+      if (!action || (action.kind === 'check' && !this.checkDialog())) return;
+      this.resetTool();
+      if (action.kind === 'create') this.openCreateDeck();
+      else this.openDeckCheck(action.deckId ?? undefined);
+    });
+  }
+
+  resetTool(): void {
+    this.gridAction.set(null);
+    this.editorAction.set(null);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { tool: null }, queryParamsHandling: 'merge', replaceUrl: true });
   }
 
   openEditor(deckId: string): void {

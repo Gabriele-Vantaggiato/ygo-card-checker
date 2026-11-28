@@ -87,3 +87,11 @@ attesa dell’abilitazione OAuth per l’uso del piano sul sito. Claude e Gemini
 sono indicati come non disponibili.
 
 `npm run intent:test` esegue i test della simulazione e dei planner di sviluppo.
+
+### Comandi del deterministico
+
+- `Cerca carte tipo:magia archetipo:"Sky Striker"` o `Cerca carte livello:4-6 attributo:oscurità` apre Ricerca con i filtri impostati. Sono supportati tipo, razza, attributo, archetipo, categoria, livello, ATK e DEF.
+- `Apri il mazzo selezionato`, `Crea un mazzo`, `Importa decklist`, `Esporta YDKE` e `Verifica legalità del mazzo` aprono gli strumenti già disponibili in Decklist.
+- `Analizza il mazzo` mostra copie, carte distinte e ripartizione per tipo nelle tre sezioni del mazzo.
+- `Apri schede combo del mazzo` apre le schede per il mazzo selezionato. `Apri Flow Studio` apre lo studio dei flussi.
+- `Simula 500 mani da 6 carte seed:42 starter:"Geargiarmor"` usa uno starter presente nel Main Deck. Il brick rate teorico misura l’assenza degli starter selezionati e si può confrontare con la frequenza simulata.

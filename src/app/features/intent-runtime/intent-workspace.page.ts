@@ -3,12 +3,15 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../services/auth.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { DecklistStore } from '../decklist/stores/decklist.store';
 import { IntentWorkspaceService } from './intent-workspace.service';
 import { PANEL_CATALOG, type PanelKind, type WorkspaceDefinition, type WorkspaceTheme } from './intent-contract';
 import type { Decklist } from '../../models/decklist.model';
 import type { SimulationCard } from './intent-simulator';
+import { hypergeometricPmf } from '../../utils/hypergeo.utils';
+import { computeTypeStats, deckSections, sectionCardCount, splitDeckSections } from '../../utils/deck-card.utils';
+import { INTENT_EXAMPLES, interpretIntentAction } from './intent-actions';
 import { mainDeckSnapshot } from './intent-simulator';
 
 @Component({
@@ -18,6 +21,8 @@ import { mainDeckSnapshot } from './intent-simulator';
   styleUrls: ['./intent-workspace.page.surface.css', './intent-workspace.page.panels.css', './intent-workspace.page.css'],
 })
 export class IntentWorkspacePage {
+  private readonly router = inject(Router);
+  protected readonly examples = INTENT_EXAMPLES;
   protected readonly store = inject(DecklistStore);
   protected readonly runtime = inject(IntentWorkspaceService);
   protected readonly panelCatalog = PANEL_CATALOG;
@@ -32,6 +37,15 @@ export class IntentWorkspacePage {
   protected readonly notice = signal('');
   protected readonly selectedDeck = computed<Decklist | null>(() =>
     this.store.decklists().find((d) => d.id === this.deckSelection()) ?? this.store.activeDecklist());
+  protected readonly deckCounts = computed(() => {
+    const decks = splitDeckSections(this.selectedDeck()?.cards ?? []);
+    return { main: sectionCardCount(decks.main), extra: sectionCardCount(decks.extra), side: sectionCardCount(decks.side) };
+  });
+  protected readonly showDeckAnalysis = signal(false);
+  protected readonly deckAnalysis = computed(() => deckSections(this.selectedDeck()?.cards ?? []).map(({ key, cards }) => ({
+    name: key === 'main' ? 'Main Deck' : key === 'extra' ? 'Extra Deck' : 'Side Deck',
+    copies: sectionCardCount(cards), distinct: new Set(cards.map((card) => card.id)).size, ...computeTypeStats(cards),
+  })));
   protected readonly candidateStarters = computed(() => mainDeckSnapshot(this.selectedDeck()?.cards ?? []));
   protected readonly visiblePanels = computed(() => this.runtime.active()?.panels.filter((p) => p.visible) ?? []);
 
@@ -39,10 +53,36 @@ export class IntentWorkspacePage {
     if (this.planning()) return;
     this.errorMessage.set(''); this.notice.set('');
     const deck = this.selectedDeck();
-    if (!deck) { this.errorMessage.set('Scegli o crea prima una decklist.'); return; }
     this.planning.set(true);
     try {
-      await this.runtime.create(this.request(), deck, this.selectedStarters());
+      const action = interpretIntentAction(this.request());
+      switch (action.kind) {
+        case 'search':
+          await this.router.navigate(['/search'], { queryParams: { q: action.query, ...action.filters } });
+          return;
+        case 'decks':
+          await this.router.navigate(['/decklist'], { queryParams: action.action === 'list' ? {} : { tool: action.action, deckId: action.action === 'check' ? deck?.id : undefined } });
+          return;
+        case 'combo':
+          await this.router.navigate([action.view === 'sheets' ? '/combo' : '/flow'], {
+            queryParams: action.view === 'sheets' && deck ? { deckId: deck.id } : {},
+          });
+          return;
+        case 'deck':
+          if (!deck) throw new Error('Scegli o crea prima una decklist.');
+          await this.router.navigate(['/decklist'], {
+            queryParams: { deckId: deck.id, editor: '1', tool: action.action === 'edit' ? null : action.action },
+          });
+          return;
+        case 'deck-analysis':
+          if (!deck) throw new Error('Scegli o crea prima una decklist.');
+          this.showDeckAnalysis.set(true);
+          this.notice.set('Composizione del mazzo calcolata dalle carte selezionate.');
+          return;
+        case 'workspace':
+          if (!deck) throw new Error('Scegli o crea prima una decklist.');
+          await this.runtime.create(this.request(), deck, this.selectedStarters());
+      }
       this.sampleIndex.set(0);
       this.notice.set('Ambiente creato e salvato nel browser. Puoi modificarlo, sospenderlo e riaprirlo.');
     } catch (error) { this.errorMessage.set(error instanceof Error ? error.message : 'Simulazione non disponibile.'); }
@@ -111,5 +151,10 @@ export class IntentWorkspacePage {
   protected panelLabel(kind: PanelKind): string { return PANEL_CATALOG.find((p) => p.kind === kind)?.title ?? kind; }
   protected appearanceCount(workspace: WorkspaceDefinition): number { return workspace.simulation.appearances.length; }
   protected humanDate(value: string): string { return new Date(value).toLocaleString('it-IT'); }
-  protected mainDeckSize(deck: Decklist | null): number { return mainDeckSnapshot(deck?.cards ?? []).reduce((a, c) => a + c.quantity, 0); }
+  protected exactBrickRate(workspace: WorkspaceDefinition): number | null {
+    const { starterIds, deckSize, handSize } = workspace.simulation;
+    if (!starterIds.length) return null;
+    const copies = workspace.cards.reduce((total, card) => total + (starterIds.includes(card.id) ? card.quantity : 0), 0);
+    return hypergeometricPmf(deckSize, copies, handSize, 0);
+  }
 }

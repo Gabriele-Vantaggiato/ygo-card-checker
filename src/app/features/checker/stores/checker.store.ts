@@ -134,6 +134,12 @@ export class CheckerStore {
     this.bindLanguageChange();
   }
 
+  applySearch(query: string, filters: AdvancedCardSearchFilters): void {
+    this.searchQuery.set(query);
+    this.advancedFilters.set(filters);
+    this.trigger$.next('submit');
+  }
+
   setSearchQuery(query: string): void {
     this.searchQuery.set(query);
     this.trigger$.next('live');

@@ -1,6 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Decklist } from '../../models/decklist.model';
-import { CAPABILITIES, interpretWorkspaceRequest, validWorkspace, type PanelKind, type WorkspaceDefinition, type WorkspaceTheme } from './intent-contract';
+import { CAPABILITIES, interpretWorkspaceRequest, readIntentStarters, validWorkspace, type PanelKind, type WorkspaceDefinition, type WorkspaceTheme } from './intent-contract';
 import { deckFingerprint, mainDeckSnapshot, simulateOpeningHands } from './intent-simulator';
 
 const STORAGE_KEY = 'ygo-intent-runtime-workspaces-v1';
@@ -29,7 +29,7 @@ export class IntentWorkspaceService {
     const cards = mainDeckSnapshot(deck.cards);
     const config = interpretWorkspaceRequest(prompt);
     const samples = config.samples ?? samplesFallback;
-    const simulation = simulateOpeningHands({ cards, samples, handSize: 5, starterIds: chosenStarters, seed: Date.now() });
+    const simulation = simulateOpeningHands({ cards, samples, handSize: config.handSize ?? 5, starterIds: readIntentStarters(prompt, cards, chosenStarters), seed: config.seed ?? Date.now() });
     const now = new Date().toISOString();
     const next: WorkspaceDefinition = {
       schemaVersion: 1, id: crypto.randomUUID(), name: `${deck.name} · Simulazioni`,
@@ -51,11 +51,16 @@ export class IntentWorkspaceService {
     const changes: Partial<WorkspaceDefinition> = {
       columns: next.columns, theme: next.theme, scale: next.scale, panels: next.panels,
     };
-    if (next.samples && next.samples !== previous.simulation.samples) {
+    const samples = next.samples ?? previous.simulation.samples;
+    const handSize = next.handSize ?? previous.simulation.handSize;
+    const seed = next.seed ?? previous.simulation.seed;
+    const starterIds = readIntentStarters(prompt, previous.cards, previous.simulation.starterIds);
+    if (samples !== previous.simulation.samples || handSize !== previous.simulation.handSize ||
+        seed !== previous.simulation.seed || starterIds !== previous.simulation.starterIds) {
       this.assertCapability('hand.simulate');
       changes.simulation = simulateOpeningHands({
-        cards: previous.cards, samples: next.samples, handSize: previous.simulation.handSize,
-        starterIds: previous.simulation.starterIds, seed: previous.simulation.seed,
+        cards: previous.cards, samples, handSize,
+        starterIds, seed,
       });
     }
     this.updateActive(changes);

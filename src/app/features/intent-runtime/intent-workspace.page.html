@@ -11,7 +11,7 @@
 
   <section class="intent-maker duel-panel" aria-labelledby="intent-create-title">
     <div class="intent-section-title">
-      <div><span class="intent-eyebrow">01 / COSTRUISCI</span><h2 id="intent-create-title" class="font-display">Crea un ambiente dal tuo intento</h2></div>
+      <div><span class="intent-eyebrow">01 / COSTRUISCI</span><h2 id="intent-create-title" class="font-display">Esegui una richiesta</h2></div>
     </div>
     <div class="intent-maker-grid">
       <div class="intent-maker-main">
@@ -36,15 +36,20 @@
         </div>
         <label class="intent-field-label mt-3" for="intent-input">Descrivi cosa vuoi ottenere</label>
         <textarea id="intent-input" class="textarea textarea-bordered intent-prompt" rows="4" [ngModel]="request()" (ngModelChange)="request.set($event)" placeholder="Es. Simula 10.000 mani, crea grafici, visualizza le percentuali su due colonne..." aria-describedby="intent-local-note"></textarea>
-        <p id="intent-local-note" class="intent-hint">Prova comandi per colonne, tema, dimensioni, pannelli e numero di mani.</p>
-        <button class="btn btn-primary intent-create-btn" type="button" (click)="create()" [disabled]="planning() || !request().trim()">{{ planning() ? 'Elaborazione…' : 'Genera la mia scrivania' }}</button>
+        <p id="intent-local-note" class="intent-hint">Scrivi una richiesta o scegli un esempio. Combina nome e filtri, ad esempio livello:4-6 e attributo:oscurità. Per le simulazioni puoi indicare la dimensione della mano, gli starter e il seed.</p>
+        <div class="mb-3 flex flex-wrap gap-1.5" aria-label="Esempi di richieste">
+          @for (example of examples; track example.label) {
+            <button type="button" class="btn btn-xs btn-outline" [disabled]="planning()" (click)="request.set(example.request)">{{ example.label }}</button>
+          }
+        </div>
+        <button class="btn btn-primary intent-create-btn" type="button" (click)="create()" [disabled]="planning() || !request().trim()">{{ planning() ? 'Elaborazione…' : 'Esegui richiesta' }}</button>
       </div>
       <div class="intent-maker-side">
         <label class="intent-field-label" for="intent-deck">Mazzo da analizzare</label>
         <select id="intent-deck" class="select select-bordered w-full" [ngModel]="deckSelection()" (ngModelChange)="deckSelection.set($event); selectedStarters.set([])">
           @for (deck of store.decklists(); track deck.id) { <option [value]="deck.id">{{ deck.name }}</option> }
         </select>
-        <div class="intent-deck-meta"><span>{{ mainDeckSize(selectedDeck()) }} carte · Main Deck</span><a routerLink="/decklist">Gestisci decklist ↗</a></div>
+        <div class="intent-deck-meta"><span>Main {{ deckCounts().main }} · Extra {{ deckCounts().extra }} · Side {{ deckCounts().side }}</span><a routerLink="/decklist">Gestisci decklist ↗</a></div>
         <label class="intent-field-label mt-3">Definisci i tuoi starter (criterio brick)</label>
         <p class="intent-hint">Una mano è "brick" solo se non contiene nessuna delle carte che selezioni qui. Non è una valutazione automatica delle combo.</p>
         <div class="intent-starter-picks">
@@ -62,6 +67,20 @@
   @if (errorMessage()) { <div class="alert alert-error" role="alert">{{ errorMessage() }}</div> }
   @if (notice()) { <div class="alert alert-success" role="status">{{ notice() }}</div> }
   @if (runtime.storageWarning()) { <div class="alert alert-warning" role="alert">{{ runtime.storageWarning() }}</div> }
+
+  @if (showDeckAnalysis()) {
+    <section class="duel-panel overflow-x-auto p-4" aria-label="Analisi deterministica del mazzo">
+      <h2 class="font-display text-xl font-bold">Composizione · {{ selectedDeck()?.name }}</h2>
+      <table class="table table-sm">
+        <thead><tr><th scope="col">Sezione</th><th scope="col">Copie</th><th scope="col">Carte distinte</th><th scope="col">Mostri</th><th scope="col">Magie</th><th scope="col">Trappole</th></tr></thead>
+        <tbody>
+          @for (entry of deckAnalysis(); track entry.name) {
+            <tr><th scope="row">{{ entry.name }}</th><td>{{ entry.copies }}</td><td>{{ entry.distinct }}</td><td>{{ entry.monsters }}</td><td>{{ entry.spells }}</td><td>{{ entry.traps }}</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
 
   <section class="intent-desk" aria-label="Scrivanie salvate">
     <div class="intent-desk-top">
@@ -93,7 +112,7 @@
 
         @if (runtime.isStale(w, selectedDeck())) { <div class="intent-alert">La decklist attuale è stata modificata: i dati salvati si riferiscono a una versione precedente. Una nuova simulazione usa ancora la copia salvata; crea un nuovo ambiente per usare la decklist aggiornata.</div> }
 
-        <div class="intent-compose-bar"><div><span class="intent-field-label">Modella l'ambiente con una richiesta</span><p class="intent-hint">Prova: «metti su tre colonne», «nascondi le combinazioni», «tema chiaro», «simula 20.000 mani».</p></div>
+        <div class="intent-compose-bar"><div><span class="intent-field-label">Modella l'ambiente con una richiesta</span><p class="intent-hint">Prova: «metti su tre colonne», «nascondi le combinazioni», «tema chiaro», «simula 20.000 mani da 6 carte», «seed:42».</p></div>
           <div class="intent-compose-action"><input type="text" class="input input-bordered" [ngModel]="modification()" (ngModelChange)="modification.set($event)" (keyup.enter)="modify()" placeholder="Come vuoi cambiarlo?" aria-label="Modifica ambiente" /><button type="button" class="btn btn-primary" (click)="modify()" [disabled]="planning() || !modification().trim()">Applica ↗</button></div>
         </div>
 
@@ -112,9 +131,13 @@
                   <div class="intent-metrics">
                     <div class="intent-metric"><small>Mani simulate</small><strong>{{ w.simulation.samples | number }}</strong><span>Seed {{ w.simulation.seed }}</span></div>
                     <div class="intent-metric"><small>Main Deck</small><strong>{{ w.simulation.deckSize }}</strong><span>Carte totali</span></div>
-                    <div class="intent-metric"><small>Brick rate*</small><strong>{{ w.simulation.brickRate === null ? 'N/D' : percent(w.simulation.brickRate) }}</strong><span>{{ w.simulation.brickRate === null ? 'Seleziona almeno uno starter' : 'Nessuno starter selezionato pescato' }}</span></div>
+                    <div class="intent-metric"><small>Brick rate simulato*</small><strong>{{ w.simulation.brickRate === null ? 'N/D' : percent(w.simulation.brickRate) }}</strong><span>{{ w.simulation.brickRate === null ? 'Seleziona almeno uno starter' : 'Nessuno starter selezionato pescato' }}</span></div>
                     <div class="intent-metric"><small>Carte differenti</small><strong>{{ appearanceCount(w) }}</strong><span>Nel Main Deck</span></div>
                   </div>
+                  @let exact = exactBrickRate(w);
+                  @if (exact !== null) {
+                    <div class="intent-note">Brick rate teorico · {{ percent(exact) }} su {{ w.simulation.handSize }} carte.</div>
+                  }
                   <div class="intent-note">* Brick = mano priva di carte che hai identificato come starter; non implica che la mano sia impossibile da giocare.</div>
                 }
                 @case ('opening-hand') {
