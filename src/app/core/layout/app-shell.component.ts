@@ -18,13 +18,14 @@ interface ShellNavItem {
   labelKey: string;
   icon: NavIconName;
   exact?: boolean;
+  isNew?: boolean;
 }
 
 const SIDEBAR_EXPANDED_KEY = 'ygo.sidebar.expanded';
 
 const SHELL_NAV: readonly ShellNavItem[] = [
   { path: '/decklist', labelKey: 'nav.decklist', icon: 'decklist' },
-  { path: '/intent', labelKey: 'Intent Lab', icon: 'flow' },
+  { path: '/intent', labelKey: 'Intent Lab', icon: 'flow', isNew: true },
   { path: '/search', labelKey: 'nav.search', icon: 'search', exact: true },
   { path: '/overlay', labelKey: 'nav.overlay', icon: 'overlay' },
   { path: '/replay', labelKey: 'nav.replay', icon: 'replay' },
@@ -77,12 +78,17 @@ const SHELL_NAV: readonly ShellNavItem[] = [
                 routerLinkActive="app-sidebar-link-active"
                 [routerLinkActiveOptions]="item.exact ? { exact: true } : { exact: false }"
                 ariaCurrentWhenActive="page"
-                class="app-sidebar-link"
-                [attr.title]="sidebarExpanded() ? null : (item.labelKey | translate)"
+                class="app-sidebar-link relative"
+                [attr.title]="sidebarExpanded() ? null : (item.labelKey | translate) + (item.isNew ? (isItalian() ? ' · Novità' : ' · New') : '')"
               >
                 <span class="app-sidebar-link-icon"><app-nav-icon [name]="item.icon" /></span>
                 @if (sidebarExpanded()) {
                   <span class="app-sidebar-link-label">{{ item.labelKey | translate }}</span>
+                  @if (item.isNew) {
+                    <span class="rounded-full border border-amber-400/50 bg-amber-400/10 px-1.5 text-[9px] font-semibold text-amber-200">{{ isItalian() ? 'Novità' : 'New' }}</span>
+                  }
+                } @else if (item.isNew) {
+                  <span class="absolute end-1 top-1 size-2 rounded-full bg-amber-300" aria-hidden="true"></span>
                 }
               </a>
             }
@@ -176,7 +182,7 @@ const SHELL_NAV: readonly ShellNavItem[] = [
             [attr.aria-label]="item.labelKey | translate"
           >
             <span class="mobile-tab-icon"><app-nav-icon [name]="item.icon" /></span>
-            <span class="mobile-tab-label">{{ item.labelKey | translate }}</span>
+            <span class="mobile-tab-label">{{ item.labelKey | translate }} @if (item.isNew) { <span class="inline-block size-1.5 rounded-full bg-amber-300" aria-hidden="true"></span> }</span>
           </a>
         }
       </nav>
@@ -190,6 +196,7 @@ const SHELL_NAV: readonly ShellNavItem[] = [
 export class AppShellComponent {
   protected readonly i18n = inject(I18nService);
   protected readonly formatStore = inject(FormatStore);
+  protected readonly isItalian = () => this.i18n.lang() === 'it';
   protected readonly navItems = SHELL_NAV;
 
   protected readonly sidebarExpanded = signal(readSidebarExpanded());

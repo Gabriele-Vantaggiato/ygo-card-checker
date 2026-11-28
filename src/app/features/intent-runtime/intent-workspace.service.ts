@@ -1,6 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Decklist } from '../../models/decklist.model';
-import { CAPABILITIES, defaultPanels, validWorkspace, type PanelKind, type WorkspaceDefinition, type WorkspaceTheme } from './intent-contract';
+import { CAPABILITIES, defaultPanels, interpretWorkspaceRequest, validWorkspace, type PanelKind, type WorkspaceDefinition, type WorkspaceTheme } from './intent-contract';
 import { requestWorkspacePlan } from './intent-planner';
 import { deckFingerprint, mainDeckSnapshot, simulateOpeningHands } from './intent-simulator';
 
@@ -23,12 +23,12 @@ export class IntentWorkspaceService {
   readonly active = computed(() => this.workspaces().find((w) => w.id === this.activeId()) ?? null);
   readonly storageWarning = signal('');
 
-  async create(prompt: string, deck: Decklist, chosenStarters: readonly number[], samplesFallback = 10_000): Promise<WorkspaceDefinition> {
+  async create(prompt: string, deck: Decklist, chosenStarters: readonly number[], mode: 'manual' | 'ai', samplesFallback = 10_000): Promise<WorkspaceDefinition> {
     this.assertCapability('deck.read');
     this.assertCapability('hand.simulate');
     this.assertCapability('workspace.compose');
     const cards = mainDeckSnapshot(deck.cards);
-    const config = await requestWorkspacePlan(prompt, {
+    const config = mode === 'manual' ? interpretWorkspaceRequest(prompt) : await requestWorkspacePlan(prompt, {
       columns: 2, theme: 'duel', scale: 'normal', panels: defaultPanels(),
     }, 'create');
     const samples = config.samples ?? samplesFallback;
@@ -46,12 +46,12 @@ export class IntentWorkspaceService {
     return next;
   }
 
-  async modify(prompt: string): Promise<void> {
+  async modify(prompt: string, mode: 'manual' | 'ai'): Promise<void> {
     this.assertCapability('workspace.compose');
     const previous = this.active();
     if (!previous) throw new Error('Apri prima un ambiente di lavoro.');
     const { columns, theme, scale, panels } = previous;
-    const next = await requestWorkspacePlan(prompt, { columns, theme, scale, panels }, 'modify');
+    const next = mode === 'manual' ? interpretWorkspaceRequest(prompt, previous) : await requestWorkspacePlan(prompt, { columns, theme, scale, panels }, 'modify');
     if (this.active() !== previous) {
       throw new Error('L’ambiente è cambiato durante la richiesta. Applica di nuovo la modifica.');
     }

@@ -5,7 +5,7 @@ import { demoPlan, execute, sample, source, validatePlan } from './kernel.mjs';
 import { composeDeckWorkspace, dashboardPrompt, editPrompt, examplePrompt } from './deck-workspace.mjs';
 import { cardImage } from './card-image.mjs';
 import { planHandWorkspace, planHandWorkspaceWithCodex, validPlanRequest } from './hand-workspace-planner.mjs';
-import { interpretWorkspace } from './workspace-model.mjs';
+import { codexChatGptConnected, interpretWorkspace, startCodexLogin } from './workspace-model.mjs';
 
 export async function planWithAI(intent, fetcher=fetch) {
   if (!process.env.AI_GATEWAY_API_KEY || !process.env.INTENT_MODEL) throw Error('AI non configurata: imposta AI_GATEWAY_API_KEY e INTENT_MODEL sul server.');
@@ -14,12 +14,42 @@ export async function planWithAI(intent, fetcher=fetch) {
   const body=await response.json();
   return validatePlan(JSON.parse(body.choices?.[0]?.message?.content ?? '{}'));
 }
-export function createServer() {
+export function createServer({ checkLogin = codexChatGptConnected, beginLogin = startCodexLogin } = {}) {
+  let loginProcess;
+  let loginFailed = false;
   return http.createServer(async(req,res)=>{
     const send=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
     try {
       if (!/^(?:127\.0\.0\.1|localhost)(?::\d+)?$/.test(req.headers.host ?? '')) return send(403,{error:'Host non consentito.'});
       if (req.url.startsWith('/intent-api/')) req.url = req.url.replace('/intent-api/', '/');
+      if (req.url === '/api/hand-workspace-auth') {
+        const origin = 'http://' + req.headers.host;
+        if (req.headers['x-intent-lab'] !== '1' || (req.headers.origin && req.headers.origin !== origin) ||
+            (req.method === 'POST' && req.headers.origin !== origin)) return send(403, { error: 'Origine non consentita.' });
+        const provider = process.env.INTENT_PLANNER_PROVIDER ?? 'codex';
+        if (req.method === 'GET') {
+          const connected = provider === 'codex' && await checkLogin().catch(() => false);
+          const available = provider === 'codex' || (provider === 'gateway' &&
+            !!(process.env.AI_GATEWAY_API_KEY && process.env.INTENT_MODEL));
+          return send(200, { provider, available, connected, pending: !!loginProcess, failed: loginFailed });
+        }
+        if (req.method !== 'POST') return send(405, { error: 'Metodo non consentito.' });
+        if (provider !== 'codex') return send(409, { error: 'Accesso ChatGPT disponibile con il provider Codex.' });
+        if (await checkLogin().catch(() => false)) return send(200, { connected: true });
+        if (!loginProcess) {
+          loginFailed = false;
+          const child = beginLogin();
+          loginProcess = child;
+          const finish = (failed) => {
+            if (loginProcess !== child) return;
+            loginProcess = undefined;
+            loginFailed = failed;
+          };
+          child.once('error', () => finish(true));
+          child.once('exit', (code) => finish(code !== 0));
+        }
+        return send(202, { pending: true });
+      }
       if (req.method==='GET' && req.url==='/api/status') return send(200,{aiAvailable:Boolean(process.env.AI_GATEWAY_API_KEY && process.env.INTENT_MODEL),sample,source,examplePrompt,editPrompt,dashboardPrompt,sampleStarters:'Geargiarmor, Geargiarsenal'});
       const image = req.method==='GET' && /^\/card-images\/(\d{1,8})\.jpg$/.exec(req.url);
       if (image) {
