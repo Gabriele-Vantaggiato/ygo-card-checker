@@ -7,6 +7,12 @@ import { DeckSyncService } from '../../../services/deck-sync.service';
 import { formatDeckText } from '../../../services/deck-text.service';
 
 const api = '/intent-api';
+const draftKey = 'ygocc.intent-runtime.prompt-draft';
+
+function readDraft(): string {
+  try { return sessionStorage.getItem(draftKey) ?? ''; }
+  catch { return ''; }
+}
 
 interface LabStatus {
   sample: string;
@@ -65,7 +71,7 @@ interface SpeechInput {
         <section class="card bg-base-200 p-4">
           <label for="intent-prompt">Come vuoi comporre la dashboard?</label>
           <textarea id="intent-prompt" class="textarea w-full" rows="2" maxlength="2000"
-            #promptBox [value]="prompt()" (input)="prompt.set(promptBox.value)"></textarea>
+            #promptBox [value]="prompt()" (input)="setPrompt(promptBox.value)"></textarea>
           <div class="actions">
             <button type="button" class="btn btn-primary" [disabled]="busy() || !status()" (click)="compose()">Componi</button>
             <button type="button" class="btn" [disabled]="busy() || !status()" (click)="showDashboard()">Dashboard carte</button>
@@ -81,8 +87,9 @@ interface SpeechInput {
           @if (busy()) { <p role="status">Composizione in corso…</p> }
           @if (error()) {
             <p role="alert">{{ error() }}</p>
-            @if (!status()) { <button type="button" class="btn btn-sm" (click)="loadStatus()">Riprova connessione</button> }
+            @if (!status()) { <button type="button" class="btn btn-sm" [disabled]="connecting()" (click)="loadStatus()">Riprova connessione</button> }
           }
+          @if (connecting()) { <p role="status">Connessione a Intent Runtime…</p> }
         </section>
         @if (view(); as current) {
           <section class="dashboard" [class.two-columns]="current.layout.columns === 2" aria-label="Dashboard composta">
@@ -185,7 +192,9 @@ export class IntentDecklistPage {
   readonly selectedId = signal('');
   readonly status = signal<LabStatus | null>(null);
   readonly view = signal<View | null>(null);
-  readonly prompt = signal('');
+  readonly prompt = signal(readDraft());
+  readonly connecting = signal(false);
+  private readonly lifecycle = new AbortController();
   readonly mode = signal<'deterministic' | 'codex'>('deterministic');
   readonly starters = signal<string[]>([]);
   readonly hand = signal(5);
@@ -198,7 +207,12 @@ export class IntentDecklistPage {
 
   constructor() {
     if (!this.available) return;
-    this.destroy.onDestroy(() => { this.sequence++; this.loadSequence++; this.speech?.abort(); });
+    this.destroy.onDestroy(() => {
+      this.sequence++;
+      this.loadSequence++;
+      this.lifecycle.abort();
+      this.speech?.abort();
+    });
     void this.loadStatus();
     this.auth.session$.pipe(
       map(session => session?.user.id ?? null),
@@ -244,16 +258,38 @@ export class IntentDecklistPage {
   }
 
   async loadStatus(): Promise<void> {
+    if (this.connecting()) return;
+    this.connecting.set(true);
+    this.error.set('');
     try {
-      const response = await fetch(api + '/api/status');
-      if (!response.ok) throw Error();
-      const status: LabStatus = await response.json();
-      if (!status.dashboardPrompt || !status.sampleStarters || !status.sample) throw Error();
-      this.status.set(status);
-      if (!this.prompt().trim()) this.prompt.set(status.dashboardPrompt);
-      if (!this.selectedId()) this.starters.set(this.sampleStarters());
-      await this.recalculate();
-    } catch { this.error.set('Playground non disponibile. Avvia YGOCC con npm start.'); }
+      for (const delay of [0, 300, 900]) {
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        if (this.lifecycle.signal.aborted) return;
+        try {
+          const response = await fetch(api + '/api/status', {
+            cache: 'no-store',
+            signal: AbortSignal.any([this.lifecycle.signal, AbortSignal.timeout(2500)]),
+          });
+          if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) continue;
+          const status: LabStatus = await response.json();
+          if (!status.dashboardPrompt || !status.sampleStarters || !status.sample) continue;
+          this.status.set(status);
+          if (!this.prompt().trim()) this.prompt.set(status.dashboardPrompt);
+          if (!this.selectedId()) this.starters.set(this.sampleStarters());
+          await this.recalculate();
+          return;
+        } catch { /* the local service may be restarting */ }
+      }
+      if (!this.lifecycle.signal.aborted) this.error.set('YGOCC è aperto, ma Intent Runtime non risponde. Puoi riprovare senza perdere il prompt.');
+    } finally {
+      this.connecting.set(false);
+    }
+  }
+
+  setPrompt(value: string): void {
+    this.prompt.set(value);
+    try { sessionStorage.setItem(draftKey, value); }
+    catch { /* the prompt remains editable if storage is unavailable */ }
   }
 
   private sampleStarters(): string[] {
@@ -269,7 +305,7 @@ export class IntentDecklistPage {
   }
 
   showDashboard(): void {
-    this.prompt.set(this.status()?.dashboardPrompt ?? '');
+    this.setPrompt(this.status()?.dashboardPrompt ?? '');
     void this.recalculate();
   }
   recalculate(): Promise<void> {
@@ -308,7 +344,7 @@ export class IntentDecklistPage {
     speech.lang = 'it-IT';
     speech.onresult = event => {
       const transcript = event.results[0][0].transcript;
-      this.prompt.set(transcript);
+      this.setPrompt(transcript);
       this.voiceMessage.set('Prompt trascritto.');
       void this.compose(transcript);
     };
