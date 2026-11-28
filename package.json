@@ -48,7 +48,10 @@
     "db:audit-assistance": "node --import tsx tools/card-knowledge-db/src/audit-assistance.ts",
     "db:test:assistance": "node --import tsx tools/card-knowledge-db/src/hat-assistance.test.ts",
     "index:build": "node --import tsx tools/card-index/build-index.mjs",
-    "index:verify": "node --import tsx tools/card-index/verify-index.mjs"
+    "index:verify": "node --import tsx tools/card-index/verify-index.mjs",
+    "intent:start": "node tools/intent-runtime/server.mjs",
+    "intent:test": "node --test tools/intent-runtime/runtime.test.mjs",
+    "intent:check": "node --check tools/intent-runtime/kernel.mjs && node --check tools/intent-runtime/server.mjs && node --check tools/intent-runtime/web/app.js"
   },
   "prettier": {
     "printWidth": 100,
