@@ -16,7 +16,7 @@ export async function requestWorkspacePlan(
       operation,
       layout: { ...layout, panels: layout.panels.map(({ kind, visible }) => ({ kind, visible })) },
     }),
-    signal: AbortSignal.timeout(35000),
+    signal: AbortSignal.timeout(95000),
   });
   if (!response.headers.get('content-type')?.includes('application/json')) {
     throw new Error('Planner non disponibile. Avvia il server locale di Intent Runtime.');

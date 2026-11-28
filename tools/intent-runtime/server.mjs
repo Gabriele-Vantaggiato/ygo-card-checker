@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { demoPlan, execute, sample, source, validatePlan } from './kernel.mjs';
 import { composeDeckWorkspace, dashboardPrompt, editPrompt, examplePrompt } from './deck-workspace.mjs';
 import { cardImage } from './card-image.mjs';
-import { planHandWorkspace, validPlanRequest } from './hand-workspace-planner.mjs';
+import { planHandWorkspace, planHandWorkspaceWithCodex, validPlanRequest } from './hand-workspace-planner.mjs';
 import { interpretWorkspace } from './workspace-model.mjs';
 
 export async function planWithAI(intent, fetcher=fetch) {
@@ -40,13 +40,22 @@ export function createServer() {
           }
           if (!validPlanRequest(input)) return send(400, { error: 'Richiesta non valida.' });
           const { AI_GATEWAY_API_KEY: key, INTENT_MODEL: model } = process.env;
-          if (!key || !model) return send(503, { error: 'Configura AI_GATEWAY_API_KEY e INTENT_MODEL sul server locale.' });
+          const provider = process.env.INTENT_PLANNER_PROVIDER ?? 'codex';
+          if (provider === 'gateway' && (!key || !model)) {
+            return send(503, { error: 'Configura AI_GATEWAY_API_KEY e INTENT_MODEL sul server locale.' });
+          }
+          if (provider !== 'codex' && provider !== 'gateway') {
+            return send(503, { error: 'Provider Intent Runtime non valido. Usa codex o gateway.' });
+          }
           try {
-            return send(200, await planHandWorkspace(input, { key, model }));
+            const plan = provider === 'codex'
+              ? await planHandWorkspaceWithCodex(input)
+              : await planHandWorkspace(input, { key, model });
+            return send(200, plan);
           } catch (error) {
             const message = error.name === 'TimeoutError'
               ? 'Il planner AI non ha risposto in tempo.'
-              : 'Il planner AI non ha prodotto un piano utilizzabile.';
+              : provider === 'codex' ? error.message : 'Il planner AI non ha prodotto un piano utilizzabile.';
             return send(502, { error: message });
           }
         }

@@ -1,3 +1,6 @@
+import { fileURLToPath } from 'node:url';
+import { runCodexJson } from './workspace-model.mjs';
+
 const kinds = ['metrics', 'opening-hand', 'starter-chart', 'frequency-chart', 'combinations', 'decklist'];
 const themes = ['duel', 'midnight', 'parchment'];
 const scales = ['compact', 'normal', 'large'];
@@ -67,6 +70,22 @@ export function applyWorkspacePlan(plan, { operation, layout }) {
   return result;
 }
 
+const instructions = [
+  'You plan a Yu-Gi-Oh opening-hand dashboard. Return JSON { "actions": [] }.',
+  'Available capabilities: ' + JSON.stringify(registry),
+  'For composition emit { "capability": "workspace.compose", "layout": { "columns": 2, "theme": "duel", "scale": "normal", "panels": [] } }.',
+  'Include each panel kind exactly once as { "kind": "...", "visible": true }. Kinds: ' + kinds.join(', '),
+  'Themes: ' + themes.join(', ') + '. Scales: ' + scales.join(', ') + '.',
+  'For simulation emit { "capability": "hand.simulate", "samples": 10000 } only if the user requests a sample count.',
+  'Preserve settings the user did not request to modify. Use no action for unsupported requests. Never generate code or simulation results.',
+].join('\n');
+const codexSchema = fileURLToPath(new URL('./hand-workspace-plan.schema.json', import.meta.url));
+
+export async function planHandWorkspaceWithCodex(input, run) {
+  const plan = await runCodexJson(codexSchema, instructions + '\nDo not call tools. Request: ' + JSON.stringify(input), run);
+  return applyWorkspacePlan(plan, input);
+}
+
 export async function planHandWorkspace(input, { key, model, fetcher = fetch }) {
   const response = await fetcher('https://ai-gateway.vercel.sh/v1/chat/completions', {
     method: 'POST',
@@ -79,15 +98,7 @@ export async function planHandWorkspace(input, { key, model, fetcher = fetch }) 
       messages: [
         {
           role: 'system',
-          content: [
-            'You plan a Yu-Gi-Oh opening-hand dashboard. Return JSON { "actions": [] }.',
-            'Available capabilities: ' + JSON.stringify(registry),
-            'For composition emit { "capability": "workspace.compose", "layout": { "columns": 2, "theme": "duel", "scale": "normal", "panels": [] } }.',
-            'Include each panel kind exactly once as { "kind": "...", "visible": true }. Kinds: ' + kinds.join(', '),
-            'Themes: ' + themes.join(', ') + '. Scales: ' + scales.join(', ') + '.',
-            'For simulation emit { "capability": "hand.simulate", "samples": 10000 } only if the user requests a sample count.',
-            'Preserve settings the user did not request to modify. Use no action for unsupported requests. Never generate code or simulation results.',
-          ].join('\n'),
+          content: instructions,
         },
         { role: 'user', content: JSON.stringify(input) },
       ],
