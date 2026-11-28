@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Decklist } from '../../models/decklist.model';
-import { CAPABILITIES, defaultPanels, interpretWorkspaceRequest, validWorkspace, type PanelKind, type WorkspaceDefinition, type WorkspaceTheme } from './intent-contract';
+import { CAPABILITIES, defaultPanels, validWorkspace, type PanelKind, type WorkspaceDefinition, type WorkspaceTheme } from './intent-contract';
+import { requestWorkspacePlan } from './intent-planner';
 import { deckFingerprint, mainDeckSnapshot, simulateOpeningHands } from './intent-simulator';
 
 const STORAGE_KEY = 'ygo-intent-runtime-workspaces-v1';
@@ -22,12 +23,14 @@ export class IntentWorkspaceService {
   readonly active = computed(() => this.workspaces().find((w) => w.id === this.activeId()) ?? null);
   readonly storageWarning = signal('');
 
-  create(prompt: string, deck: Decklist, chosenStarters: readonly number[], samplesFallback = 10_000): WorkspaceDefinition {
+  async create(prompt: string, deck: Decklist, chosenStarters: readonly number[], samplesFallback = 10_000): Promise<WorkspaceDefinition> {
     this.assertCapability('deck.read');
     this.assertCapability('hand.simulate');
     this.assertCapability('workspace.compose');
     const cards = mainDeckSnapshot(deck.cards);
-    const config = interpretWorkspaceRequest(prompt);
+    const config = await requestWorkspacePlan(prompt, {
+      columns: 2, theme: 'duel', scale: 'normal', panels: defaultPanels(),
+    }, 'create');
     const samples = config.samples ?? samplesFallback;
     const simulation = simulateOpeningHands({ cards, samples, handSize: 5, starterIds: chosenStarters, seed: Date.now() });
     const now = new Date().toISOString();
@@ -43,14 +46,14 @@ export class IntentWorkspaceService {
     return next;
   }
 
-  modify(prompt: string): void {
+  async modify(prompt: string): Promise<void> {
     this.assertCapability('workspace.compose');
     const previous = this.active();
     if (!previous) throw new Error('Apri prima un ambiente di lavoro.');
-    const next = interpretWorkspaceRequest(prompt, previous);
-    if (next.samples === null && next.columns === previous.columns && next.theme === previous.theme
-      && next.scale === previous.scale && JSON.stringify(next.panels) === JSON.stringify(previous.panels)) {
-      throw new Error('Richiesta non riconosciuta dall’interprete locale. Prova: tema chiaro, tre colonne, nascondi le combinazioni, simula 20.000 mani.');
+    const { columns, theme, scale, panels } = previous;
+    const next = await requestWorkspacePlan(prompt, { columns, theme, scale, panels }, 'modify');
+    if (this.active() !== previous) {
+      throw new Error('L’ambiente è cambiato durante la richiesta. Applica di nuovo la modifica.');
     }
     const changes: Partial<WorkspaceDefinition> = {
       columns: next.columns, theme: next.theme, scale: next.scale, panels: next.panels,
@@ -59,7 +62,7 @@ export class IntentWorkspaceService {
       this.assertCapability('hand.simulate');
       changes.simulation = simulateOpeningHands({
         cards: previous.cards, samples: next.samples, handSize: previous.simulation.handSize,
-        starterIds: previous.simulation.starterIds, seed: Date.now(),
+        starterIds: previous.simulation.starterIds, seed: previous.simulation.seed,
       });
     }
     this.updateActive(changes);

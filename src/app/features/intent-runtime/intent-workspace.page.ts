@@ -25,31 +25,38 @@ export class IntentWorkspacePage {
   protected readonly selectedStarters = signal<number[]>([]);
   protected readonly sampleIndex = signal(0);
   protected readonly errorMessage = signal('');
+  protected readonly planning = signal(false);
   protected readonly notice = signal('');
   protected readonly selectedDeck = computed<Decklist | null>(() =>
     this.store.decklists().find((d) => d.id === this.deckSelection()) ?? this.store.activeDecklist());
   protected readonly candidateStarters = computed(() => mainDeckSnapshot(this.selectedDeck()?.cards ?? []));
   protected readonly visiblePanels = computed(() => this.runtime.active()?.panels.filter((p) => p.visible) ?? []);
 
-  protected create(): void {
+  protected async create(): Promise<void> {
+    if (this.planning()) return;
     this.errorMessage.set(''); this.notice.set('');
     const deck = this.selectedDeck();
     if (!deck) { this.errorMessage.set('Scegli o crea prima una decklist.'); return; }
+    this.planning.set(true);
     try {
-      this.runtime.create(this.request(), deck, this.selectedStarters());
+      await this.runtime.create(this.request(), deck, this.selectedStarters());
       this.sampleIndex.set(0);
       this.notice.set('Ambiente creato e salvato nel browser. Puoi modificarlo, sospenderlo e riaprirlo.');
     } catch (error) { this.errorMessage.set(error instanceof Error ? error.message : 'Simulazione non disponibile.'); }
+    finally { this.planning.set(false); }
   }
 
-  protected modify(): void {
+  protected async modify(): Promise<void> {
+    if (this.planning()) return;
     this.errorMessage.set(''); this.notice.set('');
     if (!this.modification().trim()) return;
+    this.planning.set(true);
     try {
-      this.runtime.modify(this.modification());
+      await this.runtime.modify(this.modification());
       this.notice.set('Composizione aggiornata e salvata.');
       this.modification.set('');
     } catch (error) { this.errorMessage.set(error instanceof Error ? error.message : 'Modifica non disponibile.'); }
+    finally { this.planning.set(false); }
   }
 
   protected chooseWorkspace(id: string): void {

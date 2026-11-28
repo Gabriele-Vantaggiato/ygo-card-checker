@@ -24,6 +24,7 @@ const SIDEBAR_EXPANDED_KEY = 'ygo.sidebar.expanded';
 
 const SHELL_NAV: readonly ShellNavItem[] = [
   { path: '/decklist', labelKey: 'nav.decklist', icon: 'decklist' },
+  { path: '/intent', labelKey: 'Intent Lab', icon: 'flow' },
   { path: '/search', labelKey: 'nav.search', icon: 'search', exact: true },
   { path: '/overlay', labelKey: 'nav.overlay', icon: 'overlay' },
   { path: '/replay', labelKey: 'nav.replay', icon: 'replay' },

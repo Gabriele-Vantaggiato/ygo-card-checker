@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { demoPlan, execute, sample, source, validatePlan } from './kernel.mjs';
 import { composeDeckWorkspace, dashboardPrompt, editPrompt, examplePrompt } from './deck-workspace.mjs';
 import { cardImage } from './card-image.mjs';
+import { planHandWorkspace, validPlanRequest } from './hand-workspace-planner.mjs';
 import { interpretWorkspace } from './workspace-model.mjs';
 
 export async function planWithAI(intent, fetcher=fetch) {
@@ -28,11 +29,27 @@ export function createServer() {
         res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'private, max-age=86400','X-Content-Type-Options':'nosniff'});
         return res.end(bytes);
       }
-      if (req.method==='POST' && ['/api/run','/api/workspace'].includes(req.url)) {
+      if (req.method==='POST' && ['/api/run','/api/workspace','/api/hand-workspace-plan'].includes(req.url)) {
         if (req.headers.origin && req.headers.origin!==`http://${req.headers.host}`) return send(403,{error:'Origin non consentita.'});
         if (!req.headers['content-type']?.startsWith('application/json')) return send(415,{error:'Richiesto JSON.'});
         let raw=''; for await(const part of req) {raw+=part; if(Buffer.byteLength(raw)>32000) return send(413,{error:'Richiesta troppo grande.'});}
         const input=JSON.parse(raw);
+        if (req.url === '/api/hand-workspace-plan') {
+          if (req.headers.origin !== 'http://' + req.headers.host) {
+            return send(403, { error: 'Origin non consentita.' });
+          }
+          if (!validPlanRequest(input)) return send(400, { error: 'Richiesta non valida.' });
+          const { AI_GATEWAY_API_KEY: key, INTENT_MODEL: model } = process.env;
+          if (!key || !model) return send(503, { error: 'Configura AI_GATEWAY_API_KEY e INTENT_MODEL sul server locale.' });
+          try {
+            return send(200, await planHandWorkspace(input, { key, model }));
+          } catch (error) {
+            const message = error.name === 'TimeoutError'
+              ? 'Il planner AI non ha risposto in tempo.'
+              : 'Il planner AI non ha prodotto un piano utilizzabile.';
+            return send(502, { error: message });
+          }
+        }
         if (req.url==='/api/workspace') {
           if (!input || typeof input.intent!=='string' || input.intent.length>2000) return send(400,{error:'Richiesta non valida.'});
           // The local lab grants read-only access to the submitted list.

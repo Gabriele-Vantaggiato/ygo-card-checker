@@ -77,3 +77,14 @@ Avvia YGOCC dal repository con `npm ci` la prima volta e `npm start` per lo svil
 Il selettore usa `DeckSyncService.load()` e mostra le decklist dell’utente corrente con almeno una carta. Seleziona le carte chiave direttamente dalla griglia del Main Deck e usa **Ricalcola**. La vista dell’account viene scartata quando si esce o si cambia mazzo.
 
 Per usare un LLM, accedi a Codex CLI con ChatGPT e seleziona **Codex con ChatGPT** nel playground. Il server richiede quella modalità di login e invia solo il prompt. Il modello sceglie fra le tre viste supportate e il runtime valida la scelta prima di eseguire i calcoli. Se il binario non è nel PATH, imposta `INTENT_CODEX_BIN` con il percorso dell’eseguibile locale. Questa modalità usa i limiti del piano ChatGPT applicabile. La modalità deterministica resta predefinita e funziona senza credenziali.
+
+## Intent Lab Angular · `/intent`
+
+Avvia YGOCardChecker con `npm run start`. Il server Intent Runtime locale ascolta
+su `127.0.0.1:4190` e Angular inoltra le richieste al planner tramite il proxy di
+sviluppo. Imposta `AI_GATEWAY_API_KEY` e `INTENT_MODEL` nell'ambiente del processo
+prima dell'avvio. Il planner riceve il testo digitato e le impostazioni visive.
+La simulazione usa la decklist selezionata in Angular e il workspace viene
+salvato nella memoria locale del browser.
+
+`npm run intent:test` esegue anche i test della simulazione e del planner.

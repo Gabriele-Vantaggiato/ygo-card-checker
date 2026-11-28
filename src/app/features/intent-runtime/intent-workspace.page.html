@@ -19,7 +19,7 @@
         <label class="intent-field-label" for="intent-input">Descrivi cosa vuoi ottenere</label>
         <textarea id="intent-input" class="textarea textarea-bordered intent-prompt" rows="4" [ngModel]="request()" (ngModelChange)="request.set($event)" placeholder="Es. Simula 10.000 mani, crea grafici, visualizza le percentuali su due colonne..." aria-describedby="intent-local-note"></textarea>
         <p id="intent-local-note" class="intent-hint">Questa prima versione interpreta comandi locali limitati: colonne, tema, scala e numero di simulazioni. Non usa ancora un LLM reale.</p>
-        <button class="btn btn-primary intent-create-btn" type="button" (click)="create()">✦ Genera la mia scrivania</button>
+        <button class="btn btn-primary intent-create-btn" type="button" (click)="create()" [disabled]="planning() || !request().trim()">{{ planning() ? 'Elaborazione…' : 'Genera la mia scrivania' }}</button>
       </div>
       <div class="intent-maker-side">
         <label class="intent-field-label" for="intent-deck">Mazzo da analizzare</label>
@@ -76,7 +76,7 @@
         @if (runtime.isStale(w, selectedDeck())) { <div class="intent-alert">La decklist attuale è stata modificata: i dati salvati si riferiscono a una versione precedente. Una nuova simulazione usa ancora la copia salvata; crea un nuovo ambiente per usare la decklist aggiornata.</div> }
 
         <div class="intent-compose-bar"><div><span class="intent-field-label">Modella l'ambiente con una richiesta</span><p class="intent-hint">Prova: «metti su tre colonne», «nascondi le combinazioni», «tema chiaro», «simula 20.000 mani».</p></div>
-          <div class="intent-compose-action"><input type="text" class="input input-bordered" [ngModel]="modification()" (ngModelChange)="modification.set($event)" (keyup.enter)="modify()" placeholder="Come vuoi cambiarlo?" aria-label="Modifica ambiente" /><button type="button" class="btn btn-primary" (click)="modify()" [disabled]="!modification().trim()">Applica ↗</button></div>
+          <div class="intent-compose-action"><input type="text" class="input input-bordered" [ngModel]="modification()" (ngModelChange)="modification.set($event)" (keyup.enter)="modify()" placeholder="Come vuoi cambiarlo?" aria-label="Modifica ambiente" /><button type="button" class="btn btn-primary" (click)="modify()" [disabled]="planning() || !modification().trim()">Applica ↗</button></div>
         </div>
 
         <details class="intent-panel-organizer"><summary>⚙ Organizza le sezioni</summary><div class="intent-organizer-list">
