@@ -80,16 +80,10 @@ Per usare un LLM, accedi a Codex CLI con ChatGPT e seleziona **Codex con ChatGPT
 
 ## Intent Lab Angular · `/intent`
 
-In **Interprete** scegli **Locale · comandi rapidi** per simulare e salvare
-ambienti anche sul sito pubblico. Per usare l’abbonamento, avvia YGOCardChecker
-con `npm run start`, scegli **AI · ChatGPT** e premi **Accedi con ChatGPT** se
-Codex non ha già una sessione. Completa l’accesso nella finestra del browser.
-Le richieste usano il piano ChatGPT, entro i relativi limiti. Puoi indicare il
-percorso dell'eseguibile con `INTENT_CODEX_BIN` se Codex non è nel PATH.
-Per usare AI Gateway, imposta esplicitamente `INTENT_PLANNER_PROVIDER=gateway`
-insieme a `AI_GATEWAY_API_KEY` e `INTENT_MODEL`.
-Il planner riceve il testo digitato e le impostazioni visive.
-La simulazione usa la decklist selezionata in Angular e il workspace viene
-salvato nella memoria locale del browser.
+L’interprete deterministico è disponibile senza accesso, sia in locale sia sul
+sito pubblico. La simulazione usa il Main Deck selezionato e salva il workspace
+nel browser. L’accesso a YGOCardChecker mostra i provider personali. ChatGPT è in
+attesa dell’abilitazione OAuth per l’uso del piano sul sito. Claude e Gemini
+sono indicati come non disponibili.
 
-`npm run intent:test` esegue anche i test della simulazione e del planner.
+`npm run intent:test` esegue i test della simulazione e dei planner di sviluppo.

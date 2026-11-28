@@ -15,34 +15,29 @@
     </div>
     <div class="intent-maker-grid">
       <div class="intent-maker-main">
-        <label class="intent-field-label" for="intent-mode">Interprete</label>
-        <select id="intent-mode" class="select select-bordered w-full" [ngModel]="mode()" (ngModelChange)="mode.set($event)" [disabled]="planning()">
-          <option value="manual">Locale · comandi rapidi</option>
-          <option value="ai">AI · ChatGPT</option>
-        </select>
-        @if (mode() === 'ai') {
-          <div class="mb-3 mt-2" aria-live="polite">
-            @switch (auth()) {
-              @case ('checking') { <p class="intent-hint">Verifica dell’accesso…</p> }
-              @case ('connected') { <span class="badge badge-outline badge-success">ChatGPT connesso</span> }
-              @case ('gateway') { <span class="badge badge-outline">AI Gateway</span> }
-              @case ('pending') { <p class="intent-hint">Completa l’accesso a ChatGPT nella finestra del browser.</p> }
-              @case ('unavailable') {
-                <p class="intent-hint">L’accesso ChatGPT richiede l’app avviata sul tuo computer. Qui puoi usare l’interprete locale.</p>
-              }
-              @default {
-                @if (auth() === 'failed') {
-                  <p class="intent-hint">Accesso interrotto. Verifica che Codex sia installato e riprova.</p>
-                }
-                <button type="button" class="btn btn-outline btn-sm" (click)="connectChatGpt()">Accedi con ChatGPT</button>
-              }
-            }
-          </div>
-        }
+        <div class="mb-3 rounded-lg border border-base-300 bg-base-200/60 p-3" aria-labelledby="intent-interpreter-title">
+          <h3 class="intent-field-label" id="intent-interpreter-title">Interprete</h3>
+          <p class="text-sm font-semibold">Deterministico <span class="badge badge-outline badge-success ms-1">Attivo</span></p>
+          @if (platformSession()) {
+            <ul class="mt-3 space-y-2 border-t border-base-300 pt-3 text-sm" aria-label="Provider AI personali">
+              <li class="flex flex-wrap items-center justify-between gap-2">
+                <span>ChatGPT</span><span class="badge badge-outline badge-warning">Collegamento in attesa di attivazione</span>
+              </li>
+              <li class="flex flex-wrap items-center justify-between gap-2">
+                <span>Claude</span><span class="badge badge-outline text-base-content/60">Non disponibile</span>
+              </li>
+              <li class="flex flex-wrap items-center justify-between gap-2">
+                <span>Gemini</span><span class="badge badge-outline text-base-content/60">Non disponibile</span>
+              </li>
+            </ul>
+          } @else {
+            <p class="intent-hint">Accedi a YGOCardChecker dal menu del profilo per vedere i provider AI personali.</p>
+          }
+        </div>
         <label class="intent-field-label mt-3" for="intent-input">Descrivi cosa vuoi ottenere</label>
         <textarea id="intent-input" class="textarea textarea-bordered intent-prompt" rows="4" [ngModel]="request()" (ngModelChange)="request.set($event)" placeholder="Es. Simula 10.000 mani, crea grafici, visualizza le percentuali su due colonne..." aria-describedby="intent-local-note"></textarea>
-        <p id="intent-local-note" class="intent-hint">{{ mode() === 'manual' ? 'Prova comandi per colonne, tema, dimensioni, pannelli e numero di mani.' : 'La richiesta e le impostazioni visive vengono inviate al planner AI.' }}</p>
-        <button class="btn btn-primary intent-create-btn" type="button" (click)="create()" [disabled]="planning() || !canPlan() || !request().trim()">{{ planning() ? 'Elaborazione…' : 'Genera la mia scrivania' }}</button>
+        <p id="intent-local-note" class="intent-hint">Prova comandi per colonne, tema, dimensioni, pannelli e numero di mani.</p>
+        <button class="btn btn-primary intent-create-btn" type="button" (click)="create()" [disabled]="planning() || !request().trim()">{{ planning() ? 'Elaborazione…' : 'Genera la mia scrivania' }}</button>
       </div>
       <div class="intent-maker-side">
         <label class="intent-field-label" for="intent-deck">Mazzo da analizzare</label>
@@ -99,7 +94,7 @@
         @if (runtime.isStale(w, selectedDeck())) { <div class="intent-alert">La decklist attuale è stata modificata: i dati salvati si riferiscono a una versione precedente. Una nuova simulazione usa ancora la copia salvata; crea un nuovo ambiente per usare la decklist aggiornata.</div> }
 
         <div class="intent-compose-bar"><div><span class="intent-field-label">Modella l'ambiente con una richiesta</span><p class="intent-hint">Prova: «metti su tre colonne», «nascondi le combinazioni», «tema chiaro», «simula 20.000 mani».</p></div>
-          <div class="intent-compose-action"><input type="text" class="input input-bordered" [ngModel]="modification()" (ngModelChange)="modification.set($event)" (keyup.enter)="modify()" placeholder="Come vuoi cambiarlo?" aria-label="Modifica ambiente" /><button type="button" class="btn btn-primary" (click)="modify()" [disabled]="planning() || !canPlan() || !modification().trim()">Applica ↗</button></div>
+          <div class="intent-compose-action"><input type="text" class="input input-bordered" [ngModel]="modification()" (ngModelChange)="modification.set($event)" (keyup.enter)="modify()" placeholder="Come vuoi cambiarlo?" aria-label="Modifica ambiente" /><button type="button" class="btn btn-primary" (click)="modify()" [disabled]="planning() || !modification().trim()">Applica ↗</button></div>
         </div>
 
         <details class="intent-panel-organizer"><summary>⚙ Organizza le sezioni</summary><div class="intent-organizer-list">
