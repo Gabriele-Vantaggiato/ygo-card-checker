@@ -1,3 +1,4 @@
+import { readAdvancedSearchParams } from '../../../models/card-search-filters.model';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -196,6 +197,14 @@ export class CheckerPage {
   readonly deckReturn = signal<DeckReturnContext | null>(null);
 
   constructor() {
+    this.route.queryParamMap
+      .pipe(filter((params) => params.has('q')), takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const filters = readAdvancedSearchParams(params);
+        this.store.filtersOpen.set(Object.keys(filters).length > 0);
+        this.store.applySearch((params.get('q') ?? '').slice(0, 120), filters);
+      });
+
     this.route.queryParamMap
       .pipe(
         map((params) => ({

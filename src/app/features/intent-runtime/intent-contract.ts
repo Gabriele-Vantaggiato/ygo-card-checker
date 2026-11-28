@@ -54,7 +54,7 @@ const aliases: Record<PanelKind, RegExp> = {
 /** Offline interpreter for the MVP; replaceable by a validated model adapter. */
 export function interpretWorkspaceRequest(request: string, current?: WorkspaceDefinition): {
   columns: 1 | 2 | 3; theme: WorkspaceTheme; scale: WorkspaceDefinition['scale']; panels: WorkspacePanel[];
-  samples: number | null; isVisualEdit: boolean;
+  samples: number | null; handSize: 5 | 6 | null; seed: number | null; isVisualEdit: boolean;
 } {
   const lower = request.toLowerCase();
   const panels = current ? current.panels.map((p) => ({ ...p })) : defaultPanels();
@@ -83,11 +83,28 @@ export function interpretWorkspaceRequest(request: string, current?: WorkspaceDe
     const match = panels.find((p) => aliases[p.kind].test(token));
     if (match) { panels.splice(panels.indexOf(match), 1); panels.unshift(match); }
   }
-  const countMatch = /(?:simula|esegui|fai|con)\s+([\d. ]{3,12})\s*(?:mani|simulazioni|pescate)/.exec(lower)
-    ?? /([\d. ]{3,12})\s*(?:mani|simulazioni|pescate)/.exec(lower);
+  const countMatch = /(?:simula|esegui|fai|con)\s+([\d. ]{1,12})\s*(?:mani|simulazioni|pescate)/.exec(lower)
+    ?? /([\d. ]{1,12})\s*(?:mani|simulazioni|pescate)/.exec(lower);
   const count = countMatch ? Number(countMatch[1]!.replace(/[. ]/g, '')) : null;
   const samples = count !== null && Number.isFinite(count) && count > 0 && count <= 100_000 ? count : null;
-  return { columns, theme, scale, panels, samples, isVisualEdit: current !== undefined };
+  const hand = /(?:da|di|con)\s+([56])\s+carte|mano\s+(?:da|di|con)\s+([56])\s+carte/.exec(lower);
+  const handSize = hand ? (Number(hand[1] ?? hand[2]) as 5 | 6) : null;
+  const seedMatch = /\bseed\s*:?\s*(\d{1,10})(?!\d)/.exec(lower);
+  const seed = seedMatch && Number(seedMatch[1]) <= 0xffffffff ? Number(seedMatch[1]) : null;
+  return { columns, theme, scale, panels, samples, handSize, seed, isVisualEdit: current !== undefined };
+}
+
+export function readIntentStarters(request: string, cards: readonly SimulationCard[], fallback: readonly number[]): readonly number[] {
+  if (!/\bstarter\s*:/i.test(request)) return fallback;
+  const matches = [...request.matchAll(/\bstarter\s*:\s*"([^"]+)"/gi)];
+  if (!matches.length || matches.length !== (request.match(/\bstarter\s*:/gi)?.length ?? 0)) {
+    throw Error('Per indicare uno starter, usa starter:"Nome della carta".');
+  }
+  return [...new Set(matches.map((match) => {
+    const starter = cards.find((card) => card.name.localeCompare(match[1].trim(), undefined, { sensitivity: 'base' }) === 0);
+    if (!starter) throw Error('Starter assente dal Main Deck: ' + match[1].trim());
+    return starter.id;
+  }))];
 }
 
 export function validWorkspace(value: unknown): value is WorkspaceDefinition {

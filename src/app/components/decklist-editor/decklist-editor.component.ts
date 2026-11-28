@@ -5,6 +5,7 @@ import {
   Injector,
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   effect,
   inject,
@@ -180,7 +181,7 @@ import {
           </aside>
         </div>
 
-        <div class="deck-editor-assist gap-4">
+        <div #assistPanel class="deck-editor-assist gap-4">
           <app-deck-assist-panel
             [loading]="deckAnalysisLoading()"
             [analysis]="deckAnalysis()"
@@ -443,7 +444,28 @@ export class DecklistEditorComponent {
   private readonly descCache = new Map<number, string>();
   private completeDeckPlanSub: Subscription | null = null;
 
+  readonly entryAction = input<'import' | 'export' | 'import-ydke' | 'export-ydke' | 'analysis' | null>(null);
+  readonly entryActionOpened = output<void>();
+  private readonly assistPanel = viewChild<ElementRef<HTMLElement>>('assistPanel');
+
   constructor() {
+    effect(() => {
+      const action = this.entryAction();
+      if (!action) return;
+      afterNextRender(() => {
+        if (this.entryAction() !== action) return;
+        if (action === 'import') this.openImportTextDialog();
+        if (action === 'export') this.openTextExportDialog(this.deck());
+        if (action === 'import-ydke') this.openImportYdkeDialog();
+        if (action === 'export-ydke') this.openYdkeDialog(this.deck());
+        if (action === 'analysis') {
+          this.mobileWorkspaceTab.set('assist');
+          this.assistPanel()?.nativeElement.scrollIntoView({ block: 'start' });
+        }
+        this.entryActionOpened.emit();
+      }, { injector: this.renderInjector });
+    });
+
     this.formatStore.formatId$
       .pipe(distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {

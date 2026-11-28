@@ -63,3 +63,18 @@ export function normalizeAdvancedSearchFilters(filters: AdvancedCardSearchFilter
 export function hasActiveAdvancedFilters(filters: AdvancedCardSearchFilters): boolean {
   return Object.keys(normalizeAdvancedSearchFilters(filters)).length > 0;
 }
+
+export function readAdvancedSearchParams(params: { get(name: string): string | null }): AdvancedCardSearchFilters {
+  const filters: AdvancedCardSearchFilters = {};
+  for (const key of ADVANCED_STRING_KEYS) {
+    const value = params.get(key)?.trim();
+    if (value && value.length <= 120) filters[key] = value;
+  }
+  for (const keys of ADVANCED_RANGE_PAIRS) {
+    for (const key of keys) {
+      const value = params.get(key);
+      if (value && /^\d{1,5}$/.test(value)) filters[key] = Number(value);
+    }
+  }
+  return normalizeAdvancedSearchFilters(filters);
+}

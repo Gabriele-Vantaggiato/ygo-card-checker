@@ -82,14 +82,14 @@ export class DeckCheckDialogComponent {
     return format ? format.name[this.i18n.lang()] : '';
   });
 
-  show(): void {
+  show(deckId?: string): void {
     const format = this.formatStore.selectedFormat();
     this.open.set(true);
     this.results.set([]);
     if (!format) return;
     this.loading.set(true);
     this.checker
-      .checkDecks$(this.decklistStore.decklists(), format)
+      .checkDecks$(this.decklistStore.decklists().filter((deck) => !deckId || deck.id === deckId), format)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (results) => {
