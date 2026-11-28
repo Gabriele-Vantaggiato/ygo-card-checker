@@ -1,0 +1,151 @@
+<main class="page-main page-stack intent-page">
+  <header class="intent-header duel-panel">
+    <div class="intent-header-copy">
+      <div class="intent-overline"><span class="intent-orb">✦</span> YGO CARD CHECKER <span class="intent-sep">/</span> EXPERIMENTAL WORKSPACE</div>
+      <h1 class="font-display intent-heading">Intent <span>Lab</span></h1>
+      <p>Il tuo mazzo, la tua esperienza. Definisci un obiettivo e componi la tua scrivania di analisi senza pagine predefinite.</p>
+      <div class="intent-chips"><span class="intent-chip">◈ Capability: hand.simulate</span><span class="intent-chip">◷ Persistenza locale</span><span class="intent-chip">◇ UI componibile</span></div>
+    </div>
+    <div class="intent-header-emblem" aria-hidden="true"><span>✦</span><small>INTENT<br>RUNTIME</small></div>
+  </header>
+
+  <section class="intent-maker duel-panel" aria-labelledby="intent-create-title">
+    <div class="intent-section-title">
+      <div><span class="intent-eyebrow">01 / COSTRUISCI</span><h2 id="intent-create-title" class="font-display">Crea un ambiente dal tuo intento</h2></div>
+      <span class="badge badge-outline badge-warning">INTERPRETE LOCALE · MVP</span>
+    </div>
+    <div class="intent-maker-grid">
+      <div class="intent-maker-main">
+        <label class="intent-field-label" for="intent-input">Descrivi cosa vuoi ottenere</label>
+        <textarea id="intent-input" class="textarea textarea-bordered intent-prompt" rows="4" [ngModel]="request()" (ngModelChange)="request.set($event)" placeholder="Es. Simula 10.000 mani, crea grafici, visualizza le percentuali su due colonne..." aria-describedby="intent-local-note"></textarea>
+        <p id="intent-local-note" class="intent-hint">Questa prima versione interpreta comandi locali limitati: colonne, tema, scala e numero di simulazioni. Non usa ancora un LLM reale.</p>
+        <button class="btn btn-primary intent-create-btn" type="button" (click)="create()">✦ Genera la mia scrivania</button>
+      </div>
+      <div class="intent-maker-side">
+        <label class="intent-field-label" for="intent-deck">Mazzo da analizzare</label>
+        <select id="intent-deck" class="select select-bordered w-full" [ngModel]="deckSelection()" (ngModelChange)="deckSelection.set($event); selectedStarters.set([])">
+          @for (deck of store.decklists(); track deck.id) { <option [value]="deck.id">{{ deck.name }}</option> }
+        </select>
+        <div class="intent-deck-meta"><span>{{ mainDeckSize(selectedDeck()) }} carte · Main Deck</span><a routerLink="/decklist">Gestisci decklist ↗</a></div>
+        <label class="intent-field-label mt-3">Definisci i tuoi starter (criterio brick)</label>
+        <p class="intent-hint">Una mano è "brick" solo se non contiene nessuna delle carte che selezioni qui. Non è una valutazione automatica delle combo.</p>
+        <div class="intent-starter-picks">
+          @for (card of candidateStarters(); track card.id) {
+            <label class="intent-starter-chip" [class.intent-starter-active]="selectedStarters().includes(card.id)">
+              <input type="checkbox" [checked]="selectedStarters().includes(card.id)" (change)="toggleBeforeCreate(card.id, $any($event.target).checked)" />
+              <span>{{ card.name }}</span>
+            </label>
+          } @empty { <p class="intent-hint">Importa un mazzo nella sezione Decklist prima di creare l'ambiente.</p> }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  @if (errorMessage()) { <div class="alert alert-error" role="alert">{{ errorMessage() }}</div> }
+  @if (notice()) { <div class="alert alert-success" role="status">{{ notice() }}</div> }
+  @if (runtime.storageWarning()) { <div class="alert alert-warning" role="alert">{{ runtime.storageWarning() }}</div> }
+
+  <section class="intent-desk" aria-label="Scrivanie salvate">
+    <div class="intent-desk-top">
+      <div><span class="intent-eyebrow">02 / LA TUA SCRIVANIA</span><h2 class="font-display intent-desk-title">I tuoi ambienti</h2></div>
+      <span class="intent-hint">{{ runtime.workspaces().length }} / 20 spazi locali</span>
+    </div>
+    @if (runtime.workspaces().length) {
+      <div class="intent-tabs" role="tablist" aria-label="Ambienti salvati">
+        @for (workspace of runtime.workspaces(); track workspace.id) {
+          <button class="intent-tab" role="tab" type="button" [class.intent-tab-active]="workspace.id === runtime.activeId()" [attr.aria-selected]="workspace.id === runtime.activeId()" (click)="chooseWorkspace(workspace.id)">
+            <span class="intent-tab-icon">✦</span><span class="intent-tab-name">{{ workspace.name }}</span><small>v{{ workspace.revision }}</small>
+          </button>
+        }
+      </div>
+    }
+
+    @if (runtime.active(); as w) {
+      <div class="intent-surface" [class.intent-parchment]="w.theme === 'parchment'" [class.intent-midnight]="w.theme === 'midnight'" [class.intent-compact]="w.scale === 'compact'" [class.intent-large]="w.scale === 'large'">
+        <div class="intent-surface-toolbar">
+          <div class="intent-surface-heading"><span class="intent-surface-star">✦</span><div><div class="intent-eyebrow">ATTIVO · {{ w.deckName }}</div><h3 class="font-display">{{ w.name }}</h3><small>Creato {{ humanDate(w.createdAt) }} · Revisione {{ w.revision }}</small></div></div>
+          <div class="intent-controls">
+            <label>Colonne<select class="select select-sm select-bordered" [ngModel]="w.columns" (ngModelChange)="setColumns($event)"><option [ngValue]="1">1</option><option [ngValue]="2">2</option><option [ngValue]="3">3</option></select></label>
+            <label>Tema<select class="select select-sm select-bordered" [ngModel]="w.theme" (ngModelChange)="setTheme($event)"><option value="duel">Duel</option><option value="midnight">Midnight</option><option value="parchment">Pergamena</option></select></label>
+            <label>Scala<select class="select select-sm select-bordered" [ngModel]="w.scale" (ngModelChange)="setScale($event)"><option value="compact">Compatta</option><option value="normal">Normale</option><option value="large">Grande</option></select></label>
+            <button type="button" class="btn btn-outline btn-sm" (click)="drawAgain()">↻ Nuova simulazione</button>
+            <button type="button" class="btn btn-ghost btn-sm" (click)="deleteCurrent()" title="Elimina solo lo workspace">✕</button>
+          </div>
+        </div>
+
+        @if (runtime.isStale(w, selectedDeck())) { <div class="intent-alert">La decklist attuale è stata modificata: i dati salvati si riferiscono a una versione precedente. Una nuova simulazione usa ancora la copia salvata; crea un nuovo ambiente per usare la decklist aggiornata.</div> }
+
+        <div class="intent-compose-bar"><div><span class="intent-field-label">Modella l'ambiente con una richiesta</span><p class="intent-hint">Prova: «metti su tre colonne», «nascondi le combinazioni», «tema chiaro», «simula 20.000 mani».</p></div>
+          <div class="intent-compose-action"><input type="text" class="input input-bordered" [ngModel]="modification()" (ngModelChange)="modification.set($event)" (keyup.enter)="modify()" placeholder="Come vuoi cambiarlo?" aria-label="Modifica ambiente" /><button type="button" class="btn btn-primary" (click)="modify()" [disabled]="!modification().trim()">Applica ↗</button></div>
+        </div>
+
+        <details class="intent-panel-organizer"><summary>⚙ Organizza le sezioni</summary><div class="intent-organizer-list">
+          @for (panel of w.panels; track panel.id; let first = $first; let last = $last) {
+            <div class="intent-organizer-row"><label><input type="checkbox" class="checkbox checkbox-xs" [checked]="panel.visible" (change)="runtime.setPanelVisible(panel.kind, $any($event.target).checked)" />{{ panel.title }}</label><div><button type="button" class="btn btn-xs btn-ghost" [disabled]="first" (click)="runtime.movePanel(panel.kind,-1)" title="Sposta su">↑</button><button type="button" class="btn btn-xs btn-ghost" [disabled]="last" (click)="runtime.movePanel(panel.kind,1)" title="Sposta giù">↓</button></div></div>
+          }
+        </div></details>
+
+        <div class="intent-panels" [style.--intent-columns]="w.columns">
+          @for (panel of visiblePanels(); track panel.id) {
+            <section class="intent-panel" [attr.aria-label]="panel.title">
+              <div class="intent-panel-heading"><span class="intent-panel-mark">✧</span><h4>{{ panel.title }}</h4><span class="intent-panel-symbol">{{ panel.kind === 'opening-hand' ? '◈' : panel.kind === 'metrics' ? '%' : '◇' }}</span></div>
+              @switch (panel.kind) {
+                @case ('metrics') {
+                  <div class="intent-metrics">
+                    <div class="intent-metric"><small>Mani simulate</small><strong>{{ w.simulation.samples | number }}</strong><span>Seed {{ w.simulation.seed }}</span></div>
+                    <div class="intent-metric"><small>Main Deck</small><strong>{{ w.simulation.deckSize }}</strong><span>Carte totali</span></div>
+                    <div class="intent-metric"><small>Brick rate*</small><strong>{{ w.simulation.brickRate === null ? 'N/D' : percent(w.simulation.brickRate) }}</strong><span>{{ w.simulation.brickRate === null ? 'Seleziona almeno uno starter' : 'Nessuno starter selezionato pescato' }}</span></div>
+                    <div class="intent-metric"><small>Carte differenti</small><strong>{{ appearanceCount(w) }}</strong><span>Nel Main Deck</span></div>
+                  </div>
+                  <div class="intent-note">* Brick = mano priva di carte che hai identificato come starter; non implica che la mano sia impossibile da giocare.</div>
+                }
+                @case ('opening-hand') {
+                  <div class="intent-hand">
+                    @for (id of w.simulation.exampleHands[sampleIndex()] ?? []; track $index) {
+                      @if (cardById(w,id); as card) { <div class="intent-card"><div class="intent-card-art">@if (card.imageUrlSmall) { <img [src]="card.imageUrlSmall" [alt]="card.name" loading="lazy" /> } @else { <span>✦</span> }</div><span>{{ card.name }}</span></div> }
+                    }
+                  </div>
+                  <div class="intent-hand-nav"><span>Mani campione (ordine di pescata)</span><div>@for (hand of w.simulation.exampleHands; track $index) { <button type="button" [class.intent-hand-active]="$index === sampleIndex()" (click)="sampleIndex.set($index)">{{ $index + 1 }}</button> }</div></div>
+                }
+                @case ('starter-chart') {
+                  <div class="intent-chart">
+                    @for (count of w.simulation.starterDistribution; track $index) {
+                      <div class="intent-chart-row"><span>{{ $index }} starter</span><div class="intent-bar-track"><div class="intent-bar-fill" [style.width.%]="percentage(count / w.simulation.samples)"></div></div><strong>{{ drawPercent(count, w.simulation.samples) }}</strong></div>
+                    }
+                  </div>
+                  <p class="intent-note">Definisci gli starter qui sotto. Le frequenze osservate derivano da pescate effettive.</p>
+                  <div class="intent-starter-picks intent-starter-current">
+                    @for (card of w.cards; track card.id) {<label class="intent-starter-chip" [class.intent-starter-active]="hasStarter(w, card.id)"><input type="checkbox" [checked]="hasStarter(w,card.id)" (change)="toggleCriterion(card.id,$any($event.target).checked,w)" />{{ card.name }}</label>}
+                  </div>
+                }
+                @case ('frequency-chart') {
+                  <div class="intent-chart">
+                    @for (stat of w.simulation.appearances.slice(0,10); track stat.id) {
+                      <div class="intent-chart-row"><span [title]="stat.name">{{ stat.name }}</span><div class="intent-bar-track"><div class="intent-bar-fill" [style.width.%]="percentage(stat.probability)"></div></div><strong>{{ percent(stat.probability) }}</strong></div>
+                    }
+                  </div>
+                  <p class="intent-note">Probabilità empirica di trovare almeno una copia della carta nella mano da 5. Per quantità multiple nella stessa mano, il grafico conta la presenza della carta; i conteggi sono ponderati per campione.</p>
+                }
+                @case ('combinations') {
+                  <div class="intent-combos">
+                    @for (hand of w.simulation.mostCommonHands; track $index) {
+                      <div class="intent-combo-row"><span class="intent-combo-rank">{{ $index + 1 | number:'2.0-0' }}</span><span class="intent-combo-cards">@for (id of hand.cardIds; track $index) {<span class="intent-combo-pill">{{ cardById(w,id)?.name ?? id }}</span>}</span><strong>{{ hand.occurrences }}×</strong></div>
+                    }
+                  </div>
+                  <div class="intent-note">Sono combinazioni osservate nella simulazione, NON linee di combo verificate con le regole Yu-Gi-Oh!.</div>
+                }
+                @case ('decklist') {
+                  <div class="intent-deck-rows">@for (card of w.cards; track card.id) { <div class="intent-deck-row"><span>{{ card.quantity }}×</span>@if (card.imageUrlSmall) { <img [src]="card.imageUrlSmall" [alt]="card.name" loading="lazy" /> }<strong>{{ card.name }}</strong></div> }</div>
+                  <p class="intent-note">Snapshot della decklist: le modifiche all'originale non alterano queste simulazioni.</p>
+                }
+              }
+            </section>
+          } @empty { <p class="intent-empty">Tutte le sezioni sono nascoste. Riaprile da «Organizza le sezioni».</p> }
+        </div>
+        <footer class="intent-workspace-footer"><span>Intent Runtime v0.1 · {{ w.simulation.samples | number }} pescate realmente campionate · Vista {{ w.schemaVersion }}</span><span>Salvataggio automatico locale ◉</span></footer>
+      </div>
+    } @else {
+      <div class="intent-empty-state duel-panel"><div class="intent-empty-glyph">✧</div><h3 class="font-display">La tua scrivania aspetta un'intenzione</h3><p>Seleziona una decklist, descrivi l'analisi che vuoi vedere e crea il primo ambiente. Potrai tornarci anche dopo aver chiuso il browser.</p></div>
+    }
+  </section>
+</main>
