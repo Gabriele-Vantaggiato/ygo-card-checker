@@ -45,3 +45,17 @@ Catalog source: `src/assets/data/passcode-catalog.json`; HAT checks: `src/assets
 The lab does not read or overwrite saved deck state. Integration is through the repository catalog and compatible text deck input/output. It is not mounted inside the Angular shell and does not replace the existing Gemini coach, Supabase or combo services.
 
 Sources: [Scrap Chimera official card text](https://www.db.yugioh-card.com/yugiohdb/card_search.action?cid=8950&ope=2), [Vercel gateway Chat Completions](https://vercel.com/docs/ai-gateway/sdks-and-apis/openai-chat-completions).
+## Assistente decklist
+
+Dal repository web, con Node.js 20 o superiore, avvia `node tools/intent-runtime/server.mjs`.
+Questo laboratorio usa la libreria standard di Node e i dati già versionati nel repository.
+Apri [l’assistente decklist](http://127.0.0.1:4173/decklist) sulla porta 4173.
+La home del laboratorio resta disponibile allo stesso indirizzo, sul percorso `/`.
+
+Invia «Mostra la decklist in due colonne, tema scuro, ordine alfabetico, con riepilogo.»
+Per modificare la vista invia «Imposta una colonna, tema chiaro, ordine per quantità.»
+Puoi chiudere e riaprire la pagina nello stesso browser per recuperare la vista, il prompt e il mazzo dell’ultimo invio riuscito.
+Su schermi stretti le colonne si dispongono in verticale.
+
+L’assistente interpreta una grammatica deterministica. Le varianti ammesse sono una colonna o due colonne, tema chiaro o scuro, ordine alfabetico o per quantità, con riepilogo o senza riepilogo. Il runtime autorizza la lettura della lista inviata tramite `deck.read` e produce un documento con blocchi di riepilogo e tabelle. La lista iniziale è l’esempio Geargia del repository. Puoi sostituirla con una lista testuale, usando i nomi inglesi del catalogo.
+La modalità LLM del laboratorio precedente è separata da questa demo.

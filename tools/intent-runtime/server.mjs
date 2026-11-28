@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { demoPlan, execute, sample, source, validatePlan } from './kernel.mjs';
+import { composeDeckWorkspace, editPrompt, examplePrompt } from './deck-workspace.mjs';
 
 export async function planWithAI(intent, fetcher=fetch) {
   if (!process.env.AI_GATEWAY_API_KEY || !process.env.INTENT_MODEL) throw Error('AI non configurata: imposta AI_GATEWAY_API_KEY e INTENT_MODEL sul server.');
@@ -14,18 +15,23 @@ export function createServer() {
   return http.createServer(async(req,res)=>{
     const send=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
     try {
-      if (!/^127\.0\.0\.1(?::\d+)?$/.test(req.headers.host ?? '')) return send(403,{error:'Host non consentito.'});
-      if (req.method==='GET' && req.url==='/api/status') return send(200,{aiAvailable:Boolean(process.env.AI_GATEWAY_API_KEY && process.env.INTENT_MODEL),sample,source});
-      if (req.method==='POST' && req.url==='/api/run') {
+      if (!/^(?:127\.0\.0\.1|localhost)(?::\d+)?$/.test(req.headers.host ?? '')) return send(403,{error:'Host non consentito.'});
+      if (req.method==='GET' && req.url==='/api/status') return send(200,{aiAvailable:Boolean(process.env.AI_GATEWAY_API_KEY && process.env.INTENT_MODEL),sample,source,examplePrompt,editPrompt});
+      if (req.method==='POST' && ['/api/run','/api/workspace'].includes(req.url)) {
         if (req.headers.origin && req.headers.origin!==`http://${req.headers.host}`) return send(403,{error:'Origin non consentita.'});
         if (!req.headers['content-type']?.startsWith('application/json')) return send(415,{error:'Richiesto JSON.'});
         let raw=''; for await(const part of req) {raw+=part; if(Buffer.byteLength(raw)>32000) return send(413,{error:'Richiesta troppo grande.'});}
         const input=JSON.parse(raw);
+        if (req.url==='/api/workspace') {
+          if (!input || typeof input.intent!=='string' || input.intent.length>2000) return send(400,{error:'Richiesta non valida.'});
+          // The local lab grants read-only access to the submitted list.
+          return send(200,composeDeckWorkspace(input.intent,input.deck,new Set(['deck.read'])));
+        }
         if (typeof input.intent!=='string' || !input.intent.trim() || input.intent.length>2000 || !['demo','ai'].includes(input.mode)) return send(400,{error:'Richiesta non valida.'});
         const start=performance.now(); const plan=input.mode==='ai'?await planWithAI(input.intent):demoPlan(input.intent);
         return send(200,{...execute(plan,input),mode:input.mode,elapsedMs:Math.round(performance.now()-start)});
       }
-      const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
+      const files={'/':'index.html','/decklist':'decklist.html','/app.js':'app.js','/workspace.js':'workspace.js','/style.css':'style.css','/workspace.css':'workspace.css'};
       if (req.method==='GET' && Object.hasOwn(files,req.url)) {
         const file=files[req.url];res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",'X-Content-Type-Options':'nosniff'});return res.end(await readFile(new URL(`./web/${file}`,import.meta.url)));
       }

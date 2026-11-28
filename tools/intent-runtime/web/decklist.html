@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decklist · YGOCardChecker</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/workspace.css">
+  <script type="module" src="/workspace.js"></script>
+</head>
+<body class="deck-workspace">
+  <header>
+    <a href="/" class="brand">YGO<span> / INTENT LAB</span></a>
+    <span class="tag">Demo deterministica · senza LLM</span>
+  </header>
+  <main>
+    <section class="intro">
+      <h1>Costruisci la tua pagina decklist</h1>
+      <p>Mostra il mazzo in una o due colonne, scegli il tema e ordina le carte per nome o quantità.</p>
+    </section>
+    <div class="workspace">
+      <aside>
+        <form id="workspace-form">
+          <label for="request">Come vuoi costruire la pagina?</label>
+          <textarea id="request" rows="4" required maxlength="2000"></textarea>
+          <div class="presets">
+            <button type="button" id="example" disabled>Usa il prompt di esempio</button>
+            <button type="button" id="variation" disabled>Carica variante</button>
+          </div>
+          <details>
+            <summary>Modifica la lista di partenza</summary>
+            <label for="source-deck">Quantità e nome inglese, una carta per riga. Sezioni #main, #extra, #side.</label>
+            <textarea id="source-deck" rows="11" maxlength="20000"></textarea>
+          </details>
+          <button id="compose" class="primary" type="submit" disabled>Componi la pagina</button>
+          <p id="error" role="alert"></p>
+          <p id="save-status" role="status"></p>
+        </form>
+      </aside>
+      <section class="result" aria-labelledby="view-title">
+        <h2 id="view-title">Anteprima</h2>
+        <div id="blocks"><p>Invia un prompt per vedere il risultato qui.</p></div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
