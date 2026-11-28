@@ -34,6 +34,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/combo-sheets/combo-sheets.page').then(m => m.ComboSheetsPage),
       },
       {
+        path: 'intent-runtime',
+        loadComponent: () =>
+          import('./features/decklist/pages/intent-decklist.page').then(m => m.IntentDecklistPage),
+      },
+      {
         path: 'decklist',
         loadComponent: () =>
           import('./features/decklist/pages/decklist.page').then((m) => m.DecklistPage),

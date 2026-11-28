@@ -69,3 +69,9 @@ La dettatura può richiedere l’accesso al microfono e il servizio vocale del b
 La consistency è la probabilità esatta di pescare almeno una delle carte chiave indicate, senza reinserimento. Il brick rate è il complemento. Scegli le carte del Main Deck che rappresentano il criterio e una mano di 5 o 6 carte. Il mazzo Geargia di esempio parte con Geargiarmor e Geargiarsenal.
 
 I suggerimenti usano l’indice di co-occorrenza di YGOCC e omettono le carte già nella lista. La fonte registra carte giocate insieme. Le immagini usano le copie presenti nel repository, poi la cache in `tmp/intent-card-images` e YGOPRODeck quando serve. In assenza di un’immagine viene mostrato il nome.
+
+### Decklist dell’account YGOCC
+
+Avvia Intent Runtime con `PORT=4189` e l’app Angular in sviluppo sulla porta `4200`. Apri `/intent-runtime` dal menu della pagina Decklist di YGOCC in locale. Accedi con il normale accesso di YGOCC e apri **Decklist di partenza**.
+
+Il selettore usa `DeckSyncService.load()` e mostra le decklist dell’utente corrente con almeno una carta. La selezione invia soltanto il nome e la lista di testo al laboratorio sulla porta locale. Scegliendo un mazzo dell’account, imposta le sue carte chiave prima di calcolare le metriche. La vista dell’account è conservata nella sessione della pagina e viene scartata quando si esce o si cambia mazzo.

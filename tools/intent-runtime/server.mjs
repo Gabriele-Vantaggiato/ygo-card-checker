@@ -44,7 +44,10 @@ export function createServer() {
       }
       const files={'/':'index.html','/decklist':'decklist.html','/app.js':'app.js','/workspace.js':'workspace.js','/style.css':'style.css','/workspace.css':'workspace.css'};
       if (req.method==='GET' && Object.hasOwn(files,req.url)) {
-        const file=files[req.url];res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",'X-Content-Type-Options':'nosniff'});return res.end(await readFile(new URL(`./web/${file}`,import.meta.url)));
+        const file=files[req.url];
+        const ancestors = file === 'decklist.html' ? 'http://127.0.0.1:4200 http://localhost:4200' : "'none'";
+        res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html','Content-Security-Policy':`default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors ${ancestors}; base-uri 'none'`,'X-Content-Type-Options':'nosniff'});
+        return res.end(await readFile(new URL(`./web/${file}`,import.meta.url)));
       }
       send(404,{error:'Non trovato.'});
     } catch(error) {send(400,{error:error instanceof SyntaxError?'JSON non valido.':error.message});}
