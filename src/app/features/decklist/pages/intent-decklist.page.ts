@@ -250,7 +250,7 @@ export class IntentDecklistPage {
       const status: LabStatus = await response.json();
       if (!status.dashboardPrompt || !status.sampleStarters || !status.sample) throw Error();
       this.status.set(status);
-      this.prompt.set(status.dashboardPrompt);
+      if (!this.prompt().trim()) this.prompt.set(status.dashboardPrompt);
       if (!this.selectedId()) this.starters.set(this.sampleStarters());
       await this.recalculate();
     } catch { this.error.set('Playground non disponibile. Avvia YGOCC con npm start.'); }
