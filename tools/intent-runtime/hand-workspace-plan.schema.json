@@ -1,0 +1,114 @@
+{
+  "type": "object",
+  "properties": {
+    "actions": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "capability": {
+                "type": "string",
+                "enum": [
+                  "workspace.compose"
+                ]
+              },
+              "layout": {
+                "type": "object",
+                "properties": {
+                  "columns": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      2,
+                      3
+                    ]
+                  },
+                  "theme": {
+                    "type": "string",
+                    "enum": [
+                      "duel",
+                      "midnight",
+                      "parchment"
+                    ]
+                  },
+                  "scale": {
+                    "type": "string",
+                    "enum": [
+                      "compact",
+                      "normal",
+                      "large"
+                    ]
+                  },
+                  "panels": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "metrics",
+                            "opening-hand",
+                            "starter-chart",
+                            "frequency-chart",
+                            "combinations",
+                            "decklist"
+                          ]
+                        },
+                        "visible": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "visible"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "columns",
+                  "theme",
+                  "scale",
+                  "panels"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "capability",
+              "layout"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "capability": {
+                "type": "string",
+                "enum": [
+                  "hand.simulate"
+                ]
+              },
+              "samples": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "capability",
+              "samples"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "actions"
+  ],
+  "additionalProperties": false
+}

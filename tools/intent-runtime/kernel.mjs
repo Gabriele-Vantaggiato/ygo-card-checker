@@ -4,6 +4,8 @@ const data = new URL('../../src/assets/data/', import.meta.url);
 const catalog = JSON.parse(readFileSync(new URL('passcode-catalog.json', data))).cards;
 const legality = JSON.parse(readFileSync(new URL('card-knowledge/format-legality.json', data)));
 const names = new Map(catalog.map(c => [c.n.toLowerCase(), c]));
+const cardsById = new Map(catalog.map(card => [card.i, card]));
+export function catalogCard(id) { return cardsById.get(id); }
 export const source = { catalog: 'src/assets/data/passcode-catalog.json', legality: 'src/assets/data/card-knowledge/format-legality.json', generatedAt: legality.generatedAt };
 export const sample = `#main
 2 Geargiarmor

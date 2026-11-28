@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "view": {
+      "type": "string",
+      "enum": ["dashboard", "table", "compact", "unsupported"]
+    }
+  },
+  "required": ["view"]
+}
