@@ -153,3 +153,28 @@ test('AI adapter validates model output, rejects provider errors; mocked transpo
     await assert.rejects(()=>planWithAI('combo',async()=>({ok:true,json:async()=>({choices:[{message:{content:'{"tools":["shell"],"views":["audit"]}'}}]})})));
   }finally{if(oldKey===undefined)delete process.env.AI_GATEWAY_API_KEY;else process.env.AI_GATEWAY_API_KEY=oldKey;if(oldModel===undefined)delete process.env.INTENT_MODEL;else process.env.INTENT_MODEL=oldModel;}
 });
+
+test('workspace sign-in starts once, reports connection and rejects cross-origin starts', async (t) => {
+  const { EventEmitter } = await import('node:events');
+  let connected = false;
+  let starts = 0;
+  const child = new EventEmitter();
+  const server = createServer({
+    checkLogin: async () => connected,
+    beginLogin: () => { starts++; return child; },
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const origin = 'http://127.0.0.1:' + server.address().port;
+  const endpoint = origin + '/api/hand-workspace-auth';
+  const headers = { 'X-Intent-Lab': '1', Origin: origin };
+  assert.equal((await fetch(endpoint, { method: 'POST', headers: { ...headers, Origin: 'https://example.com' } })).status, 403);
+  assert.equal((await fetch(endpoint, { headers })).status, 200);
+  assert.equal((await fetch(endpoint, { method: 'POST', headers })).status, 202);
+  assert.equal((await fetch(endpoint, { method: 'POST', headers })).status, 202);
+  assert.equal(starts, 1);
+  assert.equal((await (await fetch(endpoint, { headers })).json()).pending, true);
+  connected = true;
+  child.emit('exit', 0);
+  assert.equal((await (await fetch(endpoint, { headers })).json()).connected, true);
+});

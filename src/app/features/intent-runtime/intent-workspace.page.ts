@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -25,6 +25,10 @@ export class IntentWorkspacePage {
   protected readonly selectedStarters = signal<number[]>([]);
   protected readonly sampleIndex = signal(0);
   protected readonly errorMessage = signal('');
+  protected readonly mode = signal<'manual' | 'ai'>('manual');
+  protected readonly auth = signal<'checking' | 'unavailable' | 'disconnected' | 'pending' | 'connected' | 'gateway' | 'failed'>('checking');
+  protected readonly canPlan = computed(() => this.mode() === 'manual' || ['connected', 'gateway'].includes(this.auth()));
+  private readonly lifetime = new AbortController();
   protected readonly planning = signal(false);
   protected readonly notice = signal('');
   protected readonly selectedDeck = computed<Decklist | null>(() =>
@@ -32,14 +36,56 @@ export class IntentWorkspacePage {
   protected readonly candidateStarters = computed(() => mainDeckSnapshot(this.selectedDeck()?.cards ?? []));
   protected readonly visiblePanels = computed(() => this.runtime.active()?.panels.filter((p) => p.visible) ?? []);
 
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.lifetime.abort());
+    void this.refreshAuth();
+  }
+
+  protected async connectChatGpt(): Promise<void> {
+    this.auth.set('pending');
+    try {
+      await this.authRequest('POST');
+      await this.refreshAuth();
+    } catch {
+      if (!this.lifetime.signal.aborted) this.auth.set('failed');
+    }
+  }
+
+  private async refreshAuth(): Promise<void> {
+    try {
+      const status = await this.authRequest('GET');
+      if (!status.available) this.auth.set('unavailable');
+      else if (status.connected) this.auth.set('connected');
+      else if (status.provider === 'gateway') this.auth.set('gateway');
+      else if (status.provider !== 'codex') this.auth.set('unavailable');
+      else if (status.pending) {
+        this.auth.set('pending');
+        setTimeout(() => { if (!this.lifetime.signal.aborted) void this.refreshAuth(); }, 1500);
+      } else this.auth.set(status.failed ? 'failed' : 'disconnected');
+    } catch {
+      if (!this.lifetime.signal.aborted) this.auth.set('unavailable');
+    }
+  }
+
+  private async authRequest(method: 'GET' | 'POST') {
+    const response = await fetch('/intent-api/api/hand-workspace-auth', {
+      method, headers: { 'X-Intent-Lab': '1' },
+      signal: AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(8000)]),
+    });
+    if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
+      throw new Error('Runtime AI non disponibile.');
+    }
+    return response.json() as Promise<{ provider?: string; available?: boolean; connected?: boolean; pending?: boolean; failed?: boolean }>;
+  }
+
   protected async create(): Promise<void> {
-    if (this.planning()) return;
+    if (this.planning() || !this.canPlan()) return;
     this.errorMessage.set(''); this.notice.set('');
     const deck = this.selectedDeck();
     if (!deck) { this.errorMessage.set('Scegli o crea prima una decklist.'); return; }
     this.planning.set(true);
     try {
-      await this.runtime.create(this.request(), deck, this.selectedStarters());
+      await this.runtime.create(this.request(), deck, this.selectedStarters(), this.mode());
       this.sampleIndex.set(0);
       this.notice.set('Ambiente creato e salvato nel browser. Puoi modificarlo, sospenderlo e riaprirlo.');
     } catch (error) { this.errorMessage.set(error instanceof Error ? error.message : 'Simulazione non disponibile.'); }
@@ -47,12 +93,12 @@ export class IntentWorkspacePage {
   }
 
   protected async modify(): Promise<void> {
-    if (this.planning()) return;
+    if (this.planning() || !this.canPlan()) return;
     this.errorMessage.set(''); this.notice.set('');
     if (!this.modification().trim()) return;
     this.planning.set(true);
     try {
-      await this.runtime.modify(this.modification());
+      await this.runtime.modify(this.modification(), this.mode());
       this.notice.set('Composizione aggiornata e salvata.');
       this.modification.set('');
     } catch (error) { this.errorMessage.set(error instanceof Error ? error.message : 'Modifica non disponibile.'); }

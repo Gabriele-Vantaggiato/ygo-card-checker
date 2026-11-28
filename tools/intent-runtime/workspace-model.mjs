@@ -1,18 +1,32 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dashboardPrompt, editPrompt, examplePrompt } from './deck-workspace.mjs';
 
 const schema = fileURLToPath(new URL('./workspace-intent.schema.json', import.meta.url));
 
+function codexOptions() {
+  const env = { ...process.env };
+  delete env.OPENAI_API_KEY;
+  delete env.CODEX_API_KEY;
+  delete env.OPENAI_BASE_URL;
+  return { cwd: tmpdir(), env, windowsHide: true };
+}
+
+export async function codexChatGptConnected(run = codex) {
+  return /^logged in using chatgpt\s*$/im.test(await run(['login', 'status']));
+}
+
+export function startCodexLogin() {
+  return spawn(process.env.INTENT_CODEX_BIN || 'codex', ['login'], {
+    ...codexOptions(), stdio: 'ignore', timeout: 120000,
+  });
+}
+
 function codex(args, input = '') {
   return new Promise((resolve, reject) => {
-    const env = { ...process.env };
-    delete env.OPENAI_API_KEY;
-    delete env.CODEX_API_KEY;
-    delete env.OPENAI_BASE_URL;
     const child = execFile(process.env.INTENT_CODEX_BIN || 'codex', args, {
-      cwd: tmpdir(), env, timeout: 45000, maxBuffer: 256000, windowsHide: true,
+      ...codexOptions(), timeout: 45000, maxBuffer: 256000,
     }, (error, stdout, stderr) => {
       if (error) reject(error);
       else resolve(args[0] === 'login' ? stdout + '\n' + stderr : stdout);
@@ -24,9 +38,9 @@ function codex(args, input = '') {
 
 export async function runCodexJson(outputSchema, prompt, run = codex) {
   let auth;
-  try { auth = await run(['login', 'status']); }
+  try { auth = await codexChatGptConnected(run); }
   catch { throw Error('Codex CLI non disponibile o accesso ChatGPT non attivo. Verifica con codex login status.'); }
-  if (!/^logged in using chatgpt\s*$/im.test(auth)) throw Error('È richiesto l’accesso a Codex con ChatGPT.');
+  if (!auth) throw Error('È richiesto l’accesso a Codex con ChatGPT.');
   try {
     const output = await run([
       '-a', 'never', '--disable', 'shell_tool', '-c', 'mcp_servers={}', '-c', 'web_search="disabled"',
