@@ -2,7 +2,8 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { demoPlan, execute, sample, source, validatePlan } from './kernel.mjs';
-import { composeDeckWorkspace, editPrompt, examplePrompt } from './deck-workspace.mjs';
+import { composeDeckWorkspace, dashboardPrompt, editPrompt, examplePrompt } from './deck-workspace.mjs';
+import { cardImage } from './card-image.mjs';
 
 export async function planWithAI(intent, fetcher=fetch) {
   if (!process.env.AI_GATEWAY_API_KEY || !process.env.INTENT_MODEL) throw Error('AI non configurata: imposta AI_GATEWAY_API_KEY e INTENT_MODEL sul server.');
@@ -16,7 +17,15 @@ export function createServer() {
     const send=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
     try {
       if (!/^(?:127\.0\.0\.1|localhost)(?::\d+)?$/.test(req.headers.host ?? '')) return send(403,{error:'Host non consentito.'});
-      if (req.method==='GET' && req.url==='/api/status') return send(200,{aiAvailable:Boolean(process.env.AI_GATEWAY_API_KEY && process.env.INTENT_MODEL),sample,source,examplePrompt,editPrompt});
+      if (req.method==='GET' && req.url==='/api/status') return send(200,{aiAvailable:Boolean(process.env.AI_GATEWAY_API_KEY && process.env.INTENT_MODEL),sample,source,examplePrompt,editPrompt,dashboardPrompt,sampleStarters:'Geargiarmor, Geargiarsenal'});
+      const image = req.method==='GET' && /^\/card-images\/(\d{1,8})\.jpg$/.exec(req.url);
+      if (image) {
+        let bytes;
+        try { bytes = await cardImage(Number(image[1])); } catch { /* card name remains visible */ }
+        if (!bytes) return send(404,{error:'Immagine non disponibile.'});
+        res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'private, max-age=86400','X-Content-Type-Options':'nosniff'});
+        return res.end(bytes);
+      }
       if (req.method==='POST' && ['/api/run','/api/workspace'].includes(req.url)) {
         if (req.headers.origin && req.headers.origin!==`http://${req.headers.host}`) return send(403,{error:'Origin non consentita.'});
         if (!req.headers['content-type']?.startsWith('application/json')) return send(415,{error:'Richiesto JSON.'});
@@ -25,7 +34,9 @@ export function createServer() {
         if (req.url==='/api/workspace') {
           if (!input || typeof input.intent!=='string' || input.intent.length>2000) return send(400,{error:'Richiesta non valida.'});
           // The local lab grants read-only access to the submitted list.
-          return send(200,composeDeckWorkspace(input.intent,input.deck,new Set(['deck.read'])));
+          return send(200,composeDeckWorkspace(input.intent,input.deck,new Set(['deck.read','hand.analyze','deck.suggest']),{
+            starters: input.starters, hand: input.hand
+          }));
         }
         if (typeof input.intent!=='string' || !input.intent.trim() || input.intent.length>2000 || !['demo','ai'].includes(input.mode)) return send(400,{error:'Richiesta non valida.'});
         const start=performance.now(); const plan=input.mode==='ai'?await planWithAI(input.intent):demoPlan(input.intent);

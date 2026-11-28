@@ -3,6 +3,8 @@ const storageKey = 'ygocc.deck-workspace.v1';
 const request = get('request');
 const deck = get('source-deck');
 const submit = get('compose');
+const starters = get('starters');
+const hand = get('hand-size');
 
 function element(tag, value) {
   const node = document.createElement(tag);
@@ -11,6 +13,28 @@ function element(tag, value) {
 }
 
 const renderers = {
+  notice() { return element('div'); },
+  cards(block) {
+    const content = element('div');
+    for (const group of block.groups) {
+      if (group.title) content.append(element('h4', group.title));
+      const grid = element('ul');
+      grid.className = 'card-grid';
+      for (const card of group.cards) {
+        const tile = element('li');
+        const image = element('img');
+        image.loading = 'lazy';
+        image.alt = '';
+        image.addEventListener('error', () => { image.hidden = true; });
+        image.src = `/card-images/${card.id}.jpg`;
+        tile.append(image, element('strong', card.quantity ? `${card.quantity}× ${card.name}` : card.name));
+        if (card.partner) tile.append(element('small', `Trovata con ${card.partner}`));
+        grid.append(tile);
+      }
+      content.append(group.cards.length ? grid : element('p', 'Nessuna corrispondenza nell’indice locale.'));
+    }
+    return content;
+  },
   metrics(block) {
     const list = element('dl');
     for (const {label, value} of block.items) list.append(element('dt', label), element('dd', value));
@@ -37,12 +61,16 @@ function render(view) {
   const blocks = view.blocks.map(block => {
     const section = element('section');
     section.className = 'view-block';
-    section.append(element('h3', block.title), renderers[block.type](block));
+    section.dataset.slot = block.slot ?? '';
+    section.append(element('h3', block.title));
+    if (block.note) section.append(element('p', block.note));
+    section.append(renderers[block.type](block));
     return section;
   });
   document.documentElement.dataset.theme = view.layout.theme;
   get('view-title').textContent = view.title;
   get('blocks').dataset.columns = view.layout.columns;
+  get('blocks').dataset.variant = view.layout.variant ?? '';
   get('blocks').replaceChildren(...blocks);
 }
 
@@ -61,7 +89,7 @@ get('workspace-form').addEventListener('submit', async event => {
   event.preventDefault();
   submit.disabled = true;
   get('error').textContent = '';
-  const input = { intent: request.value, deck: deck.value };
+  const input = { intent: request.value, deck: deck.value, starters: starters.value, hand: Number(hand.value) };
   try {
     const view = await json('/api/workspace', input);
     render(view);
@@ -81,11 +109,19 @@ get('workspace-form').addEventListener('submit', async event => {
 try {
   const status = await json('/api/status');
   deck.value = status.sample;
-  request.placeholder = status.examplePrompt;
-  for (const [id, prompt] of [['example', status.examplePrompt], ['variation', status.editPrompt]]) {
+  starters.value = status.sampleStarters;
+  deck.addEventListener('input', () => {
+    if (deck.value !== status.sample && starters.value === status.sampleStarters) starters.value = '';
+  });
+  request.placeholder = status.dashboardPrompt;
+  for (const [id, prompt] of [['dashboard', status.dashboardPrompt], ['example', status.examplePrompt], ['variation', status.editPrompt]]) {
     const button = get(id);
     button.disabled = false;
-    button.onclick = () => { request.value = prompt; request.focus(); };
+    button.onclick = () => {
+      request.value = prompt;
+      if (id === 'dashboard') get('analysis-options').open = true;
+      request.focus();
+    };
   }
   submit.disabled = false;
   try {
@@ -94,6 +130,8 @@ try {
       render(saved.view);
       deck.value = saved.input.deck;
       request.value = saved.input.intent;
+      starters.value = saved.input.starters ?? (deck.value === status.sample ? status.sampleStarters : '');
+      hand.value = saved.input.hand ?? 5;
       get('save-status').textContent = 'Pagina ripristinata.';
     }
   } catch {
@@ -101,4 +139,34 @@ try {
   }
 } catch {
   get('error').textContent = 'Impossibile raggiungere Intent Runtime.';
+}
+
+const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+const dictate = get('dictate');
+const voiceStatus = get('voice-status');
+if (Recognition) {
+  const recognition = new Recognition();
+  recognition.lang = 'it-IT';
+  dictate.hidden = false;
+  dictate.onclick = () => {
+    try {
+      recognition.start();
+      dictate.disabled = true;
+      voiceStatus.textContent = 'In ascolto. La dettatura può usare il servizio vocale del browser.';
+    } catch {
+      voiceStatus.textContent = 'Microfono non disponibile. Puoi scrivere il prompt.';
+    }
+  };
+  recognition.onresult = event => {
+    request.value = event.results[0][0].transcript;
+    voiceStatus.textContent = 'Prompt trascritto. Puoi correggerlo e riprovare.';
+    if (!submit.disabled) get('workspace-form').requestSubmit();
+    else request.focus();
+  };
+  recognition.onerror = () => {
+    voiceStatus.textContent = 'Dettatura non riuscita. Controlla il microfono o scrivi il prompt.';
+  };
+  recognition.onend = () => { dictate.disabled = false; };
+} else {
+  voiceStatus.textContent = 'Dettatura del browser non disponibile. Puoi usare il prompt scritto.';
 }

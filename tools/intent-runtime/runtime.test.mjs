@@ -2,8 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {sample,parseDeck,checkDeck,probability,optimize,combo,demoPlan,validatePlan,execute} from './kernel.mjs';
 import {createServer,planWithAI} from './server.mjs';
-import {composeDeckWorkspace, editPrompt, examplePrompt} from './deck-workspace.mjs';
+import {composeDeckWorkspace, dashboardPrompt, editPrompt, examplePrompt} from './deck-workspace.mjs';
+import {cardImage} from './card-image.mjs';
 import { Readable } from 'node:stream';
+
+test('dashboard builds image, probability and co-occurrence blocks from the deck', async () => {
+  const grants = new Set(['deck.read','hand.analyze','deck.suggest']);
+  const options = { starters:'Geargiarmor, Geargiarsenal', hand:5 };
+  const dictated = dashboardPrompt.toLowerCase().replace(/[,.]/g, '');
+  const view = composeDeckWorkspace(dictated, sample, grants, options);
+  assert.deepEqual(view.blocks.map(block => block.slot), ['deck','analysis','full']);
+  const cards = view.blocks[0].groups[0].cards;
+  assert.ok(cards.some(card => card.name === 'Geargiarmor' && card.id > 0));
+  const formatter = new Intl.NumberFormat('it', {style:'percent',maximumFractionDigits:2});
+  assert.equal(view.blocks[1].items[1].value, formatter.format(probability(40,4,5)));
+  const suggestions = view.blocks[2].groups[0].cards;
+  assert.ok(suggestions.length > 0);
+  assert.ok(suggestions.every(card => card.partner && !cards.some(existing => existing.id === card.id)));
+  assert.equal(composeDeckWorkspace(dashboardPrompt, sample, grants).blocks[1].type, 'notice');
+  assert.throws(() => composeDeckWorkspace(dashboardPrompt, sample, grants, {starters:'Scrap Beast'}), /Main Deck/);
+  assert.throws(() => composeDeckWorkspace(dashboardPrompt, sample, new Set(['deck.read']), options), /negato/);
+  const fixture = await cardImage(89631139);
+  assert.deepEqual([...fixture.subarray(0, 2)], [255, 216]);
+});
 
 test('deck workspace serves the UI and enforces the API contract', async () => {
   const [handle] = createServer().listeners('request');
@@ -30,6 +51,13 @@ test('deck workspace serves the UI and enforces the API contract', async () => {
   const result = await request('POST', '/api/workspace', input);
   assert.equal(result.status, 200);
   assert.equal(JSON.parse(result.body).capability, 'deck.read');
+  const dashboard = await request('POST', '/api/workspace', {
+    intent: dashboardPrompt, deck: sample, starters: 'Geargiarmor, Geargiarsenal', hand: 5
+  });
+  assert.equal(dashboard.status, 200);
+  assert.equal(JSON.parse(dashboard.body).layout.variant, 'dashboard');
+  const image = await request('GET', '/card-images/89631139.jpg');
+  assert.equal(image.status, 200);
   assert.equal((await request('POST', '/api/workspace', input, 'https://example.com')).status, 403);
   assert.equal((await request('POST', '/api/workspace', {...input, deck: '1 Fake Card'})).status, 400);
 });

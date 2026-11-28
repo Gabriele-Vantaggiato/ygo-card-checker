@@ -59,3 +59,13 @@ Su schermi stretti le colonne si dispongono in verticale.
 
 L’assistente interpreta una grammatica deterministica. Le varianti ammesse sono una colonna o due colonne, tema chiaro o scuro, ordine alfabetico o per quantità, con riepilogo o senza riepilogo. Il runtime autorizza la lettura della lista inviata tramite `deck.read` e produce un documento con blocchi di riepilogo e tabelle. La lista iniziale è l’esempio Geargia del repository. Puoi sostituirla con una lista testuale, usando i nomi inglesi del catalogo.
 La modalità LLM del laboratorio precedente è separata da questa demo.
+
+### Dashboard con immagini e dettatura
+
+Premi **Prompt dashboard** e **Componi la pagina** oppure usa **Detta il prompt** in un browser compatibile per inviare direttamente la trascrizione.
+Frase di prova: «Componi la dashboard con la decklist con immagini a sinistra, brick rate e consistency a destra e carte in sinergia sotto».
+La dettatura può richiedere l’accesso al microfono e il servizio vocale del browser. La composizione resta deterministica e accetta anche il prompt scritto.
+
+La consistency è la probabilità esatta di pescare almeno una delle carte chiave indicate, senza reinserimento. Il brick rate è il complemento. Scegli le carte del Main Deck che rappresentano il criterio e una mano di 5 o 6 carte. Il mazzo Geargia di esempio parte con Geargiarmor e Geargiarsenal.
+
+I suggerimenti usano l’indice di co-occorrenza di YGOCC e omettono le carte già nella lista. La fonte registra carte giocate insieme. Le immagini usano le copie presenti nel repository, poi la cache in `tmp/intent-card-images` e YGOPRODeck quando serve. In assenza di un’immagine viene mostrato il nome.
