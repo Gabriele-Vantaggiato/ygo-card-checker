@@ -101,7 +101,7 @@
                 }
                 @case ('opening-hand') {
                   <div class="intent-hand">
-                    @for (id of w.simulation.exampleHands[sampleIndex()] ?? []; track $index) {
+                    @for (id of exampleHand(w); track $index) {
                       @if (cardById(w,id); as card) { <div class="intent-card"><div class="intent-card-art">@if (card.imageUrlSmall) { <img [src]="card.imageUrlSmall" [alt]="card.name" loading="lazy" /> } @else { <span>✦</span> }</div><span>{{ card.name }}</span></div> }
                     }
                   </div>

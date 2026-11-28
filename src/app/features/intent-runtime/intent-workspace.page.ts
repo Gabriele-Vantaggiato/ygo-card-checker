@@ -13,7 +13,7 @@ import { mainDeckSnapshot } from './intent-simulator';
   selector: 'app-intent-workspace-page', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './intent-workspace.page.html',
-  styleUrl: './intent-workspace.page.css',
+  styleUrls: ['./intent-workspace.page.surface.css', './intent-workspace.page.panels.css', './intent-workspace.page.css'],
 })
 export class IntentWorkspacePage {
   protected readonly store = inject(DecklistStore);
@@ -92,6 +92,10 @@ export class IntentWorkspacePage {
     if (active && confirm(`Eliminare l'ambiente «${active.name}»? La decklist rimarrà invariata.`)) {
       this.runtime.deleteWorkspace(active.id);
     }
+  }
+
+  protected exampleHand(workspace: WorkspaceDefinition): readonly number[] {
+    return workspace.simulation.exampleHands.at(this.sampleIndex()) ?? [];
   }
 
   protected cardById(workspace: WorkspaceDefinition, id: number): SimulationCard | undefined {
